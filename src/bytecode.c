@@ -1,5 +1,4 @@
 #include "bytecode.h"
-#include "error.h"
 
 void dplb_init(DPL_ByteCode* bytecode) {
     bytecode->version = 1;
@@ -69,7 +68,8 @@ const char* _dplb_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_DIVIDE";
     }
 
-    dpl_error("ERROR: Cannot get name for instruction kind %d.\n", kind);
+    fprintf(stderr, "ERROR: Cannot get name for instruction kind %d.\n", kind);
+    exit(1);
 }
 
 void dplb_print(DPL_ByteCode *bytecode) {
@@ -112,43 +112,5 @@ void dplb_print(DPL_ByteCode *bytecode) {
         }
 
         printf("\n");
-    }
-}
-
-void dplb_generate(DPL_CallTree* tree, DPL_CallTree_Node* node, DPL_ByteCode* bytecode) {
-    switch (node->kind)
-    {
-    case CALLTREE_NODE_VALUE: {
-        if (node->type_handle == tree->types->number_handle) {
-            double value = atof(nob_temp_sv_to_cstr(node->as.value.ast_node->as.literal.value.text));
-            dplb_write_push_number(bytecode, value);
-        } else {
-            DPL_Type* type = dplt_find_by_handle(tree->types, node->type_handle);
-            dpl_error("Cannot generate bytecode for value node of type "SV_Fmt".", SV_Arg(type->name));
-        }
-    }
-    break;
-    case CALLTREE_NODE_FUNCTION: {
-        DPL_Function* function = dplf_find_by_handle(tree->functions, node->as.function.function_handle);
-        for (size_t i = 0; i < node->as.function.arguments.count; ++i) {
-            dplb_generate(tree, node->as.function.arguments.items[i], bytecode);
-        }
-
-        if (nob_sv_eq(function->name, nob_sv_from_cstr("negate"))) {
-            dplb_write_negate(bytecode);
-        } else if (nob_sv_eq(function->name, nob_sv_from_cstr("add"))) {
-            dplb_write_add(bytecode);
-        } else if (nob_sv_eq(function->name, nob_sv_from_cstr("subtract"))) {
-            dplb_write_subtract(bytecode);
-        } else if (nob_sv_eq(function->name, nob_sv_from_cstr("multiply"))) {
-            dplb_write_multiply(bytecode);
-        } else if (nob_sv_eq(function->name, nob_sv_from_cstr("divide"))) {
-            dplb_write_divide(bytecode);
-        } else {
-            dpl_error("Cannot generate bytecode for function "SV_Fmt".\n", SV_Arg(function->name));
-        }
-    }
-    break;
-
     }
 }

@@ -3,59 +3,6 @@
 
 #include "nob.h"
 
-typedef size_t DPL_Type_Handle;
-
-typedef struct
-{
-    DPL_Type_Handle *items;
-    size_t count;
-    size_t capacity;
-} DPL_Type_Handles;
-
-typedef struct
-{
-} DPL_Type_AsBase;
-
-
-typedef struct
-{
-    DPL_Type_Handles arguments;
-    DPL_Type_Handle returns;
-} DPL_Type_AsFunction;
-
-typedef union {
-    DPL_Type_AsBase base;
-    DPL_Type_AsFunction function;
-} DPL_Type_As;
-
-typedef enum  {
-    TYPE_BASE,
-    TYPE_FUNCTION,
-} DPL_Type_Kind;
-
-typedef struct
-{
-    Nob_String_View name;
-    DPL_Type_Handle handle;
-    size_t hash;
-
-    DPL_Type_Kind kind;
-    DPL_Type_As as;
-} DPL_Type;
-
-typedef struct
-{
-    DPL_Type *items;
-    size_t count;
-    size_t capacity;
-
-    // Common datatypes
-    DPL_Type_Handle number_handle;
-
-    // Common function types
-    DPL_Type_Handle unary_handle;
-    DPL_Type_Handle binary_handle;
-} DPL_Types;
 
 void dplt_init(DPL_Types *types);
 void dplt_free(DPL_Types* types);
