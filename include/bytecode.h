@@ -1,7 +1,9 @@
 #ifndef __DPL_BYTECODE_H
 #define __DPL_BYTECODE_H
 
-#include "calltree.h"
+#include <stdint.h>
+
+#include "nob.h"
 
 typedef enum
 {
@@ -43,8 +45,6 @@ void dplb_write_add(DPL_ByteCode *bytecode);
 void dplb_write_subtract(DPL_ByteCode *bytecode);
 void dplb_write_multiply(DPL_ByteCode *bytecode);
 void dplb_write_divide(DPL_ByteCode *bytecode);
-
-void dplb_generate(DPL_CallTree *tree, DPL_CallTree_Node *node, DPL_ByteCode *bytecode);
 
 void dplb_print(DPL_ByteCode *bytecode);
 

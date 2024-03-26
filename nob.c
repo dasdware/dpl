@@ -11,13 +11,14 @@ bool build_dplc(void) {
     nob_cmd_append(&cmd, "-I./include/");
     nob_cmd_append(&cmd, "-o", "./dplc.exe");
     nob_cmd_append(&cmd,
-                   "./src/lexer.c",
-                   "./src/ast.c",
-                   "./src/parser.c",
-                   "./src/types.c",
-                   "./src/functions.c",
-                   "./src/calltree.c",
-                   "./src/error.c",
+                   "./src/dpl.c",
+                   //    "./src/lexer.c",
+                   //    "./src/ast.c",
+                   //    "./src/parser.c",
+                   //    "./src/types.c",
+                   //    "./src/functions.c",
+                   //    "./src/calltree.c",
+                   //    "./src/error.c",
                    "./src/bytecode.c",
                    "./dplc.c",
                   );
