@@ -882,7 +882,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     case CALLTREE_NODE_VALUE: {
         if (node->type_handle == dpl->types.number_handle) {
             double value = atof(nob_temp_sv_to_cstr(node->as.value.ast_node->as.literal.value.text));
-            dplb_write_push_number(program, value);
+            dplp_write_push_number(program, value);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             fprintf(stderr, "Cannot generate program for value node of type "SV_Fmt".\n", SV_Arg(type->name));
@@ -897,15 +897,15 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
 
         if (nob_sv_eq(function->name, nob_sv_from_cstr("negate"))) {
-            dplb_write_negate(program);
+            dplp_write_negate(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("add"))) {
-            dplb_write_add(program);
+            dplp_write_add(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("subtract"))) {
-            dplb_write_subtract(program);
+            dplp_write_subtract(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("multiply"))) {
-            dplb_write_multiply(program);
+            dplp_write_multiply(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("divide"))) {
-            dplb_write_divide(program);
+            dplp_write_divide(program);
         } else {
             fprintf(stderr, "Cannot generate program for function "SV_Fmt".\n", SV_Arg(function->name));
             exit(1);
@@ -937,6 +937,6 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
     _dplg_generate(dpl, dpl->calltree.root, program);
     if (dpl->debug)
     {
-        dplb_print(program);
+        dplp_print(program);
     }
 }

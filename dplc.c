@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     dpl_init(&dpl, source_filename, nob_sv_from_parts(source.items, source.count));
 
     DPL_Program compiled_program = {0};
-    dplb_init(&compiled_program);
+    dplp_init(&compiled_program);
 
     dpl_compile(&dpl, &compiled_program);
 
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     }
 
     dplv_free(&vm);
-    dplb_free(&compiled_program);
+    dplp_free(&compiled_program);
     dpl_free(&dpl);
     nob_da_free(source);
 

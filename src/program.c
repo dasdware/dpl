@@ -1,56 +1,56 @@
 #include "program.h"
 
-void dplb_init(DPL_Program* program) {
+void dplp_init(DPL_Program* program) {
     program->version = 1;
 }
 
-void dplb_free(DPL_Program* program) {
+void dplp_free(DPL_Program* program) {
     nob_da_free(program->constants);
     nob_da_free(program->code);
 }
 
-size_t _dplb_add_number_constant(DPL_Program *program, double value) {
+size_t _dplp_add_number_constant(DPL_Program *program, double value) {
     size_t offset = program->constants.count;
     nob_da_append_many(&program->constants, &value, sizeof(value));
     return offset;
 }
 
-void dplb_write(DPL_Program *program, DPL_Instruction_Kind kind) {
+void dplp_write(DPL_Program *program, DPL_Instruction_Kind kind) {
     nob_da_append(&program->code, (uint8_t) kind);
 }
 
-void dplb_write_noop(DPL_Program *program) {
-    dplb_write(program, INST_NOOP);
+void dplp_write_noop(DPL_Program *program) {
+    dplp_write(program, INST_NOOP);
 }
 
-void dplb_write_push_number(DPL_Program *program, double value) {
-    dplb_write(program, INST_PUSH_NUMBER);
+void dplp_write_push_number(DPL_Program *program, double value) {
+    dplp_write(program, INST_PUSH_NUMBER);
 
-    size_t offset = _dplb_add_number_constant(program, value);
+    size_t offset = _dplp_add_number_constant(program, value);
     nob_da_append_many(&program->code, &offset, sizeof(offset));
 }
 
-void dplb_write_negate(DPL_Program *program) {
-    dplb_write(program, INST_NEGATE);
+void dplp_write_negate(DPL_Program *program) {
+    dplp_write(program, INST_NEGATE);
 }
 
-void dplb_write_add(DPL_Program *program) {
-    dplb_write(program, INST_ADD);
+void dplp_write_add(DPL_Program *program) {
+    dplp_write(program, INST_ADD);
 }
 
-void dplb_write_subtract(DPL_Program *program) {
-    dplb_write(program, INST_SUBTRACT);
+void dplp_write_subtract(DPL_Program *program) {
+    dplp_write(program, INST_SUBTRACT);
 }
 
-void dplb_write_multiply(DPL_Program *program) {
-    dplb_write(program, INST_MULTIPLY);
+void dplp_write_multiply(DPL_Program *program) {
+    dplp_write(program, INST_MULTIPLY);
 }
 
-void dplb_write_divide(DPL_Program *program) {
-    dplb_write(program, INST_DIVIDE);
+void dplp_write_divide(DPL_Program *program) {
+    dplp_write(program, INST_DIVIDE);
 }
 
-const char* _dplb_inst_kind_name(DPL_Instruction_Kind kind) {
+const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
         return "INST_NOOP";
@@ -72,7 +72,7 @@ const char* _dplb_inst_kind_name(DPL_Instruction_Kind kind) {
     exit(1);
 }
 
-void dplb_print(DPL_Program *program) {
+void dplp_print(DPL_Program *program) {
     printf("%zu bytes in constant chunk:\n", program->constants.count);
     for (size_t i = 0; i < program->constants.count; ++i) {
         printf(" %02X", program->constants.items[i]);
@@ -91,7 +91,7 @@ void dplb_print(DPL_Program *program) {
         DPL_Instruction_Kind kind = program->code.items[ip];
         ++ip;
 
-        printf("%s", _dplb_inst_kind_name(kind));
+        printf("%s", _dplp_inst_kind_name(kind));
         switch (kind) {
         case INST_PUSH_NUMBER: {
             size_t offset = *(program->code.items + ip);
