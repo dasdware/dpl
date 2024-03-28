@@ -2,7 +2,7 @@
 #define __DPL_VM_H
 
 #include "arena.h"
-#include "bytecode.h"
+#include "program.h"
 
 typedef double DPL_Value;
 

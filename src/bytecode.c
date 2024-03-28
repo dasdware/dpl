@@ -1,4 +1,4 @@
-#include "bytecode.h"
+#include "program.h"
 
 void dplb_init(DPL_ByteCode* bytecode) {
     bytecode->version = 1;

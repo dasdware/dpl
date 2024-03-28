@@ -4,7 +4,7 @@
 #include "arena.h"
 #include "nob.h"
 
-#include "bytecode.h"
+#include "program.h"
 
 // CATALOG
 
