@@ -24,15 +24,13 @@ int main(int argc, char** argv) {
     dpl.debug = true;
     dpl_init(&dpl, source_filename, nob_sv_from_parts(source.items, source.count));
 
-    DPL_ByteCode bytecode = {0};
-    dplb_init(&bytecode);
+    DPL_Program compiled_program = {0};
+    dplb_init(&compiled_program);
 
-    dpl_compile(&dpl, &bytecode);
-
-
+    dpl_compile(&dpl, &compiled_program);
 
     DPL_VirtualMachine vm = {0};
-    dplv_init(&vm, &bytecode);
+    dplv_init(&vm, &compiled_program);
 
     dplv_run(&vm);
 
@@ -44,7 +42,7 @@ int main(int argc, char** argv) {
     }
 
     dplv_free(&vm);
-    dplb_free(&bytecode);
+    dplb_free(&compiled_program);
     dpl_free(&dpl);
     nob_da_free(source);
 

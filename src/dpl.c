@@ -874,18 +874,18 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     }
 }
 
-// BYTECODE GENERATION
+// PROGRAM GENERATION
 
-void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_ByteCode* bytecode) {
+void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
         if (node->type_handle == dpl->types.number_handle) {
             double value = atof(nob_temp_sv_to_cstr(node->as.value.ast_node->as.literal.value.text));
-            dplb_write_push_number(bytecode, value);
+            dplb_write_push_number(program, value);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
-            fprintf(stderr, "Cannot generate bytecode for value node of type "SV_Fmt".\n", SV_Arg(type->name));
+            fprintf(stderr, "Cannot generate program for value node of type "SV_Fmt".\n", SV_Arg(type->name));
             exit(1);
         }
     }
@@ -893,21 +893,21 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_ByteCode* bytecode) {
     case CALLTREE_NODE_FUNCTION: {
         DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function.function_handle);
         for (size_t i = 0; i < node->as.function.arguments.count; ++i) {
-            _dplg_generate(dpl, node->as.function.arguments.items[i], bytecode);
+            _dplg_generate(dpl, node->as.function.arguments.items[i], program);
         }
 
         if (nob_sv_eq(function->name, nob_sv_from_cstr("negate"))) {
-            dplb_write_negate(bytecode);
+            dplb_write_negate(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("add"))) {
-            dplb_write_add(bytecode);
+            dplb_write_add(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("subtract"))) {
-            dplb_write_subtract(bytecode);
+            dplb_write_subtract(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("multiply"))) {
-            dplb_write_multiply(bytecode);
+            dplb_write_multiply(program);
         } else if (nob_sv_eq(function->name, nob_sv_from_cstr("divide"))) {
-            dplb_write_divide(bytecode);
+            dplb_write_divide(program);
         } else {
-            fprintf(stderr, "Cannot generate bytecode for function "SV_Fmt".\n", SV_Arg(function->name));
+            fprintf(stderr, "Cannot generate program for function "SV_Fmt".\n", SV_Arg(function->name));
             exit(1);
         }
     }
@@ -918,7 +918,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_ByteCode* bytecode) {
 
 // COMPILATION PROCESS
 
-void dpl_compile(DPL *dpl, DPL_ByteCode* bytecode)
+void dpl_compile(DPL *dpl, DPL_Program* program)
 {
     _dplp_parse(dpl);
     if (dpl->debug)
@@ -934,9 +934,9 @@ void dpl_compile(DPL *dpl, DPL_ByteCode* bytecode)
         printf("\n");
     }
 
-    _dplg_generate(dpl, dpl->calltree.root, bytecode);
+    _dplg_generate(dpl, dpl->calltree.root, program);
     if (dpl->debug)
     {
-        dplb_print(bytecode);
+        dplb_print(program);
     }
 }

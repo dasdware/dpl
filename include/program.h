@@ -1,5 +1,5 @@
-#ifndef __DPL_BYTECODE_H
-#define __DPL_BYTECODE_H
+#ifndef __DPL_PROGRAM_H
+#define __DPL_PROGRAM_H
 
 #include <stdint.h>
 
@@ -28,24 +28,24 @@ typedef struct
     uint8_t version;
     DPL_Bytes code;
     DPL_Bytes constants;
-} DPL_ByteCode;
+} DPL_Program;
 
-void dplb_init(DPL_ByteCode *bytecode);
-void dplb_free(DPL_ByteCode *bytecode);
+void dplb_init(DPL_Program *program);
+void dplb_free(DPL_Program *program);
 
-void dplb_write(DPL_ByteCode *bytecode, DPL_Instruction_Kind kind);
+void dplb_write(DPL_Program *program, DPL_Instruction_Kind kind);
 
-void dplb_write_noop(DPL_ByteCode *bytecode);
+void dplb_write_noop(DPL_Program *program);
 
-void dplb_write_push_number(DPL_ByteCode *bytecode, double value);
+void dplb_write_push_number(DPL_Program *program, double value);
 
-void dplb_write_negate(DPL_ByteCode *bytecode);
+void dplb_write_negate(DPL_Program *program);
 
-void dplb_write_add(DPL_ByteCode *bytecode);
-void dplb_write_subtract(DPL_ByteCode *bytecode);
-void dplb_write_multiply(DPL_ByteCode *bytecode);
-void dplb_write_divide(DPL_ByteCode *bytecode);
+void dplb_write_add(DPL_Program *program);
+void dplb_write_subtract(DPL_Program *program);
+void dplb_write_multiply(DPL_Program *program);
+void dplb_write_divide(DPL_Program *program);
 
-void dplb_print(DPL_ByteCode *bytecode);
+void dplb_print(DPL_Program *program);
 
-#endif // __DPL_BYTECODE_H
+#endif // __DPL_PROGRAM_H
