@@ -13,6 +13,7 @@ bool build_dplc(void) {
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
                    "./src/bytecode.c",
+                   "./src/vm.c",
                    "./dplc.c",
                   );
     if (!nob_cmd_run_sync(cmd)) nob_return_defer(false);

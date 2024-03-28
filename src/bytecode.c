@@ -113,4 +113,5 @@ void dplb_print(DPL_ByteCode *bytecode) {
 
         printf("\n");
     }
+    printf("\n");
 }

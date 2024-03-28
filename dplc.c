@@ -1,4 +1,5 @@
 #include "dpl.h"
+#include "vm.h"
 
 #define ARENA_IMPLEMENTATION
 #include "arena.h"
@@ -28,6 +29,21 @@ int main(int argc, char** argv) {
 
     dpl_compile(&dpl, &bytecode);
 
+
+
+    DPL_VirtualMachine vm = {0};
+    dplv_init(&vm, &bytecode);
+
+    dplv_run(&vm);
+
+    printf("VM stack size after completing execution: %zu\n", vm.stack_top);
+
+    for (size_t i = 0; i < vm.stack_top; ++i)
+    {
+        printf("[ %f ]\n", vm.stack[i]);
+    }
+
+    dplv_free(&vm);
     dplb_free(&bytecode);
     dpl_free(&dpl);
     nob_da_free(source);
