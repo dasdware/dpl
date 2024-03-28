@@ -4,7 +4,7 @@
 #include "arena.h"
 #include "nob.h"
 
-#include "bytecode.h"
+#include "program.h"
 
 // CATALOG
 
@@ -256,6 +256,6 @@ typedef struct _DPL
 void dpl_init(DPL *dpl, const char *file_name, Nob_String_View source);
 void dpl_free(DPL *dpl);
 
-void dpl_compile(DPL *dpl, DPL_ByteCode *bytecode);
+void dpl_compile(DPL *dpl, DPL_Program *program);
 
 #endif // __DPL_H

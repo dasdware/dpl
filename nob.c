@@ -12,7 +12,7 @@ bool build_dplc(void) {
     nob_cmd_append(&cmd, "-o", "./dplc.exe");
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
-                   "./src/bytecode.c",
+                   "./src/program.c",
                    "./src/vm.c",
                    "./dplc.c",
                   );

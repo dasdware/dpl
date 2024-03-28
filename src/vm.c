@@ -1,6 +1,6 @@
 #include "vm.h"
 
-void dplv_init(DPL_VirtualMachine *vm, DPL_ByteCode *program)
+void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program)
 {
     vm->program = program;
 
