@@ -115,3 +115,73 @@ void dplp_print(DPL_Program *program) {
     }
     printf("\n");
 }
+
+// Credit: https://stackoverflow.com/a/51076933
+/* this function will create a new name, replacing the existing extension
+   by the given one.
+   returned value should be `free()` after usage
+
+   /!\ warning:
+        * validity of parameters is not tested
+        * return of strdup and malloc are not tested.
+   */
+char *_dplp_replace_ext(const char *org, const char *new_ext)
+{
+    char *ext;
+
+    /* copy the original file */
+    char *tmp = strdup(org);
+
+    /* find last period in name */
+    ext = strrchr(tmp, '.');
+
+    /* if found, replace period with '\0', thus, we have a shorter string */
+    if (ext) {
+        *ext = '\0';
+    }
+
+    /* compute the new name size: size of name w/o ext + size of ext + 1
+       for the final '\0' */
+    size_t new_size = strlen(tmp) + strlen(new_ext) + 1;
+
+    /* allocate memory for new name*/
+    char *new_name = malloc(new_size);
+
+    /* concatenate the two string */
+    sprintf(new_name, "%s%s", tmp, new_ext);
+
+    /* free tmp memory */
+    free(tmp);
+
+    /* return the new name */
+    return new_name;
+}
+
+char* dplp_filename(const char* source_filename)
+{
+    return _dplp_replace_ext(source_filename, ".dplp");
+}
+
+bool _dplp_save_chunk(FILE* out, const char* name, size_t size, void* data)
+{
+    assert(strlen(name) == 4);
+
+    fwrite(name, sizeof(char), 4, out);
+    fwrite(&size, sizeof(size_t), 1, out);
+    fwrite(data, sizeof(uint8_t), size, out);
+
+    return true;
+}
+
+bool dplp_save(DPL_Program* program, const char* file_name)
+{
+    FILE *out = fopen(file_name, "wb");
+
+    _dplp_save_chunk(out, "HEAD", sizeof(program->version), &program->version);
+    _dplp_save_chunk(out, "CONS", program->constants.count, program->constants.items);
+    _dplp_save_chunk(out, "CODE", program->code.count, program->code.items);
+
+    fclose(out);
+
+    return true;
+}
