@@ -50,5 +50,6 @@ void dplp_print(DPL_Program *program);
 
 char* dplp_filename(const char* source_filename);
 bool dplp_save(DPL_Program* program, const char* file_name);
+bool dplp_load(DPL_Program* program, const char* file_name);
 
 #endif // __DPL_PROGRAM_H
