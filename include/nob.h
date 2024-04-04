@@ -213,6 +213,7 @@ char *nob_temp_sprintf(const char *format, ...);
 void nob_temp_reset(void);
 size_t nob_temp_save(void);
 void nob_temp_rewind(size_t checkpoint);
+const char *nob_temp_change_file_ext(const char* filename, const char* new_ext);
 
 int is_path1_modified_after_path2(const char *path1, const char *path2);
 bool nob_rename(const char *old_path, const char *new_path);
@@ -865,6 +866,19 @@ const char *nob_temp_sv_to_cstr(Nob_String_View sv)
     memcpy(result, sv.data, sv.count);
     result[sv.count] = '\0';
     return result;
+}
+
+const char *nob_temp_change_file_ext(const char* filename, const char* new_ext)
+{
+    char *ext = strrchr(filename, '.');
+    Nob_String_View sv_base = (ext)
+        ? nob_sv_from_parts(filename, ext - filename)
+        : nob_sv_from_cstr(filename);
+    Nob_String_View sv_ext = nob_sv_from_cstr(new_ext);
+
+    char *new_filename = nob_temp_alloc(sv_base.count + 1 + sv_ext.count);
+    sprintf(new_filename, SV_Fmt"."SV_Fmt, SV_Arg(sv_base), SV_Arg(sv_ext));
+    return new_filename;
 }
 
 int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count)
