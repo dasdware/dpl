@@ -257,28 +257,6 @@ int main(int argc, char **argv)
         }
 
     }
-//    const char* command =
-    // usage(program, true);
-
-
-    /*   exit(0);
-
-       const char *subcommand = NULL;
-       if (argc <= 0) {
-           subcommand = "build";
-       } else {
-           subcommand = nob_shift_args(&argc, &argv);
-       }
-
-       if (!build_dplc()) {
-           return 1;
-       }
-       if (!build_dpl()) {
-           return 1;
-       }
-       if (!run_dplc(argc, argv)) {
-           return 1;
-       }*/
 
     return 0;
 }
