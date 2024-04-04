@@ -8,5 +8,5 @@ The build process uses [nob.h](https://github.com/tsoding/musializer/blob/master
 
 ```
 $ gcc -o nob.exe .\nob.c
-$ .\nob.exe build .\examples\arithmetics.dpl
+$ .\nob.exe build -- run .\examples\arithmetics.dpl
 ```
