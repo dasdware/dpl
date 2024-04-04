@@ -10,7 +10,7 @@ DPL_Function_Handle _dplf_register(DPL* dpl, Nob_String_View name,
                                    DPL_Type_Handle type);
 void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
-void dpl_init(DPL *dpl, const char* file_name, Nob_String_View source)
+void dpl_init(DPL *dpl)
 {
     // CATALOGS
 
@@ -63,11 +63,6 @@ void dpl_init(DPL *dpl, const char* file_name, Nob_String_View source)
         }
         printf("\n");
     }
-
-
-    // common initialization
-    dpl->file_name = nob_sv_from_cstr(file_name);
-    dpl->source = source;
 
     // lexer initialization
     dpl->current_line = dpl->source.data;

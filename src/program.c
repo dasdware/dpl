@@ -115,3 +115,110 @@ void dplp_print(DPL_Program *program) {
     }
     printf("\n");
 }
+
+bool _dplp_save_chunk(FILE* out, const char* name, size_t size, void* data)
+{
+    assert(strlen(name) == 4);
+
+    fwrite(name, sizeof(char), 4, out);
+    fwrite(&size, sizeof(size_t), 1, out);
+    fwrite(data, sizeof(uint8_t), size, out);
+
+    return true;
+}
+
+bool dplp_save(DPL_Program* program, const char* file_name)
+{
+    FILE *out = fopen(file_name, "wb");
+
+    _dplp_save_chunk(out, "HEAD", sizeof(program->version), &program->version);
+    _dplp_save_chunk(out, "CONS", program->constants.count, program->constants.items);
+    _dplp_save_chunk(out, "CODE", program->code.count, program->code.items);
+
+    fclose(out);
+
+    return true;
+}
+
+typedef struct
+{
+    char name[5];
+
+    size_t count;
+    size_t capacity;
+    uint8_t *items;
+} DPL_Loaded_Chunk;
+
+bool _dplp_load_chunk(FILE* in, DPL_Loaded_Chunk* chunk)
+{
+    if (feof(in)) {
+        return false;
+    }
+
+    if (fread(chunk->name, 1, 4, in) < 4)
+    {
+        return false;
+    }
+
+    if (fread(&chunk->count, sizeof(chunk->count), 1, in) < 1)
+    {
+        return false;
+    }
+
+    bool need_realloc = false;
+    while (chunk->capacity < chunk->count)
+    {
+        need_realloc = true;
+        if (chunk->capacity == 0)
+        {
+            chunk->capacity = NOB_DA_INIT_CAP;
+        }
+        else
+        {
+            chunk->capacity *= 2;
+        }
+    }
+    if (need_realloc)
+    {
+        chunk->items = NOB_REALLOC(chunk->items, chunk->capacity*sizeof(uint8_t));
+    }
+
+    if (fread(chunk->items, 1, chunk->count, in) < chunk->count)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool dplp_load(DPL_Program* program, const char* file_name)
+{
+    FILE *in = fopen(file_name, "rb");
+
+    DPL_Loaded_Chunk chunk = {0};
+    while (_dplp_load_chunk(in, &chunk)) {
+        if (strcmp(chunk.name, "HEAD") == 0)
+        {
+            program->version = chunk.items[0];
+        }
+        else if (strcmp(chunk.name, "CONS") == 0)
+        {
+            nob_da_append_many(&program->constants, chunk.items, chunk.count);
+        }
+        else if (strcmp(chunk.name, "CODE") == 0)
+        {
+            nob_da_append_many(&program->code, chunk.items, chunk.count);
+        }
+        else
+        {
+            fprintf(stderr, "This version of dpl does not support program chunks of type \"%s\". Chunk will be ignored.\n", chunk.name);
+        }
+    }
+
+    nob_da_free(chunk);
+    fclose(in);
+
+    (void)program;
+    (void)file_name;
+    return true;
+}
