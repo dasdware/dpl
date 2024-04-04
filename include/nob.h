@@ -58,8 +58,12 @@
 
 #ifdef _WIN32
 #    define NOB_LINE_END "\r\n"
+#    define NOB_PATH_DELIM '\\'
+#    define NOB_PATH_DELIM_STR "\\"
 #else
 #    define NOB_LINE_END "\n"
+#    define NOB_PATH_DELIM '/'
+#    define NOB_PATH_DELIM_STR "/"
 #endif
 
 #define NOB_ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
@@ -302,6 +306,9 @@ Nob_String_View nob_sv_trim(Nob_String_View sv);
 bool nob_sv_eq(Nob_String_View a, Nob_String_View b);
 Nob_String_View nob_sv_from_cstr(const char *cstr);
 Nob_String_View nob_sv_from_parts(const char *data, size_t count);
+Nob_String_View nob_sv_last_part_by_delim(Nob_String_View sv, char delim);
+Nob_String_View nob_sv_filename_of(Nob_String_View path);
+Nob_String_View nob_sv_shift_args(int *argc, char ***argv);
 
 // printf macros for String_View
 #ifndef SV_Fmt
@@ -1055,9 +1062,35 @@ Nob_String_View nob_sv_trim(Nob_String_View sv)
     return nob_sv_trim_right(nob_sv_trim_left(sv));
 }
 
+Nob_String_View nob_sv_last_part_by_delim(Nob_String_View sv, char delim)
+{
+    for (int index = sv.count - 1; index >= 0; --index)
+    {
+        if (sv.data[index] == delim)
+        {
+            return nob_sv_from_parts(sv.data + index + 1, sv.count - index - 1);
+        }
+    }
+
+    return sv;
+}
+
+Nob_String_View nob_sv_filename_of(Nob_String_View path)
+{
+    return nob_sv_last_part_by_delim(path, NOB_PATH_DELIM);
+}
+
 Nob_String_View nob_sv_from_cstr(const char *cstr)
 {
+    if (cstr == NULL) {
+        return SV_NULL;
+    }
     return nob_sv_from_parts(cstr, strlen(cstr));
+}
+
+Nob_String_View nob_sv_shift_args(int *argc, char ***argv)
+{
+    return nob_sv_from_cstr(nob_shift_args(argc, argv));
 }
 
 bool nob_sv_eq(Nob_String_View a, Nob_String_View b)
