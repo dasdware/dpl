@@ -253,7 +253,7 @@ typedef struct _DPL
     DPL_CallTree calltree;
 } DPL;
 
-void dpl_init(DPL *dpl, const char *file_name, Nob_String_View source);
+void dpl_init(DPL *dpl);
 void dpl_free(DPL *dpl);
 
 void dpl_compile(DPL *dpl, DPL_Program *program);
