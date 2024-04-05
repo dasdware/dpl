@@ -83,6 +83,21 @@ typedef struct
     size_t capacity;
 } DPL_Functions;
 
+typedef void (*DPL_Generator_Callback)(DPL_Program *);
+
+typedef struct
+{
+    DPL_Function_Handle function_handle;
+    DPL_Generator_Callback callback;
+} DPL_Generator;
+
+typedef struct
+{
+    DPL_Generator *items;
+    size_t count;
+    size_t capacity;
+} DPL_Generators;
+
 // LOCATION
 
 typedef struct
@@ -232,6 +247,7 @@ typedef struct _DPL
     // Catalogs
     DPL_Types types;
     DPL_Functions functions;
+    DPL_Generators generators;
 
     // Common
     Nob_String_View file_name;
