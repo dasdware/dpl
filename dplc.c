@@ -15,7 +15,6 @@ int main(int argc, char** argv) {
     const char* program = nob_shift_args(&argc, &argv);
 
     DPL dpl = {0};
-    dpl.debug = true;
 
     char* source_filename = NULL;
     while (argc > 0)

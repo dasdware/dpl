@@ -178,6 +178,21 @@ bool _dplt_add_handle_by_name(DPL_Type_Handles* handles, DPL* dpl, Nob_String_Vi
     return true;
 }
 
+bool _dplt_handles_equal(DPL_Type_Handles first, DPL_Type_Handles second)
+{
+    if (first.count != second.count) {
+        return false;
+    }
+
+    for (size_t i = 0; i < first.count; ++i) {
+        if (first.items[i] != second.items[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void _dplt_print_meta_function(FILE* out, DPL* dpl, DPL_Type* type)
 {
     fprintf(out, "(");
@@ -234,6 +249,22 @@ DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Function_Handle handle)
     for (size_t i = 0;  i < dpl->functions.count; ++i) {
         if (dpl->functions.items[i].handle == handle) {
             return &dpl->functions.items[i];
+        }
+    }
+    return 0;
+}
+
+DPL_Function* _dplf_find_by_signature(DPL *dpl,
+                                      Nob_String_View name, DPL_Type_Handles arguments)
+{
+    for (size_t i = 0; i < dpl->functions.count; ++i) {
+        DPL_Function* function = &dpl->functions.items[i];
+        if (nob_sv_eq(function->name, name)) {
+            DPL_Type* function_type = _dplt_find_by_handle(dpl, function->type);
+            if (function_type->kind == TYPE_FUNCTION
+                    && _dplt_handles_equal(function_type->as.function.arguments, arguments)) {
+                return function;
+            }
         }
     }
     return 0;
@@ -843,6 +874,49 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
     exit(1);
 }
 
+DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
+{
+    DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+    result_ctn->kind = CALLTREE_NODE_FUNCTION;
+
+    DPL_Type_Handles argument_types = {0};
+
+    DPL_Ast_FunctionCall fc = node->as.function_call;
+    for (size_t i = 0; i < fc.argument_count; ++i) {
+        DPL_CallTree_Node* arg_ctn = _dplc_bind_node(dpl, fc.arguments[i]);
+        nob_da_append(&result_ctn->as.function.arguments, arg_ctn);
+        _dplt_add_handle(&argument_types, arg_ctn->type_handle);
+    }
+
+    DPL_Function* function = _dplf_find_by_signature(dpl, fc.name.text, argument_types);
+    nob_da_free(argument_types);
+
+    if (function) {
+        result_ctn->as.function.function_handle = function->handle;
+
+        DPL_Type* function_type = _dplt_find_by_handle(dpl, function->type);
+        if (function_type) {
+            result_ctn->type_handle = function_type->as.function.returns;
+            return result_ctn;
+        }
+    }
+
+    fprintf(stderr, LOC_Fmt": ERROR: Cannot resolve function `"SV_Fmt"(",
+            LOC_Arg(fc.name.location), SV_Arg(fc.name.text));
+    DPL_CallTree_Nodes arguments = result_ctn->as.function.arguments;
+    for (size_t i = 0; i < arguments.count; ++i) {
+        if (i > 0) {
+            fprintf(stderr, ", ");
+        }
+
+        DPL_Type *argument_type = _dplt_find_by_handle(dpl, arguments.items[i]->type_handle);
+        fprintf(stderr, SV_Fmt, SV_Arg(argument_type->name));
+    }
+    fprintf(stderr, ")`.\n");
+    _dpll_print_token_location(stderr, dpl, fc.name);
+    exit(1);
+}
+
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
@@ -897,6 +971,10 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 LOC_Arg(operator.location), SV_Arg(operator.text));
         _dpll_print_token_location(stderr, dpl, operator);
         exit(1);
+    }
+    break;
+    case AST_NODE_FUNCTIONCALL: {
+        return _dplc_bind_function_call(dpl, node);
     }
     break;
     default:
