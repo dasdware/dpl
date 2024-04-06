@@ -738,6 +738,41 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     }
 }
 
+DPL_Ast_Node *_dplp_parser_dot(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_primary(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_DOT) {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* new_expression = _dplp_parse_primary(dpl);
+
+        if (new_expression->kind != AST_NODE_FUNCTIONCALL) {
+            fprintf(stderr, LOC_Fmt": Right-hand operand of `.` operator must be a function call.\n",
+                    LOC_Arg(operator_candidate.location));
+            _dpll_print_token_location(stderr, dpl, operator_candidate);
+            exit(1);
+        }
+
+        DPL_Ast_FunctionCall* fc = &new_expression->as.function_call;
+        fc->arguments = arena_realloc(&dpl->tree.memory, fc->arguments,
+                                      fc->argument_count * sizeof(DPL_Ast_Node*),
+                                      (fc->argument_count + 1) * sizeof(DPL_Ast_Node*));
+        fc->argument_count++;
+
+        for (size_t i = fc->argument_count - 1; i > 0; --i) {
+            fc->arguments[i] = fc->arguments[i - 1];
+        }
+
+        fc->arguments[0] = expression;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
 DPL_Ast_Node* _dplp_parser_unary(DPL* dpl)
 {
     DPL_Token operator_candidate = _dplp_peek_token(dpl);
@@ -751,7 +786,7 @@ DPL_Ast_Node* _dplp_parser_unary(DPL* dpl)
         return new_expression;
     }
 
-    return _dplp_parse_primary(dpl);
+    return _dplp_parser_dot(dpl);
 }
 
 DPL_Ast_Node* _dplp_parse_multiplicative(DPL* dpl)
