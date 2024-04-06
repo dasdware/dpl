@@ -431,6 +431,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case ')':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_CLOSE_PAREN);
+    case ',':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_COMMA);
     }
 
     if (isdigit(_dpll_current(dpl)))
@@ -488,6 +491,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "OPEN_PAREN";
     case TOKEN_CLOSE_PAREN:
         return "CLOSE_PAREN";
+    case TOKEN_COMMA:
+        return "COMMA";
 
     default:
         assert(false && "Unreachable");
@@ -529,16 +534,22 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_UNARY";
     case AST_NODE_BINARY:
         return "AST_NODE_BINARY";
+    case AST_NODE_FUNCTIONCALL:
+        return "AST_NODE_FUNCTIONCALL";
     }
 
     assert(false && "unreachable: _dpla_node_kind_name");
     return "";
 }
 
-void _dpla_print(DPL_Ast_Node* node, size_t level) {
+void _dpla_print_indent(size_t level) {
     for (size_t i = 0; i < level; ++i) {
         printf("  ");
     }
+}
+
+void _dpla_print(DPL_Ast_Node* node, size_t level) {
+    _dpla_print_indent(level);
 
     if (!node) {
         printf("<nil>\n");
@@ -561,6 +572,16 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
     }
     case AST_NODE_LITERAL: {
         printf(" [%s: "SV_Fmt"]\n", _dpll_token_kind_name(node->as.literal.value.kind), SV_Arg(node->as.literal.value.text));
+        break;
+    }
+    case AST_NODE_FUNCTIONCALL: {
+        DPL_Ast_FunctionCall call = node->as.function_call;
+        printf(" [%s: "SV_Fmt"]\n", _dpll_token_kind_name(call.name.kind), SV_Arg(call.name.text));
+        for (size_t i = 0; i < call.argument_count; ++i) {
+            _dpla_print_indent(level + 1);
+            printf("<arg #%zu>\n", i);
+            _dpla_print(call.arguments[i], level + 2);
+        }
         break;
     }
     default: {
@@ -613,6 +634,28 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 
+typedef struct
+{
+    DPL_Ast_Node** items;
+    size_t count;
+    size_t capacity;
+} _DPL_Ast_NodeList;
+
+_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter)
+{
+    _DPL_Ast_NodeList list = {0};
+    nob_da_append(&list, _dplp_parse_expression(dpl));
+
+    DPL_Token delimiter_candidate = _dplp_peek_token(dpl);
+    while (delimiter_candidate.kind == delimiter) {
+        _dplp_next_token(dpl);
+        nob_da_append(&list, _dplp_parse_expression(dpl));
+        delimiter_candidate = _dplp_peek_token(dpl);
+    }
+
+    return list;
+}
+
 DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
 {
     DPL_Token token = _dplp_next_token(dpl);
@@ -631,6 +674,25 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         return node;
     }
     break;
+    case TOKEN_IDENTIFIER: {
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTIONCALL);
+        node->as.function_call.name = token;
+
+        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+
+        _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA);
+        if (arguments.count > 0) {
+            node->as.function_call.argument_count = arguments.count;
+            node->as.function_call.arguments = arena_alloc(
+                                                   &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
+            memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
+            nob_da_free(arguments);
+        }
+
+        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+
+        return node;
+    }
     default: {
         _dplp_error_unexpected_token(dpl, token);
     }
