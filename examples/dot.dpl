@@ -1,0 +1,1 @@
+123.multiply(2).add(456).negate()
