@@ -456,6 +456,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case '/':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_SLASH);
+    case '.':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_DOT);
     case '(':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_OPEN_PAREN);
@@ -517,6 +520,9 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "STAR";
     case TOKEN_SLASH:
         return "SLASH";
+
+    case TOKEN_DOT:
+        return "DOT";
 
     case TOKEN_OPEN_PAREN:
         return "OPEN_PAREN";

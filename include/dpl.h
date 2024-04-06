@@ -126,6 +126,8 @@ typedef enum
     TOKEN_STAR,
     TOKEN_SLASH,
 
+    TOKEN_DOT,
+
     TOKEN_OPEN_PAREN,
     TOKEN_CLOSE_PAREN,
     TOKEN_COMMA,
