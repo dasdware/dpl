@@ -1,0 +1,1 @@
+multiply(add(123, 456), divide(negate(789), 1024))
