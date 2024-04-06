@@ -717,13 +717,15 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
 
         _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
-        _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA);
-        if (arguments.count > 0) {
-            node->as.function_call.argument_count = arguments.count;
-            node->as.function_call.arguments = arena_alloc(
-                                                   &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
-            memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
-            nob_da_free(arguments);
+        if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
+            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA);
+            if (arguments.count > 0) {
+                node->as.function_call.argument_count = arguments.count;
+                node->as.function_call.arguments = arena_alloc(
+                                                       &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
+                memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
+                nob_da_free(arguments);
+            }
         }
 
         _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
