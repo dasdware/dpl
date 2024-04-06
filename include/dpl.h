@@ -128,6 +128,7 @@ typedef enum
 
     TOKEN_OPEN_PAREN,
     TOKEN_CLOSE_PAREN,
+    TOKEN_COMMA,
 
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
@@ -147,6 +148,7 @@ typedef enum
     AST_NODE_LITERAL = 0,
     AST_NODE_UNARY,
     AST_NODE_BINARY,
+    AST_NODE_FUNCTIONCALL,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -169,11 +171,20 @@ typedef struct
     DPL_Ast_Node *right;
 } DPL_Ast_Binary;
 
+typedef struct
+{
+    DPL_Token name;
+
+    size_t argument_count;
+    DPL_Ast_Node** arguments;
+} DPL_Ast_FunctionCall;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
     DPL_Ast_Unary unary;
     DPL_Ast_Binary binary;
+    DPL_Ast_FunctionCall function_call;
 };
 
 struct _DPL_Ast_Node
