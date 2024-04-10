@@ -76,6 +76,7 @@ void build_dpl(void)
     nob_cmd_append(&cmd, "-o", "./"DPL_OUTPUT);
     nob_cmd_append(&cmd,
                    "./src/program.c",
+                   "./src/externals.c",
                    "./src/vm.c",
                    "./dpl.c",
                   );

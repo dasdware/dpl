@@ -24,12 +24,14 @@ typedef struct
 
 } DPL_ExternalFunction;
 
-typedef struct
+struct DPL_ExternalFunctions
 {
     DPL_ExternalFunction *items;
     size_t count;
     size_t capacity;
-} DPL_ExternalFunctions;
+};
+
+typedef struct DPL_ExternalFunctions DPL_ExternalFunctions;
 
 void dple_init(DPL_ExternalFunctions *externals);
 void dple_free(DPL_ExternalFunctions *externals);
