@@ -53,6 +53,7 @@ void build_dplc(void) {
     nob_cmd_append(&cmd, "-o", "./"DPLC_OUTPUT);
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
+                   "./src/externals.c",
                    "./src/program.c",
                    "./src/vm.c",
                    "./dplc.c",

@@ -12,7 +12,7 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
 bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_Callback callback);
 
-void dpl_init(DPL *dpl)
+void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 {
     // CATALOGS
 
@@ -38,16 +38,6 @@ void dpl_init(DPL *dpl)
         dpl->types.binary_handle = _dplt_register(dpl, binary);
     }
 
-    if (dpl->debug)
-    {
-        for (size_t i = 0; i < dpl->types.count; ++i) {
-            printf("* %zu: ", dpl->types.items[i].handle);
-            _dplt_print(stdout, dpl, &dpl->types.items[i]);
-            printf("\n");
-        }
-        printf("\n");
-    }
-
     /// FUNCTIONS AND GENERATORS
 
     // negate
@@ -71,8 +61,24 @@ void dpl_init(DPL *dpl)
                    _dplf_register(dpl, nob_sv_from_cstr("divide"), dpl->types.binary_handle),
                    &dplp_write_divide);
 
+    if (externals != NULL) {
+        _dpl_register_externals(dpl, externals);
+    }
+
     if (dpl->debug)
     {
+        printf("Types:\n");
+        for (size_t i = 0; i < dpl->types.count; ++i) {
+            printf("* %zu: ", dpl->types.items[i].handle);
+            _dplt_print(stdout, dpl, &dpl->types.items[i]);
+            printf("\n");
+        }
+        printf("\n");
+    }
+
+    if (dpl->debug)
+    {
+        printf("Functions:\n");
         for (size_t i = 0; i < dpl->functions.count; ++i) {
             printf("* %zu: ", dpl->functions.items[i].handle);
             _dplf_print(stdout, dpl, &dpl->functions.items[i]);
@@ -114,6 +120,26 @@ size_t _dplt_hash(Nob_String_View sv)
     }
 
     return hash;
+}
+
+void _dplt_add_handle(DPL_Type_Handles* handles, DPL_Type_Handle handle)
+{
+    nob_da_append(handles, handle);
+}
+
+bool _dplt_handles_equal(DPL_Type_Handles first, DPL_Type_Handles second)
+{
+    if (first.count != second.count) {
+        return false;
+    }
+
+    for (size_t i = 0; i < first.count; ++i) {
+        if (first.items[i] != second.items[i]) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 DPL_Type_Handle _dplt_add(DPL* dpl, DPL_Type type) {
@@ -162,9 +188,20 @@ DPL_Type* _dplt_find_by_name(DPL *dpl, Nob_String_View name)
     return 0;
 }
 
-void _dplt_add_handle(DPL_Type_Handles* handles, DPL_Type_Handle handle)
+DPL_Type* _dplt_find_by_signature(DPL* dpl, DPL_Type_Handles arguments, DPL_Type_Handle returns)
 {
-    nob_da_append(handles, handle);
+    for (size_t i = 0;  i < dpl->types.count; ++i)
+    {
+        DPL_Type *type = &dpl->types.items[i];
+        if (type->kind == TYPE_FUNCTION
+                && _dplt_handles_equal(type->as.function.arguments, arguments)
+                && type->as.function.returns == returns)
+        {
+            return type;
+        }
+    }
+
+    return NULL;
 }
 
 bool _dplt_add_handle_by_name(DPL_Type_Handles* handles, DPL* dpl, Nob_String_View name)
@@ -175,21 +212,6 @@ bool _dplt_add_handle_by_name(DPL_Type_Handles* handles, DPL* dpl, Nob_String_Vi
     }
 
     _dplt_add_handle(handles, type->handle);
-    return true;
-}
-
-bool _dplt_handles_equal(DPL_Type_Handles first, DPL_Type_Handles second)
-{
-    if (first.count != second.count) {
-        return false;
-    }
-
-    for (size_t i = 0; i < first.count; ++i) {
-        if (first.items[i] != second.items[i]) {
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -318,6 +340,58 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function) {
     fprintf(out, SV_Fmt, SV_Arg(function->name));
     _dplt_print_meta_function(out, dpl, _dplt_find_by_handle(dpl, function->type));
 }
+
+// EXTERNALS
+
+
+
+void _dpl_register_externals(DPL *dpl, DPL_ExternalFunctions* externals)
+{
+    for (size_t i = 0; i < externals->count; ++i)
+    {
+        DPL_ExternalFunction* external = &externals->items[i];
+
+        // find the function type
+
+        DPL_Type* returns = _dplt_find_by_name(dpl, nob_sv_from_cstr(external->return_type));
+        if (returns == NULL) {
+            fprintf(stderr, "ERROR: Cannot register external function `%s`: return type `%s` cannot be resolved.\n",
+                    external->name, external->return_type);
+            exit(1);
+        }
+
+        DPL_Type_Handles arguments = {0};
+        for (size_t j = 0; j < external->argument_types.count; ++j) {
+            DPL_Type* argument = _dplt_find_by_name(dpl, nob_sv_from_cstr(external->argument_types.items[j]));
+            if (argument == NULL) {
+                fprintf(stderr, "ERROR: Cannot register external function `%s`: argument type `%s` cannot be resolved.\n",
+                        external->name, external->argument_types.items[j]);
+                exit(1);
+            }
+
+            _dplt_add_handle(&arguments, argument->handle);
+        }
+
+        DPL_Type* function_type = _dplt_find_by_signature(dpl, arguments, returns->handle);
+        DPL_Type_Handle function_type_handle = 0;
+        if (function_type == NULL)
+        {
+            DPL_Type new_type = {0};
+            new_type.name = nob_sv_from_cstr(external->name);
+            new_type.kind = TYPE_FUNCTION;
+            for (size_t j = 0; j < arguments.count; ++j) {
+                _dplt_add_handle(&new_type.as.function.arguments, arguments.items[j]);
+            }
+            new_type.as.function.returns = returns->handle;
+            function_type_handle = _dplt_register(dpl, new_type);
+        } else {
+            function_type_handle = function_type->handle;
+        }
+
+        _dplf_register(dpl, nob_sv_from_cstr(external->name), function_type_handle);
+    }
+}
+
 
 // LEXER
 

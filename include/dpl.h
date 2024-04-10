@@ -4,6 +4,7 @@
 #include "arena.h"
 #include "nob.h"
 
+#include "externals.h"
 #include "program.h"
 
 // CATALOG
@@ -282,7 +283,7 @@ typedef struct _DPL
     DPL_CallTree calltree;
 } DPL;
 
-void dpl_init(DPL *dpl);
+void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals);
 void dpl_free(DPL *dpl);
 
 void dpl_compile(DPL *dpl, DPL_Program *program);
