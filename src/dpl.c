@@ -10,6 +10,8 @@ DPL_Function_Handle _dplf_register(DPL* dpl, Nob_String_View name,
                                    DPL_Type_Handle type);
 void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
+void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
+
 bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_Callback callback);
 
 void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
@@ -62,7 +64,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
                    &dplp_write_divide);
 
     if (externals != NULL) {
-        _dpl_register_externals(dpl, externals);
+        _dple_register(dpl, externals);
     }
 
     if (dpl->debug)
@@ -343,9 +345,7 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function) {
 
 // EXTERNALS
 
-
-
-void _dpl_register_externals(DPL *dpl, DPL_ExternalFunctions* externals)
+void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
 {
     for (size_t i = 0; i < externals->count; ++i)
     {
