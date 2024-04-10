@@ -346,6 +346,11 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function) {
 
 // EXTERNALS
 
+void _dplg_call_external_callback(DPL_Program* program, void* user_data)
+{
+    dplp_write_call_external(program, (size_t)user_data);
+}
+
 void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
 {
     for (size_t i = 0; i < externals->count; ++i)
@@ -389,7 +394,8 @@ void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
             function_type_handle = function_type->handle;
         }
 
-        _dplf_register(dpl, nob_sv_from_cstr(external->name), function_type_handle);
+        DPL_Function_Handle handle = _dplf_register(dpl, nob_sv_from_cstr(external->name), function_type_handle);
+        _dplg_register_user(dpl, handle, &_dplg_call_external_callback, (void*)i);
     }
 }
 

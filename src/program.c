@@ -50,6 +50,11 @@ void dplp_write_divide(DPL_Program *program) {
     dplp_write(program, INST_DIVIDE);
 }
 
+void dplp_write_call_external(DPL_Program *program, size_t external_num) {
+    dplp_write(program, INST_CALL_EXTERNAL);
+    nob_da_append(&program->code, (uint8_t) external_num);
+}
+
 const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
@@ -66,6 +71,8 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_MULTIPLY";
     case INST_DIVIDE:
         return "INST_DIVIDE";
+    case INST_CALL_EXTERNAL:
+        return "INST_CALL_EXTERNAL";
     }
 
     fprintf(stderr, "ERROR: Cannot get name for instruction kind %d.\n", kind);
@@ -109,6 +116,12 @@ void dplp_print(DPL_Program *program) {
         case INST_MULTIPLY:
         case INST_DIVIDE:
             break;
+        case INST_CALL_EXTERNAL: {
+            uint8_t external_num = *(program->code.items + ip);
+            ip += sizeof(external_num);
+            printf(" %u", external_num);
+        }
+        break;
         }
 
         printf("\n");
