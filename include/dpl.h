@@ -135,6 +135,7 @@ typedef enum
     TOKEN_OPEN_PAREN,
     TOKEN_CLOSE_PAREN,
     TOKEN_COMMA,
+    TOKEN_SEMICOLON,
 
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
@@ -155,6 +156,7 @@ typedef enum
     AST_NODE_UNARY,
     AST_NODE_BINARY,
     AST_NODE_FUNCTIONCALL,
+    AST_NODE_SCOPE,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -185,12 +187,19 @@ typedef struct
     DPL_Ast_Node** arguments;
 } DPL_Ast_FunctionCall;
 
+typedef struct
+{
+    size_t expression_count;
+    DPL_Ast_Node** expressions;
+} DPL_Ast_Scope;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
     DPL_Ast_Unary unary;
     DPL_Ast_Binary binary;
     DPL_Ast_FunctionCall function_call;
+    DPL_Ast_Scope scope;
 };
 
 struct _DPL_Ast_Node
@@ -205,8 +214,8 @@ typedef struct
     DPL_Ast_Node *root;
 } DPL_Ast_Tree;
 
-// CALLTREE
 
+// CALLTREE
 
 typedef enum
 {
