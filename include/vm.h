@@ -6,9 +6,12 @@
 
 typedef double DPL_Value;
 
+struct DPL_ExternalFunctions;
+
 typedef struct
 {
     DPL_Program *program;
+    struct DPL_ExternalFunctions *externals;
     bool debug;
 
     size_t stack_capacity;
@@ -18,9 +21,11 @@ typedef struct
     Arena memory;
 } DPL_VirtualMachine;
 
-void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program);
+void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals);
 void dplv_free(DPL_VirtualMachine *vm);
 
 void dplv_run(DPL_VirtualMachine *vm);
+
+DPL_Value dplv_peek(DPL_VirtualMachine *vm);
 
 #endif // __DPL_VM_H

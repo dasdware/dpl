@@ -14,6 +14,9 @@ void usage(const char* program)
 int main(int argc, char** argv) {
     const char* program = nob_shift_args(&argc, &argv);
 
+    DPL_ExternalFunctions externals = {0};
+    dple_init(&externals);
+
     DPL dpl = {0};
 
     char* source_filename = NULL;
@@ -38,7 +41,7 @@ int main(int argc, char** argv) {
 
     dpl.file_name = nob_sv_from_cstr(source_filename);
     dpl.source = nob_sv_from_parts(source.items, source.count);
-    dpl_init(&dpl);
+    dpl_init(&dpl, &externals);
 
     DPL_Program compiled_program = {0};
     dplp_init(&compiled_program);
@@ -47,6 +50,7 @@ int main(int argc, char** argv) {
 
     dplp_free(&compiled_program);
     dpl_free(&dpl);
+    dple_free(&externals);
     nob_da_free(source);
 
     return 0;

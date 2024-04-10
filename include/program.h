@@ -14,6 +14,7 @@ typedef enum
     INST_SUBTRACT,
     INST_MULTIPLY,
     INST_DIVIDE,
+    INST_CALL_EXTERNAL,
 } DPL_Instruction_Kind;
 
 typedef struct
@@ -45,6 +46,8 @@ void dplp_write_add(DPL_Program *program);
 void dplp_write_subtract(DPL_Program *program);
 void dplp_write_multiply(DPL_Program *program);
 void dplp_write_divide(DPL_Program *program);
+
+void dplp_write_call_external(DPL_Program *program, size_t external_num);
 
 void dplp_print(DPL_Program *program);
 

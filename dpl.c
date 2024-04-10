@@ -1,3 +1,4 @@
+#include "externals.h"
 #include "vm.h"
 
 #define ARENA_IMPLEMENTATION
@@ -16,17 +17,21 @@ int main(int argc, char** argv) {
 
     const char* filename = nob_shift_args(&argc, &argv);
 
+    DPL_ExternalFunctions externals = {0};
+    dple_init(&externals);
+
     DPL_Program program = {0};
     dplp_load(&program, filename);
 
     DPL_VirtualMachine vm = {0};
-    dplv_init(&vm, &program);
+    dplv_init(&vm, &program, &externals);
     dplv_run(&vm);
 
-    printf("VM stack size after completing execution: %zu\n", vm.stack_top);
-    for (size_t i = 0; i < vm.stack_top; ++i)
-    {
-        printf("[ %f ]\n", vm.stack[i]);
+    if (vm.debug) {
+        printf("VM stack size after completing execution: %zu\n", vm.stack_top);
+        for (size_t i = 0; i < vm.stack_top; ++i) {
+            printf("[ %f ]\n", vm.stack[i]);
+        }
     }
 
     dplv_free(&vm);

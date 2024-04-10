@@ -4,6 +4,7 @@
 #include "arena.h"
 #include "nob.h"
 
+#include "externals.h"
 #include "program.h"
 
 // CATALOG
@@ -84,11 +85,14 @@ typedef struct
 } DPL_Functions;
 
 typedef void (*DPL_Generator_Callback)(DPL_Program *);
+typedef void (*DPL_Generator_UserCallback)(DPL_Program *, void *);
 
 typedef struct
 {
     DPL_Function_Handle function_handle;
     DPL_Generator_Callback callback;
+    DPL_Generator_UserCallback user_callback;
+    void *user_data;
 } DPL_Generator;
 
 typedef struct
@@ -282,7 +286,7 @@ typedef struct _DPL
     DPL_CallTree calltree;
 } DPL;
 
-void dpl_init(DPL *dpl);
+void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals);
 void dpl_free(DPL *dpl);
 
 void dpl_compile(DPL *dpl, DPL_Program *program);
