@@ -23,4 +23,6 @@ void dplv_free(DPL_VirtualMachine *vm);
 
 void dplv_run(DPL_VirtualMachine *vm);
 
+DPL_Value dplv_peek(DPL_VirtualMachine *vm);
+
 #endif // __DPL_VM_H

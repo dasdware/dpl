@@ -84,3 +84,8 @@ void dplv_run(DPL_VirtualMachine *vm)
 #undef TOP1
 #undef TOP0
 }
+
+DPL_Value dplv_peek(DPL_VirtualMachine *vm)
+{
+    return vm->stack[vm->stack_top - 1];
+}
