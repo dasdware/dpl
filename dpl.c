@@ -27,10 +27,11 @@ int main(int argc, char** argv) {
     dplv_init(&vm, &program, &externals);
     dplv_run(&vm);
 
-    printf("VM stack size after completing execution: %zu\n", vm.stack_top);
-    for (size_t i = 0; i < vm.stack_top; ++i)
-    {
-        printf("[ %f ]\n", vm.stack[i]);
+    if (vm.debug) {
+        printf("VM stack size after completing execution: %zu\n", vm.stack_top);
+        for (size_t i = 0; i < vm.stack_top; ++i) {
+            printf("[ %f ]\n", vm.stack[i]);
+        }
     }
 
     dplv_free(&vm);
