@@ -85,11 +85,14 @@ typedef struct
 } DPL_Functions;
 
 typedef void (*DPL_Generator_Callback)(DPL_Program *);
+typedef void (*DPL_Generator_UserCallback)(DPL_Program *, void *);
 
 typedef struct
 {
     DPL_Function_Handle function_handle;
     DPL_Generator_Callback callback;
+    DPL_Generator_UserCallback user_callback;
+    void *user_data;
 } DPL_Generator;
 
 typedef struct

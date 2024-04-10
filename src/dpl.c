@@ -13,6 +13,7 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
 
 bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_Callback callback);
+bool _dplg_register_user(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data);
 
 void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 {
@@ -1157,11 +1158,33 @@ bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator
     DPL_Generator generator = {
         .function_handle = function_handle,
         .callback = callback,
+        .user_callback = NULL,
+        .user_data = NULL,
     };
     nob_da_append(&dpl->generators, generator);
 
     return true;
 }
+
+bool _dplg_register_user(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data)
+{
+    for (size_t i = 0; i < dpl->generators.count; ++i) {
+        if (dpl->generators.items[i].function_handle == function_handle) {
+            return false;
+        }
+    }
+
+    DPL_Generator generator = {
+        .function_handle = function_handle,
+        .callback = NULL,
+        .user_callback = callback,
+        .user_data = user_data,
+    };
+    nob_da_append(&dpl->generators, generator);
+
+    return true;
+}
+
 
 DPL_Generator* _dplg_find_by_function_handle(DPL* dpl, DPL_Function_Handle function_handle)
 {
@@ -1201,7 +1224,11 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
             exit(1);
         }
 
-        generator->callback(program);
+        if (generator->user_callback) {
+            generator->user_callback(program, generator->user_data);
+        } else {
+            generator->callback(program);
+        }
     }
     break;
 
