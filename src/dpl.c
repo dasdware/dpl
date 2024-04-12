@@ -1306,6 +1306,16 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
     }
     break;
+    case CALLTREE_NODE_SCOPE: {
+        DPL_CallTree_Scope s = node->as.scope;
+        for (size_t i = 0; i < s.expressions.count; ++i) {
+            if (i > 0) {
+                dplp_write_pop(program);
+            }
+            _dplg_generate(dpl, s.expressions.items[i], program);
+        }
+    }
+    break;
 
     }
 }

@@ -30,6 +30,10 @@ void dplp_write_push_number(DPL_Program *program, double value) {
     nob_da_append_many(&program->code, &offset, sizeof(offset));
 }
 
+void dplp_write_pop(DPL_Program* program) {
+    dplp_write(program, INST_POP);
+}
+
 void dplp_write_negate(DPL_Program *program) {
     dplp_write(program, INST_NEGATE);
 }
@@ -61,6 +65,8 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_NOOP";
     case INST_PUSH_NUMBER:
         return "INST_PUSH_NUMBER";
+    case INST_POP:
+        return "INST_POP";
     case INST_NEGATE:
         return "INST_NEGATE";
     case INST_ADD:
@@ -110,6 +116,7 @@ void dplp_print(DPL_Program *program) {
         }
         break;
         case INST_NOOP:
+        case INST_POP:
         case INST_NEGATE:
         case INST_ADD:
         case INST_SUBTRACT:
