@@ -68,6 +68,9 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP1 = TOP1 / TOP0;
             --vm->stack_top;
             break;
+        case INST_POP:
+            --vm->stack_top;
+            break;
         case INST_CALL_EXTERNAL: {
             uint8_t external_num = *(vm->program->code.items + ip);
             ip += sizeof(external_num);

@@ -549,6 +549,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case ',':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_COMMA);
+    case ';':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_SEMICOLON);
     }
 
     if (isdigit(_dpll_current(dpl)))
@@ -611,6 +614,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "CLOSE_PAREN";
     case TOKEN_COMMA:
         return "COMMA";
+    case TOKEN_SEMICOLON:
+        return "SEMICOLON";
 
     default:
         assert(false && "Unreachable");
@@ -654,6 +659,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_BINARY";
     case AST_NODE_FUNCTIONCALL:
         return "AST_NODE_FUNCTIONCALL";
+    case AST_NODE_SCOPE:
+        return "AST_NODE_SCOPE";
     }
 
     assert(false && "unreachable: _dpla_node_kind_name");
@@ -702,6 +709,16 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         }
         break;
     }
+    case AST_NODE_SCOPE: {
+        DPL_Ast_Scope scope = node->as.scope;
+        printf("\n");
+        for (size_t i = 0; i < scope.expression_count; ++i) {
+            _dpla_print_indent(level + 1);
+            printf("<expr #%zu>\n", i);
+            _dpla_print(scope.expressions[i], level + 2);
+        }
+    }
+    break;
     default: {
         printf("\n");
         break;
@@ -917,11 +934,31 @@ DPL_Ast_Node* _dplp_parse_expression(DPL* dpl)
     return _dplp_parse_additive(dpl);
 }
 
+DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token)
+{
+    DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_SCOPE);
+    node->as.scope.expression_count = 0;
+
+    if (_dplp_peek_token(dpl).kind != closing_token) {
+
+        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON);
+        if (expressions.count > 0) {
+            node->as.scope.expression_count = expressions.count;
+            node->as.scope.expressions = arena_alloc(
+                                             &dpl->tree.memory, sizeof(DPL_Ast_Node*) * expressions.count);
+            memcpy(node->as.scope.expressions, expressions.items, sizeof(DPL_Ast_Node*) * expressions.count);
+            nob_da_free(expressions);
+        }
+    }
+    _dplp_expect_token(dpl, closing_token);
+
+    return node;
+}
 
 void _dplp_parse(DPL* dpl)
 {
-    dpl->tree.root = _dplp_parse_expression(dpl);
-    _dplp_expect_token(dpl, TOKEN_EOF);
+    dpl->tree.root = _dplp_parse_scope(dpl, TOKEN_EOF); //_dplp_parse_expression(dpl);
+    //_dplp_expect_token(dpl, TOKEN_EOF);
 }
 
 // CALLTREE
@@ -1041,6 +1078,21 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     exit(1);
 }
 
+DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
+{
+    DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+    result_ctn->kind = CALLTREE_NODE_SCOPE;
+
+    DPL_Ast_Scope scope = node->as.scope;
+    for (size_t i = 0; i < scope.expression_count; ++i) {
+        DPL_CallTree_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
+        nob_da_append(&result_ctn->as.scope.expressions, expr_ctn);
+        result_ctn->type_handle = expr_ctn->type_handle;
+    }
+
+    return result_ctn;
+}
+
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
@@ -1101,6 +1153,10 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         return _dplc_bind_function_call(dpl, node);
     }
     break;
+    case AST_NODE_SCOPE: {
+        return _dplc_bind_scope(dpl, node);
+    }
+    break;
     default:
         break;
     }
@@ -1146,6 +1202,19 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     break;
     case CALLTREE_NODE_VALUE: {
         printf("Value \""SV_Fmt"\"\n", SV_Arg(node->as.value.ast_node->as.literal.value.text));
+    }
+    break;
+    case CALLTREE_NODE_SCOPE: {
+        printf("$scope(\n");
+
+        for (size_t i = 0; i < node->as.scope.expressions.count; ++i) {
+            _dplc_print(dpl, node->as.scope.expressions.items[i], level + 1);
+        }
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
     }
     break;
     }
@@ -1234,6 +1303,16 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
             generator->user_callback(program, generator->user_data);
         } else {
             generator->callback(program);
+        }
+    }
+    break;
+    case CALLTREE_NODE_SCOPE: {
+        DPL_CallTree_Scope s = node->as.scope;
+        for (size_t i = 0; i < s.expressions.count; ++i) {
+            if (i > 0) {
+                dplp_write_pop(program);
+            }
+            _dplg_generate(dpl, s.expressions.items[i], program);
         }
     }
     break;
