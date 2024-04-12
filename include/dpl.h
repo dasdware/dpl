@@ -220,7 +220,8 @@ typedef struct
 typedef enum
 {
     CALLTREE_NODE_VALUE = 0,
-    CALLTREE_NODE_FUNCTION
+    CALLTREE_NODE_FUNCTION,
+    CALLTREE_NODE_SCOPE,
 } DPL_CallTreeNodeKind;
 
 typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
@@ -243,10 +244,16 @@ typedef struct
     DPL_CallTree_Nodes arguments;
 } DPL_CallTree_Function;
 
+typedef struct
+{
+    DPL_CallTree_Nodes expressions;
+} DPL_CallTree_Scope;
+
 typedef union
 {
     DPL_CallTree_Value value;
     DPL_CallTree_Function function;
+    DPL_CallTree_Scope scope;
 } DPL_CallTree_Node_As;
 
 struct _DPL_CallTree_Node

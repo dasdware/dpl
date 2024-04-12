@@ -1078,6 +1078,21 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     exit(1);
 }
 
+DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
+{
+    DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+    result_ctn->kind = CALLTREE_NODE_SCOPE;
+
+    DPL_Ast_Scope scope = node->as.scope;
+    for (size_t i = 0; i < scope.expression_count; ++i) {
+        DPL_CallTree_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
+        nob_da_append(&result_ctn->as.scope.expressions, expr_ctn);
+        result_ctn->type_handle = expr_ctn->type_handle;
+    }
+
+    return result_ctn;
+}
+
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
@@ -1138,6 +1153,10 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         return _dplc_bind_function_call(dpl, node);
     }
     break;
+    case AST_NODE_SCOPE: {
+        return _dplc_bind_scope(dpl, node);
+    }
+    break;
     default:
         break;
     }
@@ -1183,6 +1202,19 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     break;
     case CALLTREE_NODE_VALUE: {
         printf("Value \""SV_Fmt"\"\n", SV_Arg(node->as.value.ast_node->as.literal.value.text));
+    }
+    break;
+    case CALLTREE_NODE_SCOPE: {
+        printf("$scope(\n");
+
+        for (size_t i = 0; i < node->as.scope.expressions.count; ++i) {
+            _dplc_print(dpl, node->as.scope.expressions.items[i], level + 1);
+        }
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
     }
     break;
     }
