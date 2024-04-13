@@ -141,6 +141,7 @@ typedef enum
 
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
+    TOKEN_STRING,
 } DPL_TokenKind;
 
 typedef struct

@@ -576,6 +576,34 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_IDENTIFIER);
     }
 
+
+    if (_dpll_current(dpl) == '"')
+    {
+        _dpll_advance(dpl);
+
+        bool in_escape = false;
+        while (true) {
+            if (_dpll_is_eof(dpl)) {
+                _dpll_error(dpl, "Untermintated string literal.\n");
+            }
+
+            if (_dpll_current(dpl) == '"') {
+                if (!in_escape) {
+                    _dpll_advance(dpl);
+                    return _dpll_build_token(dpl, TOKEN_STRING);
+                }
+            }
+
+            if (!in_escape && _dpll_current(dpl) == '\\') {
+                in_escape = true;
+            } else {
+                in_escape = false;
+            }
+
+            _dpll_advance(dpl);
+        }
+    }
+
     _dpll_error(dpl, "Invalid character '%c'.\n", _dpll_current(dpl));
     _dpll_advance(dpl);
 }
@@ -599,6 +627,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "NUMBER";
     case TOKEN_IDENTIFIER:
         return "IDENTIFIER";
+    case TOKEN_STRING:
+        return "STRING";
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
 
@@ -807,7 +837,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     DPL_Token token = _dplp_next_token(dpl);
     switch (token.kind) {
     case TOKEN_NUMBER:
-        /*case TOKEN_IDENTIFIER:*/
+    case TOKEN_STRING:
     {
         DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL);
         node->as.literal.value = token;
