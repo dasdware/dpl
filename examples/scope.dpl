@@ -1,2 +1,5 @@
-print(123);
-print(456.multiply(2))
+print({
+    print(123);
+    print(456.multiply(2))
+});
+1

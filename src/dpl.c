@@ -546,6 +546,12 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case ')':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_CLOSE_PAREN);
+    case '{':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_OPEN_BRACE);
+    case '}':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_CLOSE_BRACE);
     case ',':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_COMMA);
@@ -612,6 +618,10 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "OPEN_PAREN";
     case TOKEN_CLOSE_PAREN:
         return "CLOSE_PAREN";
+    case TOKEN_OPEN_BRACE:
+        return "OPEN_BRACE";
+    case TOKEN_CLOSE_BRACE:
+        return "CLOSE_BRACE";
     case TOKEN_COMMA:
         return "COMMA";
     case TOKEN_SEMICOLON:
@@ -768,6 +778,7 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 }
 
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
+DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token);
 
 typedef struct
 {
@@ -809,6 +820,10 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         return node;
     }
     break;
+    case TOKEN_OPEN_BRACE: {
+        DPL_Ast_Node* node = _dplp_parse_scope(dpl, TOKEN_CLOSE_BRACE);
+        return node;
+    }
     case TOKEN_IDENTIFIER: {
         DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTIONCALL);
         node->as.function_call.name = token;
