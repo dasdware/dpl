@@ -1332,9 +1332,43 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
+        Nob_String_View value_text = node->as.value.ast_node->as.literal.value.text;
         if (node->type_handle == dpl->types.number_handle) {
-            double value = atof(nob_temp_sv_to_cstr(node->as.value.ast_node->as.literal.value.text));
+            double value = atof(nob_temp_sv_to_cstr(value_text));
             dplp_write_push_number(program, value);
+        } else if (node->type_handle == dpl->types.string_handle) {
+            // unescape source string literal
+            char* value = nob_temp_alloc(sizeof(char) * (value_text.count - 2 + 1));
+            // -2 for quotes; +1 for terminating null byte
+
+            const char *source_pos = value_text.data + 1;
+            const char *source_end = value_text.data + value_text.count - 2;
+            char *target_pos = value;
+
+            while (source_pos <= source_end) {
+                if (*source_pos == '\\') {
+                    source_pos++;
+                    switch (*source_pos) {
+                    case 'n':
+                        *target_pos = '\n';
+                        break;
+                    case 'r':
+                        *target_pos = '\r';
+                        break;
+                    case 't':
+                        *target_pos = '\t';
+                        break;
+                    }
+                } else {
+                    *target_pos = *source_pos;
+                }
+
+                source_pos++;
+                target_pos++;
+            }
+            *target_pos = '\0';
+
+            dplp_write_push_string(program, value);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             fprintf(stderr, "Cannot generate program for value node of type "SV_Fmt".\n", SV_Arg(type->name));

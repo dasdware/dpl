@@ -9,6 +9,7 @@ typedef enum
 {
     INST_NOOP,
     INST_PUSH_NUMBER,
+    INST_PUSH_STRING,
     INST_POP,
     INST_NEGATE,
     INST_ADD,
@@ -40,6 +41,7 @@ void dplp_write(DPL_Program *program, DPL_Instruction_Kind kind);
 void dplp_write_noop(DPL_Program *program);
 
 void dplp_write_push_number(DPL_Program *program, double value);
+void dplp_write_push_string(DPL_Program *program, const char* value);
 void dplp_write_pop(DPL_Program* program);
 
 void dplp_write_negate(DPL_Program *program);
