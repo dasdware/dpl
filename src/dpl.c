@@ -21,6 +21,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 
     /// TYPES
     dpl->types.number_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
+    dpl->types.string_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
 
     {
         DPL_Type unary = {0};
@@ -1152,8 +1153,18 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             calltree_node->as.value.ast_node = node;
             return calltree_node;
         }
+        case TOKEN_STRING: {
+            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->type_handle = dpl->types.string_handle;
+            calltree_node->as.value.ast_node = node;
+            return calltree_node;
+        }
         break;
         default:
+            fprintf(stderr, "ERROR: Cannot resolve literal type for token of kind \"%s\".\n",
+                    _dpll_token_kind_name(node->as.literal.value.kind));
+            exit(1);
             break;
         }
         break;

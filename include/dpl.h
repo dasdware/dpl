@@ -60,6 +60,7 @@ typedef struct
 
     // Common datatypes
     DPL_Type_Handle number_handle;
+    DPL_Type_Handle string_handle;
 
     // Common function types
     DPL_Type_Handle unary_handle;
