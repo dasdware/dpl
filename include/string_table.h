@@ -55,6 +55,8 @@ size_t st_length(DW_StringTable* table, DW_StringTable_Handle handle);
 
 DW_StringTable_Handle st_concat(DW_StringTable *table, DW_StringTable_Handle handle1, DW_StringTable_Handle handle2);
 
+#endif // __DW_STRING_TABLE_H
+
 #ifdef DW_STRING_TABLE_IMPLEMENTATION
 
 #include <stdio.h>
@@ -186,7 +188,5 @@ DW_StringTable_Handle st_concat(DW_StringTable *table, DW_StringTable_Handle han
 
     return result_handle;
 }
-
-#endif
 
 #endif
