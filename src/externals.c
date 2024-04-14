@@ -16,7 +16,7 @@ DPL_ExternalFunction* dple_add_by_name(DPL_ExternalFunctions* externals, const c
 
 void _dple_print_number_callback(DPL_VirtualMachine* vm)
 {
-    printf("%f\n", dplv_peek(vm));
+    printf("%f\n", dplv_peek(vm).as.number);
 }
 
 void _dple_print_string_callback(DPL_VirtualMachine* vm)

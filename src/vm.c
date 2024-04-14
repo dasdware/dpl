@@ -1,6 +1,31 @@
 #include "vm.h"
 #include "externals.h"
 
+const char* _dplv_value_kind_name(DPL_ValueKind kind) {
+    switch (kind) {
+    case VALUE_NUMBER:
+        return "number";
+    case VALUE_STRING:
+        return "string";
+    }
+
+    fprintf(stderr, "ERROR: Invalid value kind `%02X`.", kind);
+    exit(1);
+}
+
+void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
+    (void) vm;
+    const char* kind_name = _dplv_value_kind_name(value.kind);
+    switch (value.kind) {
+    case VALUE_NUMBER:
+        printf(" [%s: %f]", kind_name, value.as.number);
+        break;
+    default:
+        fprintf(stderr, "Cannot debug print value of kind `%s`.\n", kind_name);
+        exit(1);
+    }
+}
+
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals)
 {
     vm->program = program;
@@ -48,27 +73,28 @@ void dplv_run(DPL_VirtualMachine *vm)
             ip += sizeof(offset);
 
             double value = *(double*)(vm->program->constants.items + offset);
-            vm->stack[vm->stack_top] = value;
+            vm->stack[vm->stack_top].kind = VALUE_NUMBER;
+            vm->stack[vm->stack_top].as.number = value;
             ++vm->stack_top;
         }
         break;
         case INST_NEGATE:
-            TOP0 = -TOP0;
+            TOP0.as.number = -TOP0.as.number;
             break;
         case INST_ADD:
-            TOP1 = TOP1 + TOP0;
+            TOP1.as.number = TOP1.as.number + TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_SUBTRACT:
-            TOP1 = TOP1 - TOP0;
+            TOP1.as.number = TOP1.as.number - TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_MULTIPLY:
-            TOP1 = TOP1 * TOP0;
+            TOP1.as.number = TOP1.as.number * TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_DIVIDE:
-            TOP1 = TOP1 / TOP0;
+            TOP1.as.number = TOP1.as.number / TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_POP:
@@ -101,7 +127,8 @@ void dplv_run(DPL_VirtualMachine *vm)
             printf("Stack:");
             for (size_t i = 0; i < vm->stack_top; ++i)
             {
-                printf(" [ %f ]", vm->stack[i]);
+                printf(" ");
+                dplv_print_value(vm, vm->stack[i]);
             }
             printf("\n");
         }

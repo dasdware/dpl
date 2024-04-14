@@ -5,7 +5,20 @@
 #include "program.h"
 #include "string_table.h"
 
-typedef double DPL_Value;
+typedef enum {
+    VALUE_NUMBER,
+    VALUE_STRING,
+} DPL_ValueKind;
+
+typedef union {
+    double number;
+    DW_StringTable_Handle string;
+} DPL_Value_As;
+
+typedef struct {
+    DPL_ValueKind kind;
+    DPL_Value_As as;
+} DPL_Value;
 
 struct DPL_ExternalFunctions;
 
@@ -23,6 +36,8 @@ typedef struct
 
     Arena memory;
 } DPL_VirtualMachine;
+
+void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value);
 
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals);
 void dplv_free(DPL_VirtualMachine *vm);

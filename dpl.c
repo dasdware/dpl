@@ -33,7 +33,8 @@ int main(int argc, char** argv) {
     if (vm.debug) {
         printf("VM stack size after completing execution: %zu\n", vm.stack_top);
         for (size_t i = 0; i < vm.stack_top; ++i) {
-            printf("[ %f ]\n", vm.stack[i]);
+            dplv_print_value(&vm, vm.stack[i]);
+            printf("\n");
         }
     }
 
