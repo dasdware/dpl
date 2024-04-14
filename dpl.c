@@ -31,11 +31,15 @@ int main(int argc, char** argv) {
     dplv_run(&vm);
 
     if (vm.debug) {
-        printf("VM stack size after completing execution: %zu\n", vm.stack_top);
+        printf("==[ DEBUG ]=============================\n");
+        printf("VM stack after execution:\n");
         for (size_t i = 0; i < vm.stack_top; ++i) {
+            printf("* %zu: ", i);
             dplv_print_value(&vm, vm.stack[i]);
             printf("\n");
         }
+        printf("Entries remaining in string table: %zu\n", ST_CAPACITY - vm.strings.free_items.count);
+        printf("==[ /DEBUG ]============================\n");
     }
 
     dplv_free(&vm);

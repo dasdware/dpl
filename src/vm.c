@@ -18,8 +18,33 @@ void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
     const char* kind_name = dplv_value_kind_name(value.kind);
     switch (value.kind) {
     case VALUE_NUMBER:
-        printf(" [%s: %f]", kind_name, value.as.number);
+        printf("[%s: %f]", kind_name, value.as.number);
         break;
+    case VALUE_STRING: {
+        printf("[%s: \"", kind_name);
+
+        const char* pos = st_get(&vm->strings, value.as.string);
+        size_t length = st_length(&vm->strings, value.as.string);
+
+        for (size_t i = 0; i < length; ++i) {
+            switch (*pos) {
+            case '\n':
+                printf("\\n");
+                break;
+            case '\r':
+                printf("\\r");
+                break;
+            case '\t':
+                printf("\\t");
+                break;
+            default:
+                printf("%c", *pos);
+            }
+            ++pos;
+        }
+        printf("\"]");
+    }
+    break;
     default:
         fprintf(stderr, "Cannot debug print value of kind `%s`.\n", kind_name);
         exit(1);
@@ -134,7 +159,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             exit(1);
         }
 
-        if (vm->debug)
+        if (vm->trace)
         {
             printf("Stack:");
             for (size_t i = 0; i < vm->stack_top; ++i)

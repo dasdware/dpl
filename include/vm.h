@@ -26,7 +26,9 @@ typedef struct
 {
     DPL_Program *program;
     struct DPL_ExternalFunctions *externals;
+
     bool debug;
+    bool trace;
 
     size_t stack_capacity;
     size_t stack_top;
