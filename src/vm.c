@@ -1,7 +1,7 @@
 #include "vm.h"
 #include "externals.h"
 
-const char* _dplv_value_kind_name(DPL_ValueKind kind) {
+const char* dplv_value_kind_name(DPL_ValueKind kind) {
     switch (kind) {
     case VALUE_NUMBER:
         return "number";
@@ -15,7 +15,7 @@ const char* _dplv_value_kind_name(DPL_ValueKind kind) {
 
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
     (void) vm;
-    const char* kind_name = _dplv_value_kind_name(value.kind);
+    const char* kind_name = dplv_value_kind_name(value.kind);
     switch (value.kind) {
     case VALUE_NUMBER:
         printf(" [%s: %f]", kind_name, value.as.number);
@@ -75,6 +75,18 @@ void dplv_run(DPL_VirtualMachine *vm)
             double value = *(double*)(vm->program->constants.items + offset);
             vm->stack[vm->stack_top].kind = VALUE_NUMBER;
             vm->stack[vm->stack_top].as.number = value;
+            ++vm->stack_top;
+        }
+        break;
+        case INST_PUSH_STRING: {
+            size_t offset = *(vm->program->code.items + ip);
+            ip += sizeof(offset);
+
+            size_t length = *(size_t*)(vm->program->constants.items + offset);
+            char* data = (char*)(vm->program->constants.items + offset + sizeof(length));
+
+            vm->stack[vm->stack_top].kind = VALUE_STRING;
+            vm->stack[vm->stack_top].as.string = st_allocate_lstr(&vm->strings, data, length);
             ++vm->stack_top;
         }
         break;

@@ -47,6 +47,7 @@ void st_free(DW_StringTable *table);
 
 DW_StringTable_Handle st_allocate(DW_StringTable *table, size_t length);
 DW_StringTable_Handle st_allocate_cstr(DW_StringTable *table, const char *value);
+DW_StringTable_Handle st_allocate_lstr(DW_StringTable *table, const char *data, size_t length);
 
 void st_release(DW_StringTable *table, DW_StringTable_Handle handle);
 
@@ -113,6 +114,14 @@ DW_StringTable_Handle st_allocate_cstr(DW_StringTable *table, const char *value)
 
     DW_StringTable_Handle handle = st_allocate(table, length);
     memcpy(table->items[handle].data, value, length);
+
+    return handle;
+}
+
+DW_StringTable_Handle st_allocate_lstr(DW_StringTable *table, const char *data, size_t length)
+{
+    DW_StringTable_Handle handle = st_allocate(table, length);
+    memcpy(table->items[handle].data, data, length);
 
     return handle;
 }

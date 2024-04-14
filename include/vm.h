@@ -37,6 +37,7 @@ typedef struct
     Arena memory;
 } DPL_VirtualMachine;
 
+const char* dplv_value_kind_name(DPL_ValueKind kind);
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value);
 
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals);
