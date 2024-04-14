@@ -11,11 +11,11 @@
 #include <stdbool.h>
 
 #ifndef ST_CAPACITY
-#define ST_CAPACITY 32
+#define ST_CAPACITY 32ull
 #endif
 
 #ifndef ST_MAX_LENGTH
-#define ST_MAX_LENGTH 256
+#define ST_MAX_LENGTH 256ull
 #endif
 
 typedef struct
