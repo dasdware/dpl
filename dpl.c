@@ -7,6 +7,9 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
+#define DW_STRING_TABLE_IMPLEMENTATION
+#include <string_table.h>
+
 int main(int argc, char** argv) {
     const char* exe = nob_shift_args(&argc, &argv);
 

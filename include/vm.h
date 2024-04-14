@@ -3,6 +3,7 @@
 
 #include "arena.h"
 #include "program.h"
+#include "string_table.h"
 
 typedef double DPL_Value;
 
@@ -17,6 +18,8 @@ typedef struct
     size_t stack_capacity;
     size_t stack_top;
     DPL_Value *stack;
+
+    DW_StringTable strings;
 
     Arena memory;
 } DPL_VirtualMachine;

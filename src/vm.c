@@ -12,10 +12,13 @@ void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_External
     }
 
     vm->stack = arena_alloc(&vm->memory, vm->stack_capacity * sizeof(DPL_Value));
+
+    st_init(&vm->strings);
 }
 
 void dplv_free(DPL_VirtualMachine *vm)
 {
+    st_free(&vm->strings);
     arena_free(&vm->memory);
 }
 
