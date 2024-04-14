@@ -6,6 +6,9 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
+#define DW_STRING_TABLE_IMPLEMENTATION
+#include <string_table.h>
+
 void usage(const char* program)
 {
     fprintf(stderr, "Usage: %s [-d] source.dpl\n", program);
