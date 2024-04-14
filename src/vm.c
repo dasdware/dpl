@@ -135,6 +135,9 @@ void dplv_run(DPL_VirtualMachine *vm)
             --vm->stack_top;
             break;
         case INST_POP:
+            if (TOP0.kind == VALUE_STRING) {
+                st_release(&vm->strings, TOP0.as.string);
+            }
             --vm->stack_top;
             break;
         case INST_CALL_EXTERNAL: {
