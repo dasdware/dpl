@@ -51,6 +51,7 @@ DW_StringTable_Handle st_allocate_cstr(DW_StringTable *table, const char *value)
 void st_release(DW_StringTable *table, DW_StringTable_Handle handle);
 
 const char *st_get(DW_StringTable *table, DW_StringTable_Handle handle);
+size_t st_length(DW_StringTable* table, DW_StringTable_Handle handle);
 
 DW_StringTable_Handle st_concat(DW_StringTable *table, DW_StringTable_Handle handle1, DW_StringTable_Handle handle2);
 
@@ -145,6 +146,22 @@ const char *st_get(DW_StringTable *table, DW_StringTable_Handle handle)
     }
 
     return table->items[handle].data;
+}
+
+size_t st_length(DW_StringTable* table, DW_StringTable_Handle handle)
+{
+    if (handle >= ST_CAPACITY)
+    {
+        fprintf(stderr, "ERROR: Cannot get length from table: Invalid handle.\n");
+        exit(1);
+    }
+    if (table->items[handle].is_free)
+    {
+        fprintf(stderr, "ERROR: Cannot get length from table: Entry is released.\n");
+        exit(1);
+    }
+
+    return table->items[handle].length;
 }
 
 DW_StringTable_Handle st_concat(DW_StringTable *table, DW_StringTable_Handle handle1, DW_StringTable_Handle handle2)
