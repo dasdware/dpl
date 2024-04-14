@@ -1,6 +1,56 @@
 #include "vm.h"
 #include "externals.h"
 
+const char* dplv_value_kind_name(DPL_ValueKind kind) {
+    switch (kind) {
+    case VALUE_NUMBER:
+        return "number";
+    case VALUE_STRING:
+        return "string";
+    }
+
+    fprintf(stderr, "ERROR: Invalid value kind `%02X`.", kind);
+    exit(1);
+}
+
+void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
+    (void) vm;
+    const char* kind_name = dplv_value_kind_name(value.kind);
+    switch (value.kind) {
+    case VALUE_NUMBER:
+        printf("[%s: %f]", kind_name, value.as.number);
+        break;
+    case VALUE_STRING: {
+        printf("[%s: \"", kind_name);
+
+        const char* pos = st_get(&vm->strings, value.as.string);
+        size_t length = st_length(&vm->strings, value.as.string);
+
+        for (size_t i = 0; i < length; ++i) {
+            switch (*pos) {
+            case '\n':
+                printf("\\n");
+                break;
+            case '\r':
+                printf("\\r");
+                break;
+            case '\t':
+                printf("\\t");
+                break;
+            default:
+                printf("%c", *pos);
+            }
+            ++pos;
+        }
+        printf("\"]");
+    }
+    break;
+    default:
+        fprintf(stderr, "Cannot debug print value of kind `%s`.\n", kind_name);
+        exit(1);
+    }
+}
+
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals)
 {
     vm->program = program;
@@ -12,10 +62,13 @@ void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_External
     }
 
     vm->stack = arena_alloc(&vm->memory, vm->stack_capacity * sizeof(DPL_Value));
+
+    st_init(&vm->strings);
 }
 
 void dplv_free(DPL_VirtualMachine *vm)
 {
+    st_free(&vm->strings);
     arena_free(&vm->memory);
 }
 
@@ -45,30 +98,46 @@ void dplv_run(DPL_VirtualMachine *vm)
             ip += sizeof(offset);
 
             double value = *(double*)(vm->program->constants.items + offset);
-            vm->stack[vm->stack_top] = value;
+            vm->stack[vm->stack_top].kind = VALUE_NUMBER;
+            vm->stack[vm->stack_top].as.number = value;
+            ++vm->stack_top;
+        }
+        break;
+        case INST_PUSH_STRING: {
+            size_t offset = *(vm->program->code.items + ip);
+            ip += sizeof(offset);
+
+            size_t length = *(size_t*)(vm->program->constants.items + offset);
+            char* data = (char*)(vm->program->constants.items + offset + sizeof(length));
+
+            vm->stack[vm->stack_top].kind = VALUE_STRING;
+            vm->stack[vm->stack_top].as.string = st_allocate_lstr(&vm->strings, data, length);
             ++vm->stack_top;
         }
         break;
         case INST_NEGATE:
-            TOP0 = -TOP0;
+            TOP0.as.number = -TOP0.as.number;
             break;
         case INST_ADD:
-            TOP1 = TOP1 + TOP0;
+            TOP1.as.number = TOP1.as.number + TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_SUBTRACT:
-            TOP1 = TOP1 - TOP0;
+            TOP1.as.number = TOP1.as.number - TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_MULTIPLY:
-            TOP1 = TOP1 * TOP0;
+            TOP1.as.number = TOP1.as.number * TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_DIVIDE:
-            TOP1 = TOP1 / TOP0;
+            TOP1.as.number = TOP1.as.number / TOP0.as.number;
             --vm->stack_top;
             break;
         case INST_POP:
+            if (TOP0.kind == VALUE_STRING) {
+                st_release(&vm->strings, TOP0.as.string);
+            }
             --vm->stack_top;
             break;
         case INST_CALL_EXTERNAL: {
@@ -93,12 +162,13 @@ void dplv_run(DPL_VirtualMachine *vm)
             exit(1);
         }
 
-        if (vm->debug)
+        if (vm->trace)
         {
             printf("Stack:");
             for (size_t i = 0; i < vm->stack_top; ++i)
             {
-                printf(" [ %f ]", vm->stack[i]);
+                printf(" ");
+                dplv_print_value(vm, vm->stack[i]);
             }
             printf("\n");
         }

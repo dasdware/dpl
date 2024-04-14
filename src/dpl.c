@@ -21,6 +21,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 
     /// TYPES
     dpl->types.number_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
+    dpl->types.string_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
 
     {
         DPL_Type unary = {0};
@@ -576,6 +577,34 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_IDENTIFIER);
     }
 
+
+    if (_dpll_current(dpl) == '"')
+    {
+        _dpll_advance(dpl);
+
+        bool in_escape = false;
+        while (true) {
+            if (_dpll_is_eof(dpl)) {
+                _dpll_error(dpl, "Untermintated string literal.\n");
+            }
+
+            if (_dpll_current(dpl) == '"') {
+                if (!in_escape) {
+                    _dpll_advance(dpl);
+                    return _dpll_build_token(dpl, TOKEN_STRING);
+                }
+            }
+
+            if (!in_escape && _dpll_current(dpl) == '\\') {
+                in_escape = true;
+            } else {
+                in_escape = false;
+            }
+
+            _dpll_advance(dpl);
+        }
+    }
+
     _dpll_error(dpl, "Invalid character '%c'.\n", _dpll_current(dpl));
     _dpll_advance(dpl);
 }
@@ -599,6 +628,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "NUMBER";
     case TOKEN_IDENTIFIER:
         return "IDENTIFIER";
+    case TOKEN_STRING:
+        return "STRING";
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
 
@@ -807,7 +838,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     DPL_Token token = _dplp_next_token(dpl);
     switch (token.kind) {
     case TOKEN_NUMBER:
-        /*case TOKEN_IDENTIFIER:*/
+    case TOKEN_STRING:
     {
         DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL);
         node->as.literal.value = token;
@@ -1122,8 +1153,18 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             calltree_node->as.value.ast_node = node;
             return calltree_node;
         }
+        case TOKEN_STRING: {
+            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->type_handle = dpl->types.string_handle;
+            calltree_node->as.value.ast_node = node;
+            return calltree_node;
+        }
         break;
         default:
+            fprintf(stderr, "ERROR: Cannot resolve literal type for token of kind \"%s\".\n",
+                    _dpll_token_kind_name(node->as.literal.value.kind));
+            exit(1);
             break;
         }
         break;
@@ -1291,9 +1332,43 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
+        Nob_String_View value_text = node->as.value.ast_node->as.literal.value.text;
         if (node->type_handle == dpl->types.number_handle) {
-            double value = atof(nob_temp_sv_to_cstr(node->as.value.ast_node->as.literal.value.text));
+            double value = atof(nob_temp_sv_to_cstr(value_text));
             dplp_write_push_number(program, value);
+        } else if (node->type_handle == dpl->types.string_handle) {
+            // unescape source string literal
+            char* value = nob_temp_alloc(sizeof(char) * (value_text.count - 2 + 1));
+            // -2 for quotes; +1 for terminating null byte
+
+            const char *source_pos = value_text.data + 1;
+            const char *source_end = value_text.data + value_text.count - 2;
+            char *target_pos = value;
+
+            while (source_pos <= source_end) {
+                if (*source_pos == '\\') {
+                    source_pos++;
+                    switch (*source_pos) {
+                    case 'n':
+                        *target_pos = '\n';
+                        break;
+                    case 'r':
+                        *target_pos = '\r';
+                        break;
+                    case 't':
+                        *target_pos = '\t';
+                        break;
+                    }
+                } else {
+                    *target_pos = *source_pos;
+                }
+
+                source_pos++;
+                target_pos++;
+            }
+            *target_pos = '\0';
+
+            dplp_write_push_string(program, value);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             fprintf(stderr, "Cannot generate program for value node of type "SV_Fmt".\n", SV_Arg(type->name));

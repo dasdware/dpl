@@ -15,6 +15,14 @@ size_t _dplp_add_number_constant(DPL_Program *program, double value) {
     return offset;
 }
 
+size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
+    size_t offset = program->constants.count;
+    size_t length = strlen(value);
+    nob_da_append_many(&program->constants, &length, sizeof(length));
+    nob_da_append_many(&program->constants, value, sizeof(char) * length);
+    return offset;
+}
+
 void dplp_write(DPL_Program *program, DPL_Instruction_Kind kind) {
     nob_da_append(&program->code, (uint8_t) kind);
 }
@@ -27,6 +35,13 @@ void dplp_write_push_number(DPL_Program *program, double value) {
     dplp_write(program, INST_PUSH_NUMBER);
 
     size_t offset = _dplp_add_number_constant(program, value);
+    nob_da_append_many(&program->code, &offset, sizeof(offset));
+}
+
+void dplp_write_push_string(DPL_Program *program, const char* value) {
+    dplp_write(program, INST_PUSH_STRING);
+
+    size_t offset = _dplp_add_string_constant(program, value);
     nob_da_append_many(&program->code, &offset, sizeof(offset));
 }
 
@@ -65,6 +80,8 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_NOOP";
     case INST_PUSH_NUMBER:
         return "INST_PUSH_NUMBER";
+    case INST_PUSH_STRING:
+        return "INST_PUSH_STRING";
     case INST_POP:
         return "INST_POP";
     case INST_NEGATE:
@@ -113,6 +130,33 @@ void dplp_print(DPL_Program *program) {
             double value = *(double*)(program->constants.items + offset);
 
             printf(" %zu: %f ", offset, value);
+        }
+        break;
+        case INST_PUSH_STRING: {
+            size_t offset = *(program->code.items + ip);
+            size_t length = *(size_t*)(program->constants.items + offset);
+
+            printf(" %zu: (length: %zu, value: \"", offset, length);
+            char* pos = (char*)(program->constants.items + offset + sizeof(length));
+            for (size_t i = 0; i < length; ++i) {
+                switch (*pos) {
+                case '\n':
+                    printf("\\n");
+                    break;
+                case '\r':
+                    printf("\\r");
+                    break;
+                case '\t':
+                    printf("\\t");
+                    break;
+                default:
+                    printf("%c", *pos);
+                }
+                ++pos;
+            }
+            printf("\")");
+
+            ip += sizeof(offset);
         }
         break;
         case INST_NOOP:
