@@ -68,11 +68,9 @@ typedef struct
 
 /// FUNCTIONS
 
-typedef size_t DPL_Function_Handle;
-
 typedef struct
 {
-    DPL_Function_Handle handle;
+    DPL_Handle handle;
     Nob_String_View name;
     DPL_Handle type;
 } DPL_Function;
@@ -89,7 +87,7 @@ typedef void (*DPL_Generator_UserCallback)(DPL_Program *, void *);
 
 typedef struct
 {
-    DPL_Function_Handle function_handle;
+    DPL_Handle function_handle;
     DPL_Generator_Callback callback;
     DPL_Generator_UserCallback user_callback;
     void *user_data;
@@ -243,7 +241,7 @@ typedef struct
 
 typedef struct
 {
-    DPL_Function_Handle function_handle;
+    DPL_Handle function_handle;
     DPL_CallTree_Nodes arguments;
 } DPL_CallTree_Function;
 

@@ -7,14 +7,14 @@ DPL_Handle _dplt_register(DPL* types, DPL_Type type);
 DPL_Handle _dplt_register_by_name(DPL* types, Nob_String_View name);
 void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type);
 
-DPL_Function_Handle _dplf_register(DPL* dpl, Nob_String_View name,
-                                   DPL_Handle type);
+DPL_Handle _dplf_register(DPL* dpl, Nob_String_View name,
+                          DPL_Handle type);
 void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
 void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
 
-bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_Callback callback);
-bool _dplg_register_user(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data);
+bool _dplg_register(DPL* dpl, DPL_Handle function_handle, DPL_Generator_Callback callback);
+bool _dplg_register_user(DPL* dpl, DPL_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data);
 
 void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 {
@@ -85,7 +85,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     {
         printf("Functions:\n");
         for (size_t i = 0; i < dpl->functions.count; ++i) {
-            printf("* %zu: ", dpl->functions.items[i].handle);
+            printf("* %u: ", dpl->functions.items[i].handle);
             _dplf_print(stdout, dpl, &dpl->functions.items[i]);
             printf("\n");
         }
@@ -264,8 +264,8 @@ void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type)
 
 /// FUNCTIONS
 
-DPL_Function_Handle _dplf_register(DPL* dpl, Nob_String_View name,
-                                   DPL_Handle type)
+DPL_Handle _dplf_register(DPL* dpl, Nob_String_View name,
+                          DPL_Handle type)
 {
     DPL_Function function = {
         .handle = dpl->functions.count + 1,
@@ -277,7 +277,7 @@ DPL_Function_Handle _dplf_register(DPL* dpl, Nob_String_View name,
     return function.handle;
 }
 
-DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Function_Handle handle)
+DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Handle handle)
 {
     for (size_t i = 0;  i < dpl->functions.count; ++i) {
         if (dpl->functions.items[i].handle == handle) {
@@ -402,7 +402,7 @@ void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
             function_type_handle = function_type->handle;
         }
 
-        DPL_Function_Handle handle = _dplf_register(dpl, nob_sv_from_cstr(external->name), function_type_handle);
+        DPL_Handle handle = _dplf_register(dpl, nob_sv_from_cstr(external->name), function_type_handle);
         _dplg_register_user(dpl, handle, &_dplg_call_external_callback, (void*)i);
     }
 }
@@ -1283,7 +1283,7 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
 
 // PROGRAM GENERATION
 
-bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_Callback callback)
+bool _dplg_register(DPL* dpl, DPL_Handle function_handle, DPL_Generator_Callback callback)
 {
     for (size_t i = 0; i < dpl->generators.count; ++i) {
         if (dpl->generators.items[i].function_handle == function_handle) {
@@ -1302,7 +1302,7 @@ bool _dplg_register(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator
     return true;
 }
 
-bool _dplg_register_user(DPL* dpl, DPL_Function_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data)
+bool _dplg_register_user(DPL* dpl, DPL_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data)
 {
     for (size_t i = 0; i < dpl->generators.count; ++i) {
         if (dpl->generators.items[i].function_handle == function_handle) {
@@ -1322,7 +1322,7 @@ bool _dplg_register_user(DPL* dpl, DPL_Function_Handle function_handle, DPL_Gene
 }
 
 
-DPL_Generator* _dplg_find_by_function_handle(DPL* dpl, DPL_Function_Handle function_handle)
+DPL_Generator* _dplg_find_by_function_handle(DPL* dpl, DPL_Handle function_handle)
 {
     for (size_t i = 0; i < dpl->generators.count; ++i) {
         if (dpl->generators.items[i].function_handle == function_handle) {
