@@ -7,33 +7,32 @@
 #include "externals.h"
 #include "program.h"
 
+// COMMON
+
+#ifndef DPL_HANDLES_CAPACITY
+#define DPL_HANDLES_CAPACITY 16
+#endif
+
+typedef uint16_t DPL_Handle;
+
+typedef struct {
+    DPL_Handle items[DPL_HANDLES_CAPACITY];
+    uint8_t count;
+} DPL_Handles;
+
+typedef struct {
+    DPL_Handles arguments;
+    DPL_Handle returns;
+} DPL_Signature;
+
 // CATALOG
 
 /// TYPES
 
-typedef size_t DPL_Type_Handle;
-
-typedef struct
-{
-    DPL_Type_Handle *items;
-    size_t count;
-    size_t capacity;
-} DPL_Type_Handles;
-
-typedef struct
-{
-} DPL_Type_AsBase;
-
-typedef struct
-{
-    DPL_Type_Handles arguments;
-    DPL_Type_Handle returns;
-} DPL_Type_AsFunction;
-
 typedef union
 {
-    DPL_Type_AsBase base;
-    DPL_Type_AsFunction function;
+    void* base;
+    DPL_Signature function;
 } DPL_Type_As;
 
 typedef enum
@@ -45,7 +44,7 @@ typedef enum
 typedef struct
 {
     Nob_String_View name;
-    DPL_Type_Handle handle;
+    DPL_Handle handle;
     size_t hash;
 
     DPL_Type_Kind kind;
@@ -59,23 +58,17 @@ typedef struct
     size_t capacity;
 
     // Common datatypes
-    DPL_Type_Handle number_handle;
-    DPL_Type_Handle string_handle;
-
-    // Common function types
-    DPL_Type_Handle unary_handle;
-    DPL_Type_Handle binary_handle;
+    DPL_Handle number_handle;
+    DPL_Handle string_handle;
 } DPL_Types;
 
 /// FUNCTIONS
 
-typedef size_t DPL_Function_Handle;
-
 typedef struct
 {
-    DPL_Function_Handle handle;
+    DPL_Handle handle;
     Nob_String_View name;
-    DPL_Type_Handle type;
+    DPL_Signature signature;
 } DPL_Function;
 
 typedef struct
@@ -90,7 +83,7 @@ typedef void (*DPL_Generator_UserCallback)(DPL_Program *, void *);
 
 typedef struct
 {
-    DPL_Function_Handle function_handle;
+    DPL_Handle function_handle;
     DPL_Generator_Callback callback;
     DPL_Generator_UserCallback user_callback;
     void *user_data;
@@ -244,7 +237,7 @@ typedef struct
 
 typedef struct
 {
-    DPL_Function_Handle function_handle;
+    DPL_Handle function_handle;
     DPL_CallTree_Nodes arguments;
 } DPL_CallTree_Function;
 
@@ -263,7 +256,7 @@ typedef union
 struct _DPL_CallTree_Node
 {
     DPL_CallTreeNodeKind kind;
-    DPL_Type_Handle type_handle;
+    DPL_Handle type_handle;
     DPL_CallTree_Node_As as;
 };
 
