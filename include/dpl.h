@@ -20,24 +20,19 @@ typedef struct {
     uint8_t count;
 } DPL_Handles;
 
+typedef struct {
+    DPL_Handles arguments;
+    DPL_Handle returns;
+} DPL_Signature;
+
 // CATALOG
 
 /// TYPES
 
-typedef struct
-{
-} DPL_Type_AsBase;
-
-typedef struct
-{
-    DPL_Handles arguments;
-    DPL_Handle returns;
-} DPL_Type_AsFunction;
-
 typedef union
 {
-    DPL_Type_AsBase base;
-    DPL_Type_AsFunction function;
+    void* base;
+    DPL_Signature function;
 } DPL_Type_As;
 
 typedef enum
