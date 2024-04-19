@@ -60,10 +60,6 @@ typedef struct
     // Common datatypes
     DPL_Handle number_handle;
     DPL_Handle string_handle;
-
-    // Common function types
-    DPL_Handle unary_handle;
-    DPL_Handle binary_handle;
 } DPL_Types;
 
 /// FUNCTIONS
@@ -72,7 +68,7 @@ typedef struct
 {
     DPL_Handle handle;
     Nob_String_View name;
-    DPL_Handle type;
+    DPL_Signature signature;
 } DPL_Function;
 
 typedef struct
