@@ -64,11 +64,20 @@ typedef struct
 
 /// FUNCTIONS
 
+typedef void (*DPL_Generator_Callback)(DPL_Program *, void *);
+
+typedef struct
+{
+    DPL_Generator_Callback callback;
+    void *user_data;
+} DPL_Generator;
+
 typedef struct
 {
     DPL_Handle handle;
     Nob_String_View name;
     DPL_Signature signature;
+    DPL_Generator generator;
 } DPL_Function;
 
 typedef struct
@@ -77,24 +86,6 @@ typedef struct
     size_t count;
     size_t capacity;
 } DPL_Functions;
-
-typedef void (*DPL_Generator_Callback)(DPL_Program *);
-typedef void (*DPL_Generator_UserCallback)(DPL_Program *, void *);
-
-typedef struct
-{
-    DPL_Handle function_handle;
-    DPL_Generator_Callback callback;
-    DPL_Generator_UserCallback user_callback;
-    void *user_data;
-} DPL_Generator;
-
-typedef struct
-{
-    DPL_Generator *items;
-    size_t count;
-    size_t capacity;
-} DPL_Generators;
 
 // LOCATION
 
@@ -277,7 +268,6 @@ typedef struct _DPL
     // Catalogs
     DPL_Types types;
     DPL_Functions functions;
-    DPL_Generators generators;
 
     // Common
     Nob_String_View file_name;
