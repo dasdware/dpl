@@ -7,14 +7,19 @@ DPL_Handle _dplt_register(DPL* types, DPL_Type type);
 DPL_Handle _dplt_register_by_name(DPL* types, Nob_String_View name);
 void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type);
 
-DPL_Handle _dplf_register(DPL* dpl, Nob_String_View name,
-                          DPL_Signature* signature);
+DPL_Handle _dplf_register(DPL* dpl,
+                          Nob_String_View name,
+                          DPL_Signature* signature,
+                          DPL_Generator_Callback generator_callback,
+                          void* generator_user_data);
 void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
 void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
 
-bool _dplg_register(DPL* dpl, DPL_Handle function_handle, DPL_Generator_Callback callback);
-bool _dplg_register_user(DPL* dpl, DPL_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data);
+void _dplg_generate_inst(DPL_Program* program, void* instruction)
+{
+    dplp_write(program, (DPL_Instruction_Kind) instruction);
+}
 
 void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 {
@@ -35,26 +40,14 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     _dpl_add_handle(&binary.arguments, dpl->types.number_handle);
     binary.returns = dpl->types.number_handle;
 
-    // negate
-    _dplg_register(dpl,
-                   _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary),
-                   &dplp_write_negate);
-    // add
-    _dplg_register(dpl,
-                   _dplf_register(dpl, nob_sv_from_cstr("add"), &binary),
-                   &dplp_write_add);
-    // subtract
-    _dplg_register(dpl,
-                   _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary),
-                   &dplp_write_subtract);
-    // multiply
-    _dplg_register(dpl,
-                   _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary),
-                   &dplp_write_multiply);
-    // divide
-    _dplg_register(dpl,
-                   _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary),
-                   &dplp_write_divide);
+    // unary operators
+    _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary, _dplg_generate_inst, (void*) INST_NEGATE);
+
+    // binary operators
+    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary, _dplg_generate_inst, (void*) INST_ADD);
+    _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary, _dplg_generate_inst, (void*) INST_SUBTRACT);
+    _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary, _dplg_generate_inst, (void*) INST_MULTIPLY);
+    _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary, _dplg_generate_inst, (void*) INST_DIVIDE);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);
@@ -91,7 +84,6 @@ void dpl_free(DPL *dpl)
     // catalog freeing
     nob_da_free(dpl->types);
     nob_da_free(dpl->functions);
-    nob_da_free(dpl->generators);
 
     // parser freeing
     arena_free(&dpl->tree.memory);
@@ -254,13 +246,20 @@ void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type)
 
 /// FUNCTIONS
 
-DPL_Handle _dplf_register(DPL* dpl, Nob_String_View name,
-                          DPL_Signature* signature)
+DPL_Handle _dplf_register(DPL* dpl,
+                          Nob_String_View name,
+                          DPL_Signature* signature,
+                          DPL_Generator_Callback generator_callback,
+                          void* generator_user_data)
 {
     DPL_Function function = {
         .handle = dpl->functions.count + 1,
         .name = name,
         .signature = *signature,
+        .generator = {
+            .callback = generator_callback,
+            .user_data = generator_user_data,
+        },
     };
     nob_da_append(&dpl->functions, function);
 
@@ -372,8 +371,8 @@ void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
             _dpl_add_handle(&signature.arguments, argument->handle);
         }
 
-        DPL_Handle handle = _dplf_register(dpl, nob_sv_from_cstr(external->name), &signature);
-        _dplg_register_user(dpl, handle, &_dplg_call_external_callback, (void*)i);
+        _dplf_register(dpl, nob_sv_from_cstr(external->name), &signature,
+                       _dplg_call_external_callback, (void*)i);
     }
 }
 
@@ -1241,56 +1240,6 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
 
 // PROGRAM GENERATION
 
-bool _dplg_register(DPL* dpl, DPL_Handle function_handle, DPL_Generator_Callback callback)
-{
-    for (size_t i = 0; i < dpl->generators.count; ++i) {
-        if (dpl->generators.items[i].function_handle == function_handle) {
-            return false;
-        }
-    }
-
-    DPL_Generator generator = {
-        .function_handle = function_handle,
-        .callback = callback,
-        .user_callback = NULL,
-        .user_data = NULL,
-    };
-    nob_da_append(&dpl->generators, generator);
-
-    return true;
-}
-
-bool _dplg_register_user(DPL* dpl, DPL_Handle function_handle, DPL_Generator_UserCallback callback, void* user_data)
-{
-    for (size_t i = 0; i < dpl->generators.count; ++i) {
-        if (dpl->generators.items[i].function_handle == function_handle) {
-            return false;
-        }
-    }
-
-    DPL_Generator generator = {
-        .function_handle = function_handle,
-        .callback = NULL,
-        .user_callback = callback,
-        .user_data = user_data,
-    };
-    nob_da_append(&dpl->generators, generator);
-
-    return true;
-}
-
-
-DPL_Generator* _dplg_find_by_function_handle(DPL* dpl, DPL_Handle function_handle)
-{
-    for (size_t i = 0; i < dpl->generators.count; ++i) {
-        if (dpl->generators.items[i].function_handle == function_handle) {
-            return &dpl->generators.items[i];
-        }
-    }
-
-    return NULL;
-}
-
 void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
@@ -1345,18 +1294,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
             _dplg_generate(dpl, f.arguments.items[i], program);
         }
 
-        DPL_Generator* generator = _dplg_find_by_function_handle(dpl, f.function_handle);
-        if (!generator) {
-            DPL_Function* function = _dplf_find_by_handle(dpl, f.function_handle);
-            fprintf(stderr, "Cannot generate program for function `"SV_Fmt"` (no code generator found).\n", SV_Arg(function->name));
-            exit(1);
-        }
-
-        if (generator->user_callback) {
-            generator->user_callback(program, generator->user_data);
-        } else {
-            generator->callback(program);
-        }
+        DPL_Function* function = _dplf_find_by_handle(dpl, f.function_handle);
+        function->generator.callback(program, function->generator.user_data);
     }
     break;
     case CALLTREE_NODE_SCOPE: {
@@ -1369,7 +1308,6 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
     }
     break;
-
     }
 }
 
