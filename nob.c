@@ -50,8 +50,6 @@ void build_dplc(void) {
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
-    nob_cmd_append(&cmd, "-lm");
-    nob_cmd_append(&cmd, "-o", "./"DPLC_OUTPUT);
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
                    "./src/externals.c",
@@ -59,6 +57,8 @@ void build_dplc(void) {
                    "./src/vm.c",
                    "./dplc.c",
                   );
+    nob_cmd_append(&cmd, "-lm");
+    nob_cmd_append(&cmd, "-o", "./"DPLC_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
@@ -74,14 +74,14 @@ void build_dpl(void)
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
-    nob_cmd_append(&cmd, "-lm");
-    nob_cmd_append(&cmd, "-o", "./"DPL_OUTPUT);
     nob_cmd_append(&cmd,
                    "./src/program.c",
                    "./src/externals.c",
                    "./src/vm.c",
                    "./dpl.c",
                   );
+    nob_cmd_append(&cmd, "-lm");
+    nob_cmd_append(&cmd, "-o", "./"DPL_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     if (!success) {
