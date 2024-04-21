@@ -44,6 +44,7 @@ const char* dplv_value_kind_name(DPL_ValueKind kind);
 DPL_Value dplv_number(double value);
 const char* dplv_format_number(DPL_Value value);
 
+DPL_Value dplv_string(DW_StringTable_Handle value);
 
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value);
 

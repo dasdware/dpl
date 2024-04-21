@@ -23,6 +23,15 @@ DPL_Value dplv_number(double value) {
     };
 }
 
+DPL_Value dplv_string(DW_StringTable_Handle value) {
+    return (DPL_Value) {
+        .kind = VALUE_STRING,
+        .as = {
+            .string = value
+        }
+    };
+}
+
 #define EPSILON 0.00001
 
 const char* dplv_format_number(DPL_Value value) {

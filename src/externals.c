@@ -39,6 +39,12 @@ void _dple_length_string_callback(DPL_VirtualMachine* vm) {
     dplv_replace_top(vm, dplv_number(length));
 }
 
+void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
+    DPL_Value value = dplv_peek(vm);
+    dplv_replace_top(vm, dplv_string(st_allocate_cstr(&vm->strings, dplv_format_number(value))));
+}
+
+
 void dple_init(DPL_ExternalFunctions* externals)
 {
     DPL_ExternalFunction* print_number = dple_add_by_name(externals, "print");
@@ -56,6 +62,10 @@ void dple_init(DPL_ExternalFunctions* externals)
     length_string->return_type = "number";
     length_string->callback = _dple_length_string_callback;
 
+    DPL_ExternalFunction* to_string_number = dple_add_by_name(externals, "to_string");
+    nob_da_append(&to_string_number->argument_types, "number");
+    to_string_number->return_type = "string";
+    to_string_number->callback = _dple_to_string_number_callback;
 }
 
 void dple_free(DPL_ExternalFunctions *externals)
