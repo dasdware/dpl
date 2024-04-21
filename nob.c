@@ -50,6 +50,7 @@ void build_dplc(void) {
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
+    nob_cmd_append(&cmd, "-lm");
     nob_cmd_append(&cmd, "-o", "./"DPLC_OUTPUT);
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
@@ -73,6 +74,7 @@ void build_dpl(void)
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
+    nob_cmd_append(&cmd, "-lm");
     nob_cmd_append(&cmd, "-o", "./"DPL_OUTPUT);
     nob_cmd_append(&cmd,
                    "./src/program.c",
