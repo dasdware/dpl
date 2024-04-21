@@ -475,6 +475,14 @@ void _dpll_error(DPL* dpl, const char *fmt, ...)
     exit(1);
 }
 
+bool _dpll_is_ident_begin(char c) {
+    return c == '_' ||  isalpha(c);
+}
+
+bool _dpll_is_ident(char c) {
+    return c == '_' ||  isalnum(c);
+}
+
 DPL_Token _dpll_next_token(DPL* dpl)
 {
     if (dpl->peek_token.kind != TOKEN_NONE) {
@@ -552,9 +560,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_NUMBER);
     }
 
-    if (isalpha(_dpll_current(dpl)))
+    if (_dpll_is_ident_begin(_dpll_current(dpl)))
     {
-        while (!_dpll_is_eof(dpl) && isalnum(_dpll_current(dpl)))
+        while (!_dpll_is_eof(dpl) && _dpll_is_ident(_dpll_current(dpl)))
             _dpll_advance(dpl);
 
         return _dpll_build_token(dpl, TOKEN_IDENTIFIER);
