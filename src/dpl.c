@@ -31,23 +31,30 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 
     /// FUNCTIONS AND GENERATORS
 
-    DPL_Signature unary = {0};
-    _dpl_add_handle(&unary.arguments, dpl->types.number_handle);
-    unary.returns = dpl->types.number_handle;
+    DPL_Signature unary_number = {0};
+    _dpl_add_handle(&unary_number.arguments, dpl->types.number_handle);
+    unary_number.returns = dpl->types.number_handle;
 
-    DPL_Signature binary = {0};
-    _dpl_add_handle(&binary.arguments, dpl->types.number_handle);
-    _dpl_add_handle(&binary.arguments, dpl->types.number_handle);
-    binary.returns = dpl->types.number_handle;
+    DPL_Signature binary_number = {0};
+    _dpl_add_handle(&binary_number.arguments, dpl->types.number_handle);
+    _dpl_add_handle(&binary_number.arguments, dpl->types.number_handle);
+    binary_number.returns = dpl->types.number_handle;
+
+    DPL_Signature binary_string = {0};
+    _dpl_add_handle(&binary_string.arguments, dpl->types.string_handle);
+    _dpl_add_handle(&binary_string.arguments, dpl->types.string_handle);
+    binary_string.returns = dpl->types.string_handle;
+
 
     // unary operators
-    _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary, _dplg_generate_inst, (void*) INST_NEGATE);
+    _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary_number, _dplg_generate_inst, (void*) INST_NEGATE);
 
     // binary operators
-    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary, _dplg_generate_inst, (void*) INST_ADD);
-    _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary, _dplg_generate_inst, (void*) INST_SUBTRACT);
-    _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary, _dplg_generate_inst, (void*) INST_MULTIPLY);
-    _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary, _dplg_generate_inst, (void*) INST_DIVIDE);
+    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary_number, _dplg_generate_inst, (void*) INST_ADD);
+    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary_string, _dplg_generate_inst, (void*) INST_ADD);
+    _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary_number, _dplg_generate_inst, (void*) INST_SUBTRACT);
+    _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary_number, _dplg_generate_inst, (void*) INST_MULTIPLY);
+    _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary_number, _dplg_generate_inst, (void*) INST_DIVIDE);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);

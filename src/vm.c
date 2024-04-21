@@ -119,8 +119,16 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0.as.number = -TOP0.as.number;
             break;
         case INST_ADD:
-            TOP1.as.number = TOP1.as.number + TOP0.as.number;
-            --vm->stack_top;
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+                TOP1.as.number = TOP1.as.number + TOP0.as.number;
+                --vm->stack_top;
+            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+                DW_StringTable_Handle result = st_concat(&vm->strings, TOP1.as.string, TOP0.as.string);
+                st_release(&vm->strings, TOP0.as.string);
+                st_release(&vm->strings, TOP1.as.string);
+                TOP1.as.string = result;
+                --vm->stack_top;
+            }
             break;
         case INST_SUBTRACT:
             TOP1.as.number = TOP1.as.number - TOP0.as.number;
