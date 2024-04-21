@@ -31,23 +31,30 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 
     /// FUNCTIONS AND GENERATORS
 
-    DPL_Signature unary = {0};
-    _dpl_add_handle(&unary.arguments, dpl->types.number_handle);
-    unary.returns = dpl->types.number_handle;
+    DPL_Signature unary_number = {0};
+    _dpl_add_handle(&unary_number.arguments, dpl->types.number_handle);
+    unary_number.returns = dpl->types.number_handle;
 
-    DPL_Signature binary = {0};
-    _dpl_add_handle(&binary.arguments, dpl->types.number_handle);
-    _dpl_add_handle(&binary.arguments, dpl->types.number_handle);
-    binary.returns = dpl->types.number_handle;
+    DPL_Signature binary_number = {0};
+    _dpl_add_handle(&binary_number.arguments, dpl->types.number_handle);
+    _dpl_add_handle(&binary_number.arguments, dpl->types.number_handle);
+    binary_number.returns = dpl->types.number_handle;
+
+    DPL_Signature binary_string = {0};
+    _dpl_add_handle(&binary_string.arguments, dpl->types.string_handle);
+    _dpl_add_handle(&binary_string.arguments, dpl->types.string_handle);
+    binary_string.returns = dpl->types.string_handle;
+
 
     // unary operators
-    _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary, _dplg_generate_inst, (void*) INST_NEGATE);
+    _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary_number, _dplg_generate_inst, (void*) INST_NEGATE);
 
     // binary operators
-    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary, _dplg_generate_inst, (void*) INST_ADD);
-    _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary, _dplg_generate_inst, (void*) INST_SUBTRACT);
-    _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary, _dplg_generate_inst, (void*) INST_MULTIPLY);
-    _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary, _dplg_generate_inst, (void*) INST_DIVIDE);
+    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary_number, _dplg_generate_inst, (void*) INST_ADD);
+    _dplf_register(dpl, nob_sv_from_cstr("add"), &binary_string, _dplg_generate_inst, (void*) INST_ADD);
+    _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary_number, _dplg_generate_inst, (void*) INST_SUBTRACT);
+    _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary_number, _dplg_generate_inst, (void*) INST_MULTIPLY);
+    _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary_number, _dplg_generate_inst, (void*) INST_DIVIDE);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);
@@ -468,6 +475,14 @@ void _dpll_error(DPL* dpl, const char *fmt, ...)
     exit(1);
 }
 
+bool _dpll_is_ident_begin(char c) {
+    return c == '_' ||  isalpha(c);
+}
+
+bool _dpll_is_ident(char c) {
+    return c == '_' ||  isalnum(c);
+}
+
 DPL_Token _dpll_next_token(DPL* dpl)
 {
     if (dpl->peek_token.kind != TOKEN_NONE) {
@@ -545,9 +560,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_NUMBER);
     }
 
-    if (isalpha(_dpll_current(dpl)))
+    if (_dpll_is_ident_begin(_dpll_current(dpl)))
     {
-        while (!_dpll_is_eof(dpl) && isalnum(_dpll_current(dpl)))
+        while (!_dpll_is_eof(dpl) && _dpll_is_ident(_dpll_current(dpl)))
             _dpll_advance(dpl);
 
         return _dpll_build_token(dpl, TOKEN_IDENTIFIER);

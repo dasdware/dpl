@@ -1,5 +1,6 @@
 #include "vm.h"
 #include "externals.h"
+#include "math.h"
 
 const char* dplv_value_kind_name(DPL_ValueKind kind) {
     switch (kind) {
@@ -13,12 +14,43 @@ const char* dplv_value_kind_name(DPL_ValueKind kind) {
     exit(1);
 }
 
+DPL_Value dplv_number(double value) {
+    return (DPL_Value) {
+        .kind = VALUE_NUMBER,
+        .as = {
+            .number = value
+        }
+    };
+}
+
+DPL_Value dplv_string(DW_StringTable_Handle value) {
+    return (DPL_Value) {
+        .kind = VALUE_STRING,
+        .as = {
+            .string = value
+        }
+    };
+}
+
+#define EPSILON 0.00001
+
+const char* dplv_format_number(DPL_Value value) {
+    static char buffer[16];
+    double abs_value = fabs(value.as.number);
+    if (abs_value - floorf(abs_value) < EPSILON) {
+        snprintf(buffer, 16, "%i", (int) round(value.as.number));
+    } else {
+        snprintf(buffer, 16, "%f", value.as.number);
+    }
+    return buffer;
+}
+
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
     (void) vm;
     const char* kind_name = dplv_value_kind_name(value.kind);
     switch (value.kind) {
     case VALUE_NUMBER:
-        printf("[%s: %f]", kind_name, value.as.number);
+        printf("[%s: %s]", kind_name, dplv_format_number(value));
         break;
     case VALUE_STRING: {
         printf("[%s: \"", kind_name);
@@ -119,8 +151,16 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0.as.number = -TOP0.as.number;
             break;
         case INST_ADD:
-            TOP1.as.number = TOP1.as.number + TOP0.as.number;
-            --vm->stack_top;
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+                TOP1.as.number = TOP1.as.number + TOP0.as.number;
+                --vm->stack_top;
+            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+                DW_StringTable_Handle result = st_concat(&vm->strings, TOP1.as.string, TOP0.as.string);
+                st_release(&vm->strings, TOP0.as.string);
+                st_release(&vm->strings, TOP1.as.string);
+                TOP1.as.string = result;
+                --vm->stack_top;
+            }
             break;
         case INST_SUBTRACT:
             TOP1.as.number = TOP1.as.number - TOP0.as.number;
@@ -181,4 +221,8 @@ void dplv_run(DPL_VirtualMachine *vm)
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
     return vm->stack[vm->stack_top - 1];
+}
+
+void dplv_replace_top(DPL_VirtualMachine *vm, DPL_Value value) {
+    vm->stack[vm->stack_top - 1] = value;
 }

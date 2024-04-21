@@ -1,2 +1,6 @@
 "leak";
-print("Hello, world!\n")
+print("Hello, world!\n");
+print("Foo" + " " + "bar\n");
+print("Hello, world!".length());
+print("\n");
+print("Length of 'foo' is " + "foo".length().to_string() + ".\n")

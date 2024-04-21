@@ -19,7 +19,7 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
     DPL_Value value = dplv_peek(vm);
     switch (value.kind) {
     case VALUE_NUMBER:
-        printf("%f", value.as.number);
+        printf("%s", dplv_format_number(value));
         break;
     case VALUE_STRING:
         printf("%s", st_get(&vm->strings, value.as.string));
@@ -29,6 +29,21 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
         exit(1);
     }
 }
+
+void _dple_length_string_callback(DPL_VirtualMachine* vm) {
+    DPL_Value value = dplv_peek(vm);
+
+    double length = st_length(&vm->strings, value.as.string);
+    st_release(&vm->strings, value.as.string);
+
+    dplv_replace_top(vm, dplv_number(length));
+}
+
+void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
+    DPL_Value value = dplv_peek(vm);
+    dplv_replace_top(vm, dplv_string(st_allocate_cstr(&vm->strings, dplv_format_number(value))));
+}
+
 
 void dple_init(DPL_ExternalFunctions* externals)
 {
@@ -41,6 +56,16 @@ void dple_init(DPL_ExternalFunctions* externals)
     nob_da_append(&print_string->argument_types, "string");
     print_string->return_type = "string";
     print_string->callback = _dple_print_callback;
+
+    DPL_ExternalFunction* length_string = dple_add_by_name(externals, "length");
+    nob_da_append(&length_string->argument_types, "string");
+    length_string->return_type = "number";
+    length_string->callback = _dple_length_string_callback;
+
+    DPL_ExternalFunction* to_string_number = dple_add_by_name(externals, "to_string");
+    nob_da_append(&to_string_number->argument_types, "number");
+    to_string_number->return_type = "string";
+    to_string_number->callback = _dple_to_string_number_callback;
 }
 
 void dple_free(DPL_ExternalFunctions *externals)
