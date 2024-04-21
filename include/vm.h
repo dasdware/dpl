@@ -40,7 +40,10 @@ typedef struct
 } DPL_VirtualMachine;
 
 const char* dplv_value_kind_name(DPL_ValueKind kind);
+
 DPL_Value dplv_number(double value);
+const char* dplv_format_number(DPL_Value value);
+
 
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value);
 
