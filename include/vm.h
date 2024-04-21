@@ -40,6 +40,8 @@ typedef struct
 } DPL_VirtualMachine;
 
 const char* dplv_value_kind_name(DPL_ValueKind kind);
+DPL_Value dplv_number(double value);
+
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value);
 
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals);
@@ -48,5 +50,6 @@ void dplv_free(DPL_VirtualMachine *vm);
 void dplv_run(DPL_VirtualMachine *vm);
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm);
+void dplv_replace_top(DPL_VirtualMachine *vm, DPL_Value value);
 
 #endif // __DPL_VM_H

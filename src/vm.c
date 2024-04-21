@@ -13,6 +13,15 @@ const char* dplv_value_kind_name(DPL_ValueKind kind) {
     exit(1);
 }
 
+DPL_Value dplv_number(double value) {
+    return (DPL_Value) {
+        .kind = VALUE_NUMBER,
+        .as = {
+            .number = value
+        }
+    };
+}
+
 void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
     (void) vm;
     const char* kind_name = dplv_value_kind_name(value.kind);
@@ -189,4 +198,8 @@ void dplv_run(DPL_VirtualMachine *vm)
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
     return vm->stack[vm->stack_top - 1];
+}
+
+void dplv_replace_top(DPL_VirtualMachine *vm, DPL_Value value) {
+    vm->stack[vm->stack_top - 1] = value;
 }

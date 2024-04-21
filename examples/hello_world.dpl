@@ -1,3 +1,4 @@
 "leak";
 print("Hello, world!\n");
-print("Foo" + " " + "bar")
+print("Foo" + " " + "bar\n");
+print("Hello, world!".length())
