@@ -809,7 +809,7 @@ typedef struct
     size_t capacity;
 } _DPL_Ast_NodeList;
 
-_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter)
+_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing)
 {
     _DPL_Ast_NodeList list = {0};
     nob_da_append(&list, _dplp_parse_expression(dpl));
@@ -817,6 +817,10 @@ _DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter)
     DPL_Token delimiter_candidate = _dplp_peek_token(dpl);
     while (delimiter_candidate.kind == delimiter) {
         _dplp_next_token(dpl);
+        if (_dplp_peek_token(dpl).kind == closing) {
+            break;
+        }
+
         nob_da_append(&list, _dplp_parse_expression(dpl));
         delimiter_candidate = _dplp_peek_token(dpl);
     }
@@ -853,7 +857,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
         if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
-            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA);
+            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN);
             if (arguments.count > 0) {
                 node->as.function_call.argument_count = arguments.count;
                 node->as.function_call.arguments = arena_alloc(
@@ -978,7 +982,7 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token)
 
     if (_dplp_peek_token(dpl).kind != closing_token) {
 
-        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON);
+        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token);
         if (expressions.count > 0) {
             node->as.scope.expression_count = expressions.count;
             node->as.scope.expressions = arena_alloc(
