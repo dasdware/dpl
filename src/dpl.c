@@ -554,6 +554,19 @@ DPL_Token _dpll_next_token(DPL* dpl)
 
     if (isdigit(_dpll_current(dpl)))
     {
+        // integral part
+        while (!_dpll_is_eof(dpl) && isdigit(_dpll_current(dpl)))
+            _dpll_advance(dpl);
+
+        if ((dpl->position >= dpl->source.count - 1)
+                || *(dpl->source.data + dpl->position) != '.'
+                || !isdigit(*(dpl->source.data + dpl->position + 1)))
+        {
+            return _dpll_build_token(dpl, TOKEN_NUMBER);
+        }
+        _dpll_advance(dpl); // skip the '.'
+
+        // fractional part
         while (!_dpll_is_eof(dpl) && isdigit(_dpll_current(dpl)))
             _dpll_advance(dpl);
 
