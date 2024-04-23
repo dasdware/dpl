@@ -116,6 +116,8 @@ typedef enum
     TOKEN_SLASH,
 
     TOKEN_DOT,
+    TOKEN_COLON,
+    TOKEN_COLON_EQUAL,
 
     TOKEN_OPEN_PAREN,
     TOKEN_CLOSE_PAREN,
@@ -127,6 +129,8 @@ typedef enum
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
     TOKEN_STRING,
+
+    TOKEN_KEYWORD_CONSTANT,
 } DPL_TokenKind;
 
 typedef struct
@@ -145,6 +149,7 @@ typedef enum
     AST_NODE_BINARY,
     AST_NODE_FUNCTIONCALL,
     AST_NODE_SCOPE,
+    AST_NODE_DECLARATION,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -181,6 +186,14 @@ typedef struct
     DPL_Ast_Node** expressions;
 } DPL_Ast_Scope;
 
+typedef struct
+{
+    DPL_Token keyword;
+    DPL_Token name;
+    DPL_Token type;
+    DPL_Ast_Node* initialization;
+} DPL_Ast_Declaration;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
@@ -188,6 +201,7 @@ union DPL_Ast_Node_As
     DPL_Ast_Binary binary;
     DPL_Ast_FunctionCall function_call;
     DPL_Ast_Scope scope;
+    DPL_Ast_Declaration declaration;
 };
 
 struct _DPL_Ast_Node

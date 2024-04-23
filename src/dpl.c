@@ -532,6 +532,13 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case '.':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_DOT);
+    case ':':
+        _dpll_advance(dpl);
+        if (_dpll_current(dpl) == '=') {
+            _dpll_advance(dpl);
+            return _dpll_build_token(dpl, TOKEN_COLON_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_COLON);
     case '(':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_OPEN_PAREN);
@@ -578,7 +585,12 @@ DPL_Token _dpll_next_token(DPL* dpl)
         while (!_dpll_is_eof(dpl) && _dpll_is_ident(_dpll_current(dpl)))
             _dpll_advance(dpl);
 
-        return _dpll_build_token(dpl, TOKEN_IDENTIFIER);
+        DPL_Token t = _dpll_build_token(dpl, TOKEN_IDENTIFIER);
+        if (nob_sv_eq(t.text, nob_sv_from_cstr("constant"))) {
+            t.kind = TOKEN_KEYWORD_CONSTANT;
+        }
+
+        return t;
     }
 
 
@@ -630,10 +642,13 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "EOF";
     case TOKEN_NUMBER:
         return "NUMBER";
-    case TOKEN_IDENTIFIER:
-        return "IDENTIFIER";
     case TOKEN_STRING:
         return "STRING";
+    case TOKEN_IDENTIFIER:
+        return "IDENTIFIER";
+    case TOKEN_KEYWORD_CONSTANT:
+        return "CONSTANT";
+
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
 
@@ -648,6 +663,10 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
 
     case TOKEN_DOT:
         return "DOT";
+    case TOKEN_COLON:
+        return "COLON";
+    case TOKEN_COLON_EQUAL:
+        return "COLON_EQUAL";
 
     case TOKEN_OPEN_PAREN:
         return "OPEN_PAREN";
@@ -706,6 +725,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_FUNCTIONCALL";
     case AST_NODE_SCOPE:
         return "AST_NODE_SCOPE";
+    case AST_NODE_DECLARATION:
+        return "AST_NODE_DECLARATION";
     }
 
     assert(false && "unreachable: _dpla_node_kind_name");
@@ -764,6 +785,14 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         }
     }
     break;
+    case AST_NODE_DECLARATION: {
+        DPL_Ast_Declaration declaration = node->as.declaration;
+        printf(" [%s "SV_Fmt": "SV_Fmt"]\n", _dpll_token_kind_name(declaration.keyword.kind), SV_Arg(declaration.name.text), SV_Arg(declaration.type.text));
+        _dpla_print_indent(level + 1);
+        printf("<initialization>\n");
+        _dpla_print(declaration.initialization, level + 2);
+    }
+    break;
     default: {
         printf("\n");
         break;
@@ -815,6 +844,22 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token);
 
+DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
+    DPL_Token keyword_candidate = _dplp_peek_token(dpl);
+    if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT) {
+        DPL_Ast_Node* declaration = _dpla_create_node(&dpl->tree, AST_NODE_DECLARATION);
+        declaration->as.declaration.keyword = _dplp_next_token(dpl);
+        declaration->as.declaration.name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        _dplp_expect_token(dpl, TOKEN_COLON);
+        declaration->as.declaration.type = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
+        declaration->as.declaration.initialization = _dplp_parse_expression(dpl);
+        return declaration;
+    }
+
+    return _dplp_parse_expression(dpl);
+}
+
 typedef struct
 {
     DPL_Ast_Node** items;
@@ -822,10 +867,14 @@ typedef struct
     size_t capacity;
 } _DPL_Ast_NodeList;
 
-_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing)
+_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
 {
     _DPL_Ast_NodeList list = {0};
-    nob_da_append(&list, _dplp_parse_expression(dpl));
+    if (allow_declarations) {
+        nob_da_append(&list, _dplp_parse_declaration(dpl));
+    } else {
+        nob_da_append(&list, _dplp_parse_expression(dpl));
+    }
 
     DPL_Token delimiter_candidate = _dplp_peek_token(dpl);
     while (delimiter_candidate.kind == delimiter) {
@@ -834,7 +883,11 @@ _DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL
             break;
         }
 
-        nob_da_append(&list, _dplp_parse_expression(dpl));
+        if (allow_declarations) {
+            nob_da_append(&list, _dplp_parse_declaration(dpl));
+        } else {
+            nob_da_append(&list, _dplp_parse_expression(dpl));
+        }
         delimiter_candidate = _dplp_peek_token(dpl);
     }
 
@@ -870,7 +923,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
         if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
-            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN);
+            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
             if (arguments.count > 0) {
                 node->as.function_call.argument_count = arguments.count;
                 node->as.function_call.arguments = arena_alloc(
@@ -995,7 +1048,7 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token)
 
     if (_dplp_peek_token(dpl).kind != closing_token) {
 
-        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token);
+        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token, true);
         if (expressions.count > 0) {
             node->as.scope.expression_count = expressions.count;
             node->as.scope.expressions = arena_alloc(
