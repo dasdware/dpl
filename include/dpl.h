@@ -191,6 +191,7 @@ typedef struct
     DPL_Token keyword;
     DPL_Token name;
     DPL_Token type;
+    DPL_Token assignment;
     DPL_Ast_Node* initialization;
 } DPL_Ast_Declaration;
 
@@ -218,6 +219,47 @@ typedef struct
 
 
 // CALLTREE
+
+typedef enum {
+    SYMBOL_CONSTANT,
+} DPL_SymbolKind;
+
+typedef union {
+    double number;
+    Nob_String_View string;
+} DPL_SymbolValue_As;
+
+typedef struct {
+    DPL_Handle type_handle;
+    DPL_SymbolValue_As as;
+} DPL_SymbolValue;
+
+typedef union {
+    DPL_SymbolValue constant;
+} DPL_Symbol_As;
+
+typedef struct {
+    DPL_SymbolKind kind;
+    Nob_String_View name;
+    DPL_Symbol_As as;
+} DPL_Symbol;
+
+typedef struct {
+    DPL_Symbol *items;
+    size_t count;
+    size_t capacity;
+} DPL_Symbols;
+
+typedef struct {
+    size_t *items;
+    size_t count;
+    size_t capacity;
+} DPL_Frames;
+
+typedef struct {
+    DPL_Symbols symbols;
+    DPL_Frames frames;
+} DPL_SymbolStack;
 
 typedef enum
 {
@@ -300,6 +342,7 @@ typedef struct _DPL
     DPL_Ast_Tree tree;
 
     // Binder
+    DPL_SymbolStack symbol_stack;
     DPL_CallTree calltree;
 } DPL;
 
