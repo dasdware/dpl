@@ -727,6 +727,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_SCOPE";
     case AST_NODE_DECLARATION:
         return "AST_NODE_DECLARATION";
+    case AST_NODE_SYMBOL:
+        return "AST_NODE_SYMBOL";
     }
 
     assert(false && "unreachable: _dpla_node_kind_name");
@@ -761,7 +763,8 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(node->as.binary.right, level + 1);
         break;
     }
-    case AST_NODE_LITERAL: {
+    case AST_NODE_LITERAL:
+    case AST_NODE_SYMBOL: {
         printf(" [%s: "SV_Fmt"]\n", _dpll_token_kind_name(node->as.literal.value.kind), SV_Arg(node->as.literal.value.text));
         break;
     }
@@ -917,24 +920,29 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         return node;
     }
     case TOKEN_IDENTIFIER: {
-        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTIONCALL);
-        node->as.function_call.name = token;
+        if (_dplp_peek_token(dpl).kind == TOKEN_OPEN_PAREN) {
+            DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTIONCALL);
+            node->as.function_call.name = token;
 
-        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+            _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
-        if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
-            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
-            if (arguments.count > 0) {
-                node->as.function_call.argument_count = arguments.count;
-                node->as.function_call.arguments = arena_alloc(
-                                                       &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
-                memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
-                nob_da_free(arguments);
+            if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
+                _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
+                if (arguments.count > 0) {
+                    node->as.function_call.argument_count = arguments.count;
+                    node->as.function_call.arguments = arena_alloc(
+                                                           &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
+                    memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
+                    nob_da_free(arguments);
+                }
             }
+
+            _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+            return node;
         }
 
-        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
-
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_SYMBOL);
+        node->as.symbol = token;
         return node;
     }
     default: {

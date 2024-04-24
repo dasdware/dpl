@@ -150,6 +150,7 @@ typedef enum
     AST_NODE_FUNCTIONCALL,
     AST_NODE_SCOPE,
     AST_NODE_DECLARATION,
+    AST_NODE_SYMBOL,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -203,6 +204,7 @@ union DPL_Ast_Node_As
     DPL_Ast_FunctionCall function_call;
     DPL_Ast_Scope scope;
     DPL_Ast_Declaration declaration;
+    DPL_Token symbol;
 };
 
 struct _DPL_Ast_Node
