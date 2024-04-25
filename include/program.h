@@ -53,6 +53,7 @@ void dplp_write_divide(DPL_Program *program);
 
 void dplp_write_call_external(DPL_Program *program, size_t external_num);
 
+void dplp_print_escaped_string(const char* value, size_t length);
 void dplp_print(DPL_Program *program);
 
 bool dplp_save(DPL_Program* program, const char* file_name);

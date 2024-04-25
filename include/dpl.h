@@ -222,22 +222,22 @@ typedef struct
 
 // CALLTREE
 
+typedef union {
+    double number;
+    Nob_String_View string;
+} DPL_CallTree_Value_As;
+
+typedef struct {
+    DPL_Handle type_handle;
+    DPL_CallTree_Value_As as;
+} DPL_CallTree_Value;
+
 typedef enum {
     SYMBOL_CONSTANT,
 } DPL_SymbolKind;
 
 typedef union {
-    double number;
-    Nob_String_View string;
-} DPL_SymbolValue_As;
-
-typedef struct {
-    DPL_Handle type_handle;
-    DPL_SymbolValue_As as;
-} DPL_SymbolValue;
-
-typedef union {
-    DPL_SymbolValue constant;
+    DPL_CallTree_Value constant;
 } DPL_Symbol_As;
 
 typedef struct {
@@ -271,11 +271,6 @@ typedef enum
 } DPL_CallTreeNodeKind;
 
 typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
-
-typedef struct
-{
-    DPL_Ast_Node *ast_node;
-} DPL_CallTree_Value;
 
 typedef struct
 {

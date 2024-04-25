@@ -102,6 +102,26 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     exit(1);
 }
 
+void dplp_print_escaped_string(const char* value, size_t length) {
+    char* pos = (char*)value;
+    for (size_t i = 0; i < length; ++i) {
+        switch (*pos) {
+        case '\n':
+            printf("\\n");
+            break;
+        case '\r':
+            printf("\\r");
+            break;
+        case '\t':
+            printf("\\t");
+            break;
+        default:
+            printf("%c", *pos);
+        }
+        ++pos;
+    }
+}
+
 void dplp_print(DPL_Program *program) {
     printf("%zu bytes in constant chunk:\n", program->constants.count);
     for (size_t i = 0; i < program->constants.count; ++i) {
@@ -137,23 +157,9 @@ void dplp_print(DPL_Program *program) {
             size_t length = *(size_t*)(program->constants.items + offset);
 
             printf(" %zu: (length: %zu, value: \"", offset, length);
-            char* pos = (char*)(program->constants.items + offset + sizeof(length));
-            for (size_t i = 0; i < length; ++i) {
-                switch (*pos) {
-                case '\n':
-                    printf("\\n");
-                    break;
-                case '\r':
-                    printf("\\r");
-                    break;
-                case '\t':
-                    printf("\\t");
-                    break;
-                default:
-                    printf("%c", *pos);
-                }
-                ++pos;
-            }
+            dplp_print_escaped_string(
+                (char*)(program->constants.items + offset + sizeof(length)),
+                length);
             printf("\")");
 
             ip += sizeof(offset);

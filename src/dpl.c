@@ -1089,6 +1089,16 @@ void _dplc_symbols_end_scope(DPL* dpl) {
     s->symbols.count = s->frames.items[s->frames.count];
 }
 
+DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
+    DPL_SymbolStack* s = &dpl->symbol_stack;
+    for (size_t i = s->symbols.count; i > 0; --i) {
+        if (nob_sv_eq(s->symbols.items[i - 1].name, name)) {
+            return &s->symbols.items[i - 1];
+        }
+    }
+    return NULL;
+}
+
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
 DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
@@ -1228,20 +1238,55 @@ DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
     return result_ctn;
 }
 
-DPL_SymbolValue _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
+Nob_String_View _dplc_unescape_string(DPL* dpl, Nob_String_View escaped_string) {
+    // unescape source string literal
+    char* unescaped_string = arena_alloc(&dpl->calltree.memory, sizeof(char) * (escaped_string.count - 2 + 1));
+    // -2 for quotes; +1 for terminating null byte
+
+    const char *source_pos = escaped_string.data + 1;
+    const char *source_end = escaped_string.data + escaped_string.count - 2;
+    char *target_pos = unescaped_string;
+
+    while (source_pos <= source_end) {
+        if (*source_pos == '\\') {
+            source_pos++;
+            switch (*source_pos) {
+            case 'n':
+                *target_pos = '\n';
+                break;
+            case 'r':
+                *target_pos = '\r';
+                break;
+            case 't':
+                *target_pos = '\t';
+                break;
+            }
+        } else {
+            *target_pos = *source_pos;
+        }
+
+        source_pos++;
+        target_pos++;
+    }
+
+    *target_pos = '\0';
+    return nob_sv_from_cstr(unescaped_string);
+}
+
+DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     switch (node->kind) {
     case AST_NODE_LITERAL: {
         DPL_Token value = node->as.literal.value;
         switch (value.kind) {
         case TOKEN_NUMBER:
-            return (DPL_SymbolValue) {
+            return (DPL_CallTree_Value) {
                 .type_handle = dpl->types.number_handle,
                 .as.number = atof(nob_temp_sv_to_cstr(value.text)),
             };
         case TOKEN_STRING:
-            return (DPL_SymbolValue) {
+            return (DPL_CallTree_Value) {
                 .type_handle = dpl->types.string_handle,
-                .as.string = nob_sv_from_parts(value.text.data + 1, value.text.count - 2),
+                .as.string = _dplc_unescape_string(dpl, value.text),
             };
         default:
             fprintf(stderr, "ERROR: Cannot fold literal constant of type `%s`.\n",
@@ -1270,14 +1315,14 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->types.number_handle;
-            calltree_node->as.value.ast_node = node;
+            calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->types.string_handle;
-            calltree_node->as.value.ast_node = node;
+            calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         break;
@@ -1357,6 +1402,21 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         return NULL;
     }
     break;
+    case AST_NODE_SYMBOL: {
+        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, node->as.symbol.text);
+        if (!symbol) {
+            fprintf(stderr, LOC_Fmt": ERROR: Cannot resolve symbol `"SV_Fmt"` in current scope.\n",
+                    LOC_Arg(node->as.symbol.location), SV_Arg(node->as.symbol.text));
+            _dpll_print_token_location(stderr, dpl, node->as.symbol);
+            exit(1);
+        }
+
+        DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+        calltree_node->kind = CALLTREE_NODE_VALUE;
+        calltree_node->type_handle = symbol->as.constant.type_handle;
+        calltree_node->as.value = symbol->as.constant;
+        return calltree_node;
+    }
     default:
         break;
     }
@@ -1405,7 +1465,14 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     }
     break;
     case CALLTREE_NODE_VALUE: {
-        printf("Value \""SV_Fmt"\"\n", SV_Arg(node->as.value.ast_node->as.literal.value.text));
+        printf("Value `");
+        if (node->as.value.type_handle == dpl->types.number_handle) {
+            printf("%f", node->as.value.as.number);
+        } else if (node->as.value.type_handle == dpl->types.string_handle) {
+            Nob_String_View value = node->as.value.as.string;
+            dplp_print_escaped_string(value.data, value.count);
+        }
+        printf("`\n");
     }
     break;
     case CALLTREE_NODE_SCOPE: {
@@ -1430,43 +1497,10 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
-        Nob_String_View value_text = node->as.value.ast_node->as.literal.value.text;
         if (node->type_handle == dpl->types.number_handle) {
-            double value = atof(nob_temp_sv_to_cstr(value_text));
-            dplp_write_push_number(program, value);
+            dplp_write_push_number(program, node->as.value.as.number);
         } else if (node->type_handle == dpl->types.string_handle) {
-            // unescape source string literal
-            char* value = nob_temp_alloc(sizeof(char) * (value_text.count - 2 + 1));
-            // -2 for quotes; +1 for terminating null byte
-
-            const char *source_pos = value_text.data + 1;
-            const char *source_end = value_text.data + value_text.count - 2;
-            char *target_pos = value;
-
-            while (source_pos <= source_end) {
-                if (*source_pos == '\\') {
-                    source_pos++;
-                    switch (*source_pos) {
-                    case 'n':
-                        *target_pos = '\n';
-                        break;
-                    case 'r':
-                        *target_pos = '\r';
-                        break;
-                    case 't':
-                        *target_pos = '\t';
-                        break;
-                    }
-                } else {
-                    *target_pos = *source_pos;
-                }
-
-                source_pos++;
-                target_pos++;
-            }
-            *target_pos = '\0';
-
-            dplp_write_push_string(program, value);
+            dplp_write_push_string(program, node->as.value.as.string.data);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             fprintf(stderr, "Cannot generate program for value node of type "SV_Fmt".\n", SV_Arg(type->name));

@@ -1,2 +1,5 @@
 constant pi: number := 3.14159;
 print(pi);
+
+constant hello: string := "Hello";
+print(hello + ", world!\n");
