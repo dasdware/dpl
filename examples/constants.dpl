@@ -1,5 +1,10 @@
 constant pi: number := 3.14159;
 print(pi.to_string() + "\n");
 
+{
+    constant pi2: number := 2 * pi;
+    print(pi2.to_string() + "\n")
+};
+
 constant hello: string := "Hello";
 print(hello + ", world!\n");

@@ -210,6 +210,7 @@ union DPL_Ast_Node_As
 struct _DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
+    DPL_Token identifier;
     union DPL_Ast_Node_As as;
 };
 
@@ -333,6 +334,7 @@ typedef struct _DPL
     const char *current_line;
     size_t line;
     size_t column;
+    DPL_Token first_token;
     DPL_Token peek_token;
 
     // Parser
