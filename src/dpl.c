@@ -1,5 +1,13 @@
 #include "dpl.h"
 
+#define DPL_TOKEN_ERROR(dpl, token, format, ...)                        \
+    do {                                                                \
+        fprintf(stderr, LOC_Fmt": ERROR: ", LOC_Arg((token).location)); \
+        fprintf(stderr, format, __VA_ARGS__);                           \
+        _dpll_print_token_location(stderr, (dpl), (token));             \
+        exit(1);                                                        \
+    } while(false)
+
 // Forward declarations needed for initialization
 void _dpl_add_handle(DPL_Handles* handles, DPL_Handle handle);
 
@@ -1296,15 +1304,105 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                 .as.string = _dplc_unescape_string(dpl, value.text),
             };
         default:
-            fprintf(stderr, "ERROR: Cannot fold literal constant of type `%s`.\n",
-                    _dpll_token_kind_name(value.kind));
-            exit(1);
+            DPL_TOKEN_ERROR(dpl, value, "Cannot fold literal constant of type `%s`.\n", _dpll_token_kind_name(value.kind));
         }
+    }
+    break;
+    case AST_NODE_BINARY: {
+        DPL_Token operator = node->as.binary.operator;
+        DPL_CallTree_Value lhs_value = _dplc_fold_constant(dpl, node->as.binary.left);
+        DPL_CallTree_Value rhs_value = _dplc_fold_constant(dpl, node->as.binary.right);
+
+        switch (operator.kind) {
+        case TOKEN_PLUS: {
+            if (lhs_value.type_handle == dpl->types.number_handle && rhs_value.type_handle == dpl->types.number_handle) {
+                return (DPL_CallTree_Value) {
+                    .type_handle = dpl->types.number_handle,
+                    .as.number = lhs_value.as.number + rhs_value.as.number,
+                };
+            }
+            if (lhs_value.type_handle == dpl->types.string_handle && rhs_value.type_handle == dpl->types.string_handle) {
+                return (DPL_CallTree_Value) {
+                    .type_handle = dpl->types.string_handle,
+                    .as.string = nob_sv_from_cstr(nob_temp_sprintf(SV_Fmt SV_Fmt, SV_Arg(lhs_value.as.string), SV_Arg(rhs_value.as.string))),
+                };
+            }
+
+            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Both operands must be either of type `number` or `string`.\n",
+                            _dpll_token_kind_name(operator.kind));
+
+        }
+        case TOKEN_MINUS: {
+            if (lhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+            if (rhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = lhs_value.as.number - rhs_value.as.number,
+            };
+        }
+        break;
+        case TOKEN_STAR: {
+            if (lhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+            if (rhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = lhs_value.as.number * rhs_value.as.number,
+            };
+        }
+        break;
+        case TOKEN_SLASH: {
+            if (lhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+            if (rhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = lhs_value.as.number / rhs_value.as.number,
+            };
+        }
+        break;
+        default:
+            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`.\n", _dpll_token_kind_name(operator.kind));
+        }
+    }
+    break;
+    case AST_NODE_SYMBOL: {
+        Nob_String_View symbol_name = node->as.symbol.text;
+        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, symbol_name);
+        if (!symbol) {
+            DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: unknown symbol `"SV_Fmt"`.\n", SV_Arg(symbol_name));
+        }
+
+        if (symbol->kind != SYMBOL_CONSTANT) {
+            DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: symbol `"SV_Fmt"` does not resolve to a constant value.\n", SV_Arg(symbol_name));
+        }
+
+        return symbol->as.constant;
     }
     break;
     default:
         break;
     }
+
 
     fprintf(stderr, "ERROR: Cannot fold constant expression of type `%s`.\n",
             _dpla_node_kind_name(node->kind));

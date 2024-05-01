@@ -7,4 +7,6 @@ print(pi.to_string() + "\n");
 };
 
 constant hello: string := "Hello";
-print(hello + ", world!\n");
+constant world: string := "World";
+constant hello_world: string := hello + ", " + world + "!";
+print(hello_world + "\n");
