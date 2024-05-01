@@ -868,8 +868,14 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         DPL_Ast_Node* declaration = _dpla_create_node(&dpl->tree, AST_NODE_DECLARATION, keyword_candidate);
         declaration->as.declaration.keyword = _dplp_next_token(dpl);
         declaration->as.declaration.name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
-        _dplp_expect_token(dpl, TOKEN_COLON);
-        declaration->as.declaration.type = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
+            _dplp_expect_token(dpl, TOKEN_COLON);
+            declaration->as.declaration.type = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        } else {
+            declaration->as.declaration.type = (DPL_Token) {
+                0
+            };
+        }
         declaration->as.declaration.assignment = _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
         declaration->identifier = declaration->as.declaration.assignment;
         declaration->as.declaration.initialization = _dplp_parse_expression(dpl);
@@ -1403,11 +1409,7 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         break;
     }
 
-
-    fprintf(stderr, "ERROR: Cannot fold constant expression of type `%s`.\n",
-            _dpla_node_kind_name(node->kind));
-    _dpll_print_token_location(stderr, dpl, node->identifier);
-    exit(1);
+    DPL_TOKEN_ERROR(dpl, node->identifier, "Cannot fold constant expression of type `%s`.\n", _dpla_node_kind_name(node->kind));
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
@@ -1488,19 +1490,21 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             .as.constant =  _dplc_fold_constant(dpl, decl->initialization),
         };
 
-        DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
-        if (!declared_type) {
-            fprintf(stderr, LOC_Fmt": ERROR: Unknown type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.\n", LOC_Arg(decl->type.location), SV_Arg(decl->type.text), SV_Arg(decl->name.text));
-            _dpll_print_token_location(stderr, dpl, decl->type);
-            exit(1);
-        }
+        if (decl->type.kind != TOKEN_NONE) {
+            DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
+            if (!declared_type) {
+                fprintf(stderr, LOC_Fmt": ERROR: Unknown type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.\n", LOC_Arg(decl->type.location), SV_Arg(decl->type.text), SV_Arg(decl->name.text));
+                _dpll_print_token_location(stderr, dpl, decl->type);
+                exit(1);
+            }
 
-        DPL_Type* folded_type = _dplt_find_by_handle(dpl,  s.as.constant.type_handle);
-        if (folded_type->handle != declared_type->handle) {
-            fprintf(stderr, LOC_Fmt": ERROR: Declared type `"SV_Fmt"` does not match folded type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.\n",
-                    LOC_Arg(decl->assignment.location), SV_Arg(declared_type->name), SV_Arg(folded_type->name), SV_Arg(decl->name.text));
-            _dpll_print_token_location(stderr, dpl, decl->assignment);
-            exit(1);
+            DPL_Type* folded_type = _dplt_find_by_handle(dpl,  s.as.constant.type_handle);
+            if (folded_type->handle != declared_type->handle) {
+                fprintf(stderr, LOC_Fmt": ERROR: Declared type `"SV_Fmt"` does not match folded type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.\n",
+                        LOC_Arg(decl->assignment.location), SV_Arg(declared_type->name), SV_Arg(folded_type->name), SV_Arg(decl->name.text));
+                _dpll_print_token_location(stderr, dpl, decl->assignment);
+                exit(1);
+            }
         }
 
         nob_da_append(&dpl->symbol_stack.symbols, s);
