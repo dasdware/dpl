@@ -116,6 +116,8 @@ typedef enum
     TOKEN_SLASH,
 
     TOKEN_DOT,
+    TOKEN_COLON,
+    TOKEN_COLON_EQUAL,
 
     TOKEN_OPEN_PAREN,
     TOKEN_CLOSE_PAREN,
@@ -127,6 +129,8 @@ typedef enum
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
     TOKEN_STRING,
+
+    TOKEN_KEYWORD_CONSTANT,
 } DPL_TokenKind;
 
 typedef struct
@@ -145,6 +149,8 @@ typedef enum
     AST_NODE_BINARY,
     AST_NODE_FUNCTIONCALL,
     AST_NODE_SCOPE,
+    AST_NODE_DECLARATION,
+    AST_NODE_SYMBOL,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -181,6 +187,15 @@ typedef struct
     DPL_Ast_Node** expressions;
 } DPL_Ast_Scope;
 
+typedef struct
+{
+    DPL_Token keyword;
+    DPL_Token name;
+    DPL_Token type;
+    DPL_Token assignment;
+    DPL_Ast_Node* initialization;
+} DPL_Ast_Declaration;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
@@ -188,11 +203,14 @@ union DPL_Ast_Node_As
     DPL_Ast_Binary binary;
     DPL_Ast_FunctionCall function_call;
     DPL_Ast_Scope scope;
+    DPL_Ast_Declaration declaration;
+    DPL_Token symbol;
 };
 
 struct _DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
+    DPL_Token identifier;
     union DPL_Ast_Node_As as;
 };
 
@@ -205,6 +223,47 @@ typedef struct
 
 // CALLTREE
 
+typedef union {
+    double number;
+    Nob_String_View string;
+} DPL_CallTree_Value_As;
+
+typedef struct {
+    DPL_Handle type_handle;
+    DPL_CallTree_Value_As as;
+} DPL_CallTree_Value;
+
+typedef enum {
+    SYMBOL_CONSTANT,
+} DPL_SymbolKind;
+
+typedef union {
+    DPL_CallTree_Value constant;
+} DPL_Symbol_As;
+
+typedef struct {
+    DPL_SymbolKind kind;
+    Nob_String_View name;
+    DPL_Symbol_As as;
+} DPL_Symbol;
+
+typedef struct {
+    DPL_Symbol *items;
+    size_t count;
+    size_t capacity;
+} DPL_Symbols;
+
+typedef struct {
+    size_t *items;
+    size_t count;
+    size_t capacity;
+} DPL_Frames;
+
+typedef struct {
+    DPL_Symbols symbols;
+    DPL_Frames frames;
+} DPL_SymbolStack;
+
 typedef enum
 {
     CALLTREE_NODE_VALUE = 0,
@@ -213,11 +272,6 @@ typedef enum
 } DPL_CallTreeNodeKind;
 
 typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
-
-typedef struct
-{
-    DPL_Ast_Node *ast_node;
-} DPL_CallTree_Value;
 
 typedef struct
 {
@@ -280,12 +334,14 @@ typedef struct _DPL
     const char *current_line;
     size_t line;
     size_t column;
+    DPL_Token first_token;
     DPL_Token peek_token;
 
     // Parser
     DPL_Ast_Tree tree;
 
     // Binder
+    DPL_SymbolStack symbol_stack;
     DPL_CallTree calltree;
 } DPL;
 

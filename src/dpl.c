@@ -1,5 +1,13 @@
 #include "dpl.h"
 
+#define DPL_TOKEN_ERROR(dpl, token, format, ...)                        \
+    do {                                                                \
+        fprintf(stderr, LOC_Fmt": ERROR: ", LOC_Arg((token).location)); \
+        fprintf(stderr, format, __VA_ARGS__);                           \
+        _dpll_print_token_location(stderr, (dpl), (token));             \
+        exit(1);                                                        \
+    } while(false)
+
 // Forward declarations needed for initialization
 void _dpl_add_handle(DPL_Handles* handles, DPL_Handle handle);
 
@@ -414,7 +422,7 @@ DPL_Location _dpll_current_location(DPL* dpl)
 
 DPL_Token _dpll_build_token(DPL* dpl, DPL_TokenKind kind)
 {
-    return (DPL_Token) {
+    DPL_Token token = (DPL_Token) {
         .kind = kind,
         .location = dpl->token_start_location,
         .text = nob_sv_from_parts(
@@ -422,6 +430,12 @@ DPL_Token _dpll_build_token(DPL* dpl, DPL_TokenKind kind)
                     dpl->position - dpl->token_start
                 ),
     };
+
+    if (dpl->first_token.kind == TOKEN_NONE) {
+        dpl->first_token = token;
+    }
+
+    return token;
 }
 
 DPL_Token _dpll_build_empty_token(DPL* dpl, DPL_TokenKind kind)
@@ -532,6 +546,13 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case '.':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_DOT);
+    case ':':
+        _dpll_advance(dpl);
+        if (_dpll_current(dpl) == '=') {
+            _dpll_advance(dpl);
+            return _dpll_build_token(dpl, TOKEN_COLON_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_COLON);
     case '(':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_OPEN_PAREN);
@@ -554,6 +575,19 @@ DPL_Token _dpll_next_token(DPL* dpl)
 
     if (isdigit(_dpll_current(dpl)))
     {
+        // integral part
+        while (!_dpll_is_eof(dpl) && isdigit(_dpll_current(dpl)))
+            _dpll_advance(dpl);
+
+        if ((dpl->position >= dpl->source.count - 1)
+                || *(dpl->source.data + dpl->position) != '.'
+                || !isdigit(*(dpl->source.data + dpl->position + 1)))
+        {
+            return _dpll_build_token(dpl, TOKEN_NUMBER);
+        }
+        _dpll_advance(dpl); // skip the '.'
+
+        // fractional part
         while (!_dpll_is_eof(dpl) && isdigit(_dpll_current(dpl)))
             _dpll_advance(dpl);
 
@@ -565,7 +599,12 @@ DPL_Token _dpll_next_token(DPL* dpl)
         while (!_dpll_is_eof(dpl) && _dpll_is_ident(_dpll_current(dpl)))
             _dpll_advance(dpl);
 
-        return _dpll_build_token(dpl, TOKEN_IDENTIFIER);
+        DPL_Token t = _dpll_build_token(dpl, TOKEN_IDENTIFIER);
+        if (nob_sv_eq(t.text, nob_sv_from_cstr("constant"))) {
+            t.kind = TOKEN_KEYWORD_CONSTANT;
+        }
+
+        return t;
     }
 
 
@@ -617,10 +656,13 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "EOF";
     case TOKEN_NUMBER:
         return "NUMBER";
-    case TOKEN_IDENTIFIER:
-        return "IDENTIFIER";
     case TOKEN_STRING:
         return "STRING";
+    case TOKEN_IDENTIFIER:
+        return "IDENTIFIER";
+    case TOKEN_KEYWORD_CONSTANT:
+        return "CONSTANT";
+
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
 
@@ -635,6 +677,10 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
 
     case TOKEN_DOT:
         return "DOT";
+    case TOKEN_COLON:
+        return "COLON";
+    case TOKEN_COLON_EQUAL:
+        return "COLON_EQUAL";
 
     case TOKEN_OPEN_PAREN:
         return "OPEN_PAREN";
@@ -674,10 +720,11 @@ void _dpll_print_token_location(FILE* out, DPL* dpl, DPL_Token token)
 
 // AST
 
-DPL_Ast_Node* _dpla_create_node(DPL_Ast_Tree* tree, DPL_AstNodeKind kind)
+DPL_Ast_Node* _dpla_create_node(DPL_Ast_Tree* tree, DPL_AstNodeKind kind, DPL_Token identifier)
 {
     DPL_Ast_Node* node = arena_alloc(&tree->memory, sizeof(DPL_Ast_Node));
     node->kind = kind;
+    node->identifier = identifier;
     return node;
 }
 
@@ -693,6 +740,10 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_FUNCTIONCALL";
     case AST_NODE_SCOPE:
         return "AST_NODE_SCOPE";
+    case AST_NODE_DECLARATION:
+        return "AST_NODE_DECLARATION";
+    case AST_NODE_SYMBOL:
+        return "AST_NODE_SYMBOL";
     }
 
     assert(false && "unreachable: _dpla_node_kind_name");
@@ -727,7 +778,8 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(node->as.binary.right, level + 1);
         break;
     }
-    case AST_NODE_LITERAL: {
+    case AST_NODE_LITERAL:
+    case AST_NODE_SYMBOL: {
         printf(" [%s: "SV_Fmt"]\n", _dpll_token_kind_name(node->as.literal.value.kind), SV_Arg(node->as.literal.value.text));
         break;
     }
@@ -749,6 +801,14 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
             printf("<expr #%zu>\n", i);
             _dpla_print(scope.expressions[i], level + 2);
         }
+    }
+    break;
+    case AST_NODE_DECLARATION: {
+        DPL_Ast_Declaration declaration = node->as.declaration;
+        printf(" [%s "SV_Fmt": "SV_Fmt"]\n", _dpll_token_kind_name(declaration.keyword.kind), SV_Arg(declaration.name.text), SV_Arg(declaration.type.text));
+        _dpla_print_indent(level + 1);
+        printf("<initialization>\n");
+        _dpla_print(declaration.initialization, level + 2);
     }
     break;
     default: {
@@ -800,7 +860,30 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 }
 
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
-DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token);
+DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token);
+
+DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
+    DPL_Token keyword_candidate = _dplp_peek_token(dpl);
+    if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT) {
+        DPL_Ast_Node* declaration = _dpla_create_node(&dpl->tree, AST_NODE_DECLARATION, keyword_candidate);
+        declaration->as.declaration.keyword = _dplp_next_token(dpl);
+        declaration->as.declaration.name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
+            _dplp_expect_token(dpl, TOKEN_COLON);
+            declaration->as.declaration.type = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        } else {
+            declaration->as.declaration.type = (DPL_Token) {
+                0
+            };
+        }
+        declaration->as.declaration.assignment = _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
+        declaration->identifier = declaration->as.declaration.assignment;
+        declaration->as.declaration.initialization = _dplp_parse_expression(dpl);
+        return declaration;
+    }
+
+    return _dplp_parse_expression(dpl);
+}
 
 typedef struct
 {
@@ -809,10 +892,14 @@ typedef struct
     size_t capacity;
 } _DPL_Ast_NodeList;
 
-_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing)
+_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
 {
     _DPL_Ast_NodeList list = {0};
-    nob_da_append(&list, _dplp_parse_expression(dpl));
+    if (allow_declarations) {
+        nob_da_append(&list, _dplp_parse_declaration(dpl));
+    } else {
+        nob_da_append(&list, _dplp_parse_expression(dpl));
+    }
 
     DPL_Token delimiter_candidate = _dplp_peek_token(dpl);
     while (delimiter_candidate.kind == delimiter) {
@@ -821,7 +908,11 @@ _DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL
             break;
         }
 
-        nob_da_append(&list, _dplp_parse_expression(dpl));
+        if (allow_declarations) {
+            nob_da_append(&list, _dplp_parse_declaration(dpl));
+        } else {
+            nob_da_append(&list, _dplp_parse_expression(dpl));
+        }
         delimiter_candidate = _dplp_peek_token(dpl);
     }
 
@@ -835,7 +926,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     case TOKEN_NUMBER:
     case TOKEN_STRING:
     {
-        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL);
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token);
         node->as.literal.value = token;
         return node;
     }
@@ -847,28 +938,33 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     }
     break;
     case TOKEN_OPEN_BRACE: {
-        DPL_Ast_Node* node = _dplp_parse_scope(dpl, TOKEN_CLOSE_BRACE);
+        DPL_Ast_Node* node = _dplp_parse_scope(dpl, token, TOKEN_CLOSE_BRACE);
         return node;
     }
     case TOKEN_IDENTIFIER: {
-        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTIONCALL);
-        node->as.function_call.name = token;
+        if (_dplp_peek_token(dpl).kind == TOKEN_OPEN_PAREN) {
+            DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTIONCALL, token);
+            node->as.function_call.name = token;
 
-        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+            _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
-        if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
-            _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN);
-            if (arguments.count > 0) {
-                node->as.function_call.argument_count = arguments.count;
-                node->as.function_call.arguments = arena_alloc(
-                                                       &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
-                memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
-                nob_da_free(arguments);
+            if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
+                _DPL_Ast_NodeList arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
+                if (arguments.count > 0) {
+                    node->as.function_call.argument_count = arguments.count;
+                    node->as.function_call.arguments = arena_alloc(
+                                                           &dpl->tree.memory, sizeof(DPL_Ast_Node*) * arguments.count);
+                    memcpy(node->as.function_call.arguments, arguments.items, sizeof(DPL_Ast_Node*) * arguments.count);
+                    nob_da_free(arguments);
+                }
             }
+
+            _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+            return node;
         }
 
-        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
-
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_SYMBOL, token);
+        node->as.symbol = token;
         return node;
     }
     default: {
@@ -919,7 +1015,7 @@ DPL_Ast_Node* _dplp_parser_unary(DPL* dpl)
         _dplp_next_token(dpl);
         DPL_Ast_Node* operand = _dplp_parser_unary(dpl);
 
-        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_UNARY);
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_UNARY, operator_candidate);
         new_expression->as.unary.operator = operator_candidate;
         new_expression->as.unary.operand = operand;
         return new_expression;
@@ -937,7 +1033,7 @@ DPL_Ast_Node* _dplp_parse_multiplicative(DPL* dpl)
         _dplp_next_token(dpl);
         DPL_Ast_Node* rhs = _dplp_parser_unary(dpl);
 
-        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY);
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, operator_candidate);
         new_expression->as.binary.left = expression;
         new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
@@ -958,7 +1054,7 @@ DPL_Ast_Node* _dplp_parse_additive(DPL* dpl)
         _dplp_next_token(dpl);
         DPL_Ast_Node* rhs = _dplp_parse_multiplicative(dpl);
 
-        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY);
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, operator_candidate);
         new_expression->as.binary.left = expression;
         new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
@@ -975,14 +1071,14 @@ DPL_Ast_Node* _dplp_parse_expression(DPL* dpl)
     return _dplp_parse_additive(dpl);
 }
 
-DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token)
+DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token)
 {
-    DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_SCOPE);
+    DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_SCOPE, opening_token);
     node->as.scope.expression_count = 0;
 
     if (_dplp_peek_token(dpl).kind != closing_token) {
 
-        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token);
+        _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token, true);
         if (expressions.count > 0) {
             node->as.scope.expression_count = expressions.count;
             node->as.scope.expressions = arena_alloc(
@@ -998,17 +1094,41 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_TokenKind closing_token)
 
 void _dplp_parse(DPL* dpl)
 {
-    dpl->tree.root = _dplp_parse_scope(dpl, TOKEN_EOF); //_dplp_parse_expression(dpl);
-    //_dplp_expect_token(dpl, TOKEN_EOF);
+    dpl->tree.root = _dplp_parse_scope(dpl, dpl->first_token, TOKEN_EOF);
 }
 
 // CALLTREE
+
+void _dplc_symbols_begin_scope(DPL* dpl) {
+    DPL_SymbolStack* s = &dpl->symbol_stack;
+    nob_da_append(&s->frames, s->symbols.count);
+}
+
+void _dplc_symbols_end_scope(DPL* dpl) {
+    DPL_SymbolStack* s = &dpl->symbol_stack;
+    s->frames.count--;
+    s->symbols.count = s->frames.items[s->frames.count];
+}
+
+DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
+    DPL_SymbolStack* s = &dpl->symbol_stack;
+    for (size_t i = s->symbols.count; i > 0; --i) {
+        if (nob_sv_eq(s->symbols.items[i - 1].name, name)) {
+            return &s->symbols.items[i - 1];
+        }
+    }
+    return NULL;
+}
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
 DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
 {
     DPL_CallTree_Node* operand = _dplc_bind_node(dpl, node->as.unary.operand);
+    if (!operand) {
+        fprintf(stderr, "ERROR: Cannot bind operand of unary expression.\n");
+        exit(1);
+    }
 
     DPL_Function* function = _dplf_find_by_signature1(
                                  dpl,
@@ -1039,7 +1159,15 @@ DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* fu
 DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
 {
     DPL_CallTree_Node* lhs = _dplc_bind_node(dpl, node->as.binary.left);
+    if (!lhs) {
+        fprintf(stderr, "ERROR: Cannot bind left-hand side of binary expression.\n");
+        exit(1);
+    }
     DPL_CallTree_Node* rhs = _dplc_bind_node(dpl, node->as.binary.right);
+    if (!rhs) {
+        fprintf(stderr, "ERROR: Cannot bind right-hand side of binary expression.\n");
+        exit(1);
+    }
 
     DPL_Function* function = _dplf_find_by_signature2(
                                  dpl,
@@ -1078,6 +1206,10 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     DPL_Ast_FunctionCall fc = node->as.function_call;
     for (size_t i = 0; i < fc.argument_count; ++i) {
         DPL_CallTree_Node* arg_ctn = _dplc_bind_node(dpl, fc.arguments[i]);
+        if (!arg_ctn) {
+            fprintf(stderr, "ERROR: Cannot argument of function call.\n");
+            exit(1);
+        }
         nob_da_append(&result_ctn->as.function.arguments, arg_ctn);
         _dpl_add_handle(&argument_types, arg_ctn->type_handle);
     }
@@ -1107,17 +1239,177 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 
 DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
 {
+    _dplc_symbols_begin_scope(dpl);
+
     DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
     result_ctn->kind = CALLTREE_NODE_SCOPE;
 
     DPL_Ast_Scope scope = node->as.scope;
     for (size_t i = 0; i < scope.expression_count; ++i) {
         DPL_CallTree_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
+        if (!expr_ctn) {
+            continue;
+        }
+
         nob_da_append(&result_ctn->as.scope.expressions, expr_ctn);
         result_ctn->type_handle = expr_ctn->type_handle;
     }
 
+    _dplc_symbols_end_scope(dpl);
     return result_ctn;
+}
+
+Nob_String_View _dplc_unescape_string(DPL* dpl, Nob_String_View escaped_string) {
+    // unescape source string literal
+    char* unescaped_string = arena_alloc(&dpl->calltree.memory, sizeof(char) * (escaped_string.count - 2 + 1));
+    // -2 for quotes; +1 for terminating null byte
+
+    const char *source_pos = escaped_string.data + 1;
+    const char *source_end = escaped_string.data + escaped_string.count - 2;
+    char *target_pos = unescaped_string;
+
+    while (source_pos <= source_end) {
+        if (*source_pos == '\\') {
+            source_pos++;
+            switch (*source_pos) {
+            case 'n':
+                *target_pos = '\n';
+                break;
+            case 'r':
+                *target_pos = '\r';
+                break;
+            case 't':
+                *target_pos = '\t';
+                break;
+            }
+        } else {
+            *target_pos = *source_pos;
+        }
+
+        source_pos++;
+        target_pos++;
+    }
+
+    *target_pos = '\0';
+    return nob_sv_from_cstr(unescaped_string);
+}
+
+DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
+    switch (node->kind) {
+    case AST_NODE_LITERAL: {
+        DPL_Token value = node->as.literal.value;
+        switch (value.kind) {
+        case TOKEN_NUMBER:
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = atof(nob_temp_sv_to_cstr(value.text)),
+            };
+        case TOKEN_STRING:
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.string_handle,
+                .as.string = _dplc_unescape_string(dpl, value.text),
+            };
+        default:
+            DPL_TOKEN_ERROR(dpl, value, "Cannot fold literal constant of type `%s`.\n", _dpll_token_kind_name(value.kind));
+        }
+    }
+    break;
+    case AST_NODE_BINARY: {
+        DPL_Token operator = node->as.binary.operator;
+        DPL_CallTree_Value lhs_value = _dplc_fold_constant(dpl, node->as.binary.left);
+        DPL_CallTree_Value rhs_value = _dplc_fold_constant(dpl, node->as.binary.right);
+
+        switch (operator.kind) {
+        case TOKEN_PLUS: {
+            if (lhs_value.type_handle == dpl->types.number_handle && rhs_value.type_handle == dpl->types.number_handle) {
+                return (DPL_CallTree_Value) {
+                    .type_handle = dpl->types.number_handle,
+                    .as.number = lhs_value.as.number + rhs_value.as.number,
+                };
+            }
+            if (lhs_value.type_handle == dpl->types.string_handle && rhs_value.type_handle == dpl->types.string_handle) {
+                return (DPL_CallTree_Value) {
+                    .type_handle = dpl->types.string_handle,
+                    .as.string = nob_sv_from_cstr(nob_temp_sprintf(SV_Fmt SV_Fmt, SV_Arg(lhs_value.as.string), SV_Arg(rhs_value.as.string))),
+                };
+            }
+
+            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Both operands must be either of type `number` or `string`.\n",
+                            _dpll_token_kind_name(operator.kind));
+
+        }
+        case TOKEN_MINUS: {
+            if (lhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+            if (rhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = lhs_value.as.number - rhs_value.as.number,
+            };
+        }
+        break;
+        case TOKEN_STAR: {
+            if (lhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+            if (rhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = lhs_value.as.number * rhs_value.as.number,
+            };
+        }
+        break;
+        case TOKEN_SLASH: {
+            if (lhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+            if (rhs_value.type_handle != dpl->types.number_handle) {
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.\n",
+                                _dpll_token_kind_name(operator.kind));
+            }
+
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->types.number_handle,
+                .as.number = lhs_value.as.number / rhs_value.as.number,
+            };
+        }
+        break;
+        default:
+            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`.\n", _dpll_token_kind_name(operator.kind));
+        }
+    }
+    break;
+    case AST_NODE_SYMBOL: {
+        Nob_String_View symbol_name = node->as.symbol.text;
+        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, symbol_name);
+        if (!symbol) {
+            DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: unknown symbol `"SV_Fmt"`.\n", SV_Arg(symbol_name));
+        }
+
+        if (symbol->kind != SYMBOL_CONSTANT) {
+            DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: symbol `"SV_Fmt"` does not resolve to a constant value.\n", SV_Arg(symbol_name));
+        }
+
+        return symbol->as.constant;
+    }
+    break;
+    default:
+        break;
+    }
+
+    DPL_TOKEN_ERROR(dpl, node->identifier, "Cannot fold constant expression of type `%s`.\n", _dpla_node_kind_name(node->kind));
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
@@ -1131,14 +1423,14 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->types.number_handle;
-            calltree_node->as.value.ast_node = node;
+            calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->types.string_handle;
-            calltree_node->as.value.ast_node = node;
+            calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         break;
@@ -1186,14 +1478,55 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         exit(1);
     }
     break;
-    case AST_NODE_FUNCTIONCALL: {
+    case AST_NODE_FUNCTIONCALL:
         return _dplc_bind_function_call(dpl, node);
-    }
-    break;
-    case AST_NODE_SCOPE: {
+    case AST_NODE_SCOPE:
         return _dplc_bind_scope(dpl, node);
+    case AST_NODE_DECLARATION: {
+        DPL_Ast_Declaration* decl = &node->as.declaration;
+        DPL_Symbol s = {
+            .kind = SYMBOL_CONSTANT,
+            .name = decl->name.text,
+            .as.constant =  _dplc_fold_constant(dpl, decl->initialization),
+        };
+
+        if (decl->type.kind != TOKEN_NONE) {
+            DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
+            if (!declared_type) {
+                fprintf(stderr, LOC_Fmt": ERROR: Unknown type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.\n", LOC_Arg(decl->type.location), SV_Arg(decl->type.text), SV_Arg(decl->name.text));
+                _dpll_print_token_location(stderr, dpl, decl->type);
+                exit(1);
+            }
+
+            DPL_Type* folded_type = _dplt_find_by_handle(dpl,  s.as.constant.type_handle);
+            if (folded_type->handle != declared_type->handle) {
+                fprintf(stderr, LOC_Fmt": ERROR: Declared type `"SV_Fmt"` does not match folded type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.\n",
+                        LOC_Arg(decl->assignment.location), SV_Arg(declared_type->name), SV_Arg(folded_type->name), SV_Arg(decl->name.text));
+                _dpll_print_token_location(stderr, dpl, decl->assignment);
+                exit(1);
+            }
+        }
+
+        nob_da_append(&dpl->symbol_stack.symbols, s);
+
+        return NULL;
     }
     break;
+    case AST_NODE_SYMBOL: {
+        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, node->as.symbol.text);
+        if (!symbol) {
+            fprintf(stderr, LOC_Fmt": ERROR: Cannot resolve symbol `"SV_Fmt"` in current scope.\n",
+                    LOC_Arg(node->as.symbol.location), SV_Arg(node->as.symbol.text));
+            _dpll_print_token_location(stderr, dpl, node->as.symbol);
+            exit(1);
+        }
+
+        DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+        calltree_node->kind = CALLTREE_NODE_VALUE;
+        calltree_node->type_handle = symbol->as.constant.type_handle;
+        calltree_node->as.value = symbol->as.constant;
+        return calltree_node;
+    }
     default:
         break;
     }
@@ -1219,7 +1552,11 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     }
 
     DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
-    printf("["SV_Fmt"] ", SV_Arg(type->name));
+    if (type) {
+        printf("["SV_Fmt"] ", SV_Arg(type->name));
+    } else {
+        printf("[<unknown>] ");
+    }
 
     switch(node->kind) {
     case CALLTREE_NODE_FUNCTION: {
@@ -1238,7 +1575,14 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     }
     break;
     case CALLTREE_NODE_VALUE: {
-        printf("Value \""SV_Fmt"\"\n", SV_Arg(node->as.value.ast_node->as.literal.value.text));
+        printf("Value `");
+        if (node->as.value.type_handle == dpl->types.number_handle) {
+            printf("%f", node->as.value.as.number);
+        } else if (node->as.value.type_handle == dpl->types.string_handle) {
+            Nob_String_View value = node->as.value.as.string;
+            dplp_print_escaped_string(value.data, value.count);
+        }
+        printf("`\n");
     }
     break;
     case CALLTREE_NODE_SCOPE: {
@@ -1263,43 +1607,10 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
-        Nob_String_View value_text = node->as.value.ast_node->as.literal.value.text;
         if (node->type_handle == dpl->types.number_handle) {
-            double value = atof(nob_temp_sv_to_cstr(value_text));
-            dplp_write_push_number(program, value);
+            dplp_write_push_number(program, node->as.value.as.number);
         } else if (node->type_handle == dpl->types.string_handle) {
-            // unescape source string literal
-            char* value = nob_temp_alloc(sizeof(char) * (value_text.count - 2 + 1));
-            // -2 for quotes; +1 for terminating null byte
-
-            const char *source_pos = value_text.data + 1;
-            const char *source_end = value_text.data + value_text.count - 2;
-            char *target_pos = value;
-
-            while (source_pos <= source_end) {
-                if (*source_pos == '\\') {
-                    source_pos++;
-                    switch (*source_pos) {
-                    case 'n':
-                        *target_pos = '\n';
-                        break;
-                    case 'r':
-                        *target_pos = '\r';
-                        break;
-                    case 't':
-                        *target_pos = '\t';
-                        break;
-                    }
-                } else {
-                    *target_pos = *source_pos;
-                }
-
-                source_pos++;
-                target_pos++;
-            }
-            *target_pos = '\0';
-
-            dplp_write_push_string(program, value);
+            dplp_write_push_string(program, node->as.value.as.string.data);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             fprintf(stderr, "Cannot generate program for value node of type "SV_Fmt".\n", SV_Arg(type->name));

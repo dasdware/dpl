@@ -1,0 +1,12 @@
+constant pi := 3.14159;
+print(pi.to_string() + "\n");
+
+{
+    constant pi2 := 2 * pi;
+    print(pi2.to_string() + "\n")
+};
+
+constant hello := "Hello";
+constant world := "World";
+constant hello_world := hello + ", " + world + "!";
+print(hello_world + "\n");
