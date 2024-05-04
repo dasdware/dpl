@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "nob.h"
+#include "value.h"
 
 typedef enum
 {
@@ -26,11 +27,26 @@ typedef struct
     size_t capacity;
 } DPL_Bytes;
 
+typedef struct {
+    DPL_Value value;
+    size_t offset;
+} DPL_Constant;
+
+typedef struct
+{
+    DPL_Constant *items;
+    size_t count;
+    size_t capacity;
+} DPL_Constants_Dictionary;
+
+
 typedef struct
 {
     uint8_t version;
     DPL_Bytes code;
     DPL_Bytes constants;
+
+    DPL_Constants_Dictionary constants_dictionary;
 } DPL_Program;
 
 void dplp_init(DPL_Program *program);

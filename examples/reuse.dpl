@@ -1,0 +1,10 @@
+constant x1 := "Hello, world!\n";
+print(x1);
+print("Hello, world!\n");
+
+constant pi := 3.14159;
+print(pi);
+print("\n");
+
+print(3.14159);
+print("\n");

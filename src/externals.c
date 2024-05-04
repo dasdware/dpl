@@ -20,28 +20,28 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
     DPL_Value value = dplv_peek(vm);
     switch (value.kind) {
     case VALUE_NUMBER:
-        printf("%s", dplv_format_number(value));
+        printf("%s", dpl_value_format_number(value));
         break;
     case VALUE_STRING:
-        printf("%s", st_get(&vm->strings, value.as.string));
+        printf(SV_Fmt, SV_Arg(value.as.string));
         break;
     default:
-        DW_ERROR("ERROR: `print` function callback cannot print values of kind `%s`.", dplv_value_kind_name(value.kind));
+        DW_ERROR("ERROR: `print` function callback cannot print values of kind `%s`.", dpl_value_kind_name(value.kind));
     }
 }
 
 void _dple_length_string_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
 
-    double length = st_length(&vm->strings, value.as.string);
+    double length =  value.as.string.count;
     st_release(&vm->strings, value.as.string);
 
-    dplv_replace_top(vm, dplv_number(length));
+    dplv_replace_top(vm, dpl_value_make_number(length));
 }
 
 void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
-    dplv_replace_top(vm, dplv_string(st_allocate_cstr(&vm->strings, dplv_format_number(value))));
+    dplv_replace_top(vm, dpl_value_make_string(st_allocate_cstr(&vm->strings, dpl_value_format_number(value))));
 }
 
 

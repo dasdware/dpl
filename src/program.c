@@ -10,17 +10,65 @@ void dplp_free(DPL_Program* program) {
     nob_da_free(program->code);
 }
 
+bool _dplp_find_constant(DPL_Program* program, DPL_Value value, size_t* output) {
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
+        DPL_Constant constant = program->constants_dictionary.items[i];
+        if (dpl_value_equals(constant.value, value)) {
+            *output = constant.offset;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 size_t _dplp_add_number_constant(DPL_Program *program, double value) {
+    DPL_Value test_value = {
+        .kind = VALUE_NUMBER,
+        .as.number = value,
+    };
     size_t offset = program->constants.count;
+    if (_dplp_find_constant(program, test_value, &offset)) {
+        return offset;
+    }
+
     nob_da_append_many(&program->constants, &value, sizeof(value));
+
+    DPL_Constant dictionary_entry = {
+        .offset = offset,
+        .value = {
+            .kind = VALUE_NUMBER,
+            .as.number = value,
+        },
+    };
+    nob_da_append(&program->constants_dictionary, dictionary_entry);
+
     return offset;
 }
 
 size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
+    DPL_Value test_value = {
+        .kind = VALUE_STRING,
+        .as.string = nob_sv_from_cstr(value),
+    };
     size_t offset = program->constants.count;
+    if (_dplp_find_constant(program, test_value, &offset)) {
+        return offset;
+    }
+
     size_t length = strlen(value);
     nob_da_append_many(&program->constants, &length, sizeof(length));
     nob_da_append_many(&program->constants, value, sizeof(char) * length);
+
+    DPL_Constant dictionary_entry = {
+        .offset = offset,
+        .value = {
+            .kind = VALUE_STRING,
+            .as.string = nob_sv_from_parts((char*)(program->constants.items + offset + sizeof(length)), length)
+        },
+    };
+    nob_da_append(&program->constants_dictionary, dictionary_entry);
+
     return offset;
 }
 
@@ -182,6 +230,14 @@ void dplp_print(DPL_Program *program) {
         }
 
         printf("\n");
+    }
+    printf("\n");
+
+    printf("%zu constants in dictionary:\n", program->constants_dictionary.count);
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
+        printf(" #%zu: ", i);
+        dpl_value_print(program->constants_dictionary.items[i].value);
+        printf(" (offset: %zu)\n", program->constants_dictionary.items[i].offset);
     }
     printf("\n");
 }

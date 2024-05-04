@@ -54,6 +54,7 @@ void build_dplc(void) {
                    "./src/dpl.c",
                    "./src/externals.c",
                    "./src/program.c",
+                   "./src/value.c",
                    "./src/vm.c",
                    "./dplc.c",
                   );
@@ -77,6 +78,7 @@ void build_dpl(void)
     nob_cmd_append(&cmd,
                    "./src/program.c",
                    "./src/externals.c",
+                   "./src/value.c",
                    "./src/vm.c",
                    "./dpl.c",
                   );
