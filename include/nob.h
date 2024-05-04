@@ -161,6 +161,8 @@ bool nob_read_entire_file(const char *path, Nob_String_Builder *sb);
 // use it a NULL-terminated C string
 #define nob_sb_append_null(sb) nob_da_append_many(sb, "", 1)
 
+#define nob_sb_append_sv(sb, sv) nob_da_append_many(sb, (sv).data, (sv).count)
+
 // Free the memory allocated by a string builder
 #define nob_sb_free(sb) NOB_FREE((sb).items)
 
