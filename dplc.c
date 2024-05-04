@@ -1,4 +1,5 @@
 #include "dpl.h"
+#include "error.h"
 
 #define ARENA_IMPLEMENTATION
 #include "arena.h"
@@ -11,7 +12,7 @@
 
 void usage(const char* program)
 {
-    fprintf(stderr, "Usage: %s [-d] source.dpl\n", program);
+    DW_ERROR("Usage: %s [-d] source.dpl", program);
 }
 
 int main(int argc, char** argv) {
@@ -21,6 +22,7 @@ int main(int argc, char** argv) {
     dple_init(&externals);
 
     DPL dpl = {0};
+    // dpl.debug = true;
 
     char* source_filename = NULL;
     while (argc > 0)
@@ -34,9 +36,8 @@ int main(int argc, char** argv) {
     }
 
     if (source_filename == NULL) {
-        fprintf(stderr, "ERROR: No source file given.\n");
+        DW_ERROR_MSGLN("ERROR: No source file given.");
         usage(program);
-        exit(1);
     }
 
     Nob_String_Builder source = {0};

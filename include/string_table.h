@@ -63,6 +63,7 @@ DW_StringTable_Handle st_concat(DW_StringTable *table, DW_StringTable_Handle han
 #include <stdio.h>
 #include <string.h>
 
+#include <error.h>
 #include <ring_buffer.h>
 
 void st_init(DW_StringTable *table)
@@ -89,13 +90,11 @@ DW_StringTable_Handle st_allocate(DW_StringTable *table, size_t length)
 {
     if (length >= ST_MAX_LENGTH)
     {
-        fprintf(stderr, "ERROR: Cannot allocate new string from table: Requested size (%zu) is longer than accepted maximum (%zu).\n", length, ST_MAX_LENGTH);
-        exit(1);
+        DW_ERROR("ERROR: Cannot allocate new string from table: Requested size (%zu) is longer than accepted maximum (%zu).", length, ST_MAX_LENGTH);
     }
     if (table->free_items.count == 0)
     {
-        fprintf(stderr, "ERROR: Cannot allocate new string from table: Table is full.\n");
-        exit(1);
+        DW_ERROR("ERROR: Cannot allocate new string from table: Table is full.");
     }
 
     DW_StringTable_Handle handle;
@@ -126,18 +125,21 @@ DW_StringTable_Handle st_allocate_lstr(DW_StringTable *table, const char *data, 
     return handle;
 }
 
-void st_release(DW_StringTable *table, DW_StringTable_Handle handle)
+void _st_check_handle_value(DW_StringTable *table, DW_StringTable_Handle handle, const char* operation)
 {
     if (handle >= ST_CAPACITY)
     {
-        fprintf(stderr, "ERROR: Cannot release string from table: Invalid handle.\n");
-        exit(1);
+        DW_ERROR("ERROR: Cannot %s: Handle out of range (%zu >= %zu).", operation, handle, ST_CAPACITY);
     }
     if (table->items[handle].is_free)
     {
-        fprintf(stderr, "ERROR: Cannot release string from table: Entry already is released.\n");
-        exit(1);
+        DW_ERROR("ERROR: Cannot %s: Entry already is released (%zu).", operation, handle);
     }
+}
+
+void st_release(DW_StringTable *table, DW_StringTable_Handle handle)
+{
+    _st_check_handle_value(table, handle, "release string");
 
     rb_enqueue(table->free_items, handle);
     table->items[handle].is_free = true;
@@ -145,48 +147,22 @@ void st_release(DW_StringTable *table, DW_StringTable_Handle handle)
 
 const char *st_get(DW_StringTable *table, DW_StringTable_Handle handle)
 {
-    if (handle >= ST_CAPACITY)
-    {
-        fprintf(stderr, "ERROR: Cannot get string from table: Invalid handle.\n");
-        exit(1);
-    }
-    if (table->items[handle].is_free)
-    {
-        fprintf(stderr, "ERROR: Cannot get string from table: Entry is released.\n");
-        exit(1);
-    }
+    _st_check_handle_value(table, handle, "get string");
 
     return table->items[handle].data;
 }
 
 size_t st_length(DW_StringTable* table, DW_StringTable_Handle handle)
 {
-    if (handle >= ST_CAPACITY)
-    {
-        fprintf(stderr, "ERROR: Cannot get length from table: Invalid handle.\n");
-        exit(1);
-    }
-    if (table->items[handle].is_free)
-    {
-        fprintf(stderr, "ERROR: Cannot get length from table: Entry is released.\n");
-        exit(1);
-    }
+    _st_check_handle_value(table, handle, "get length");
 
     return table->items[handle].length;
 }
 
 DW_StringTable_Handle st_concat(DW_StringTable *table, DW_StringTable_Handle handle1, DW_StringTable_Handle handle2)
 {
-    if (handle1 >= ST_CAPACITY || handle2 >= ST_CAPACITY)
-    {
-        fprintf(stderr, "ERROR: Cannot get string from table: Invalid handle.\n");
-        exit(1);
-    }
-    if (table->items[handle1].is_free || table->items[handle2].is_free)
-    {
-        fprintf(stderr, "ERROR: Cannot get string from table: Entry is released.\n");
-        exit(1);
-    }
+    _st_check_handle_value(table, handle1, "get first string");
+    _st_check_handle_value(table, handle2, "get second string");
 
     DW_StringTable_Item item1 = table->items[handle1];
     DW_StringTable_Item item2 = table->items[handle2];

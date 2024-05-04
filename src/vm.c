@@ -1,4 +1,6 @@
 #include "vm.h"
+
+#include "error.h"
 #include "externals.h"
 #include "math.h"
 
@@ -10,8 +12,7 @@ const char* dplv_value_kind_name(DPL_ValueKind kind) {
         return "string";
     }
 
-    fprintf(stderr, "ERROR: Invalid value kind `%02X`.", kind);
-    exit(1);
+    DW_ERROR("ERROR: Invalid value kind `%02X`.", kind);
 }
 
 DPL_Value dplv_number(double value) {
@@ -78,8 +79,7 @@ void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
     }
     break;
     default:
-        fprintf(stderr, "Cannot debug print value of kind `%s`.\n", kind_name);
-        exit(1);
+        DW_ERROR("Cannot debug print value of kind `%s`.", kind_name);
     }
 }
 
@@ -122,8 +122,7 @@ void dplv_run(DPL_VirtualMachine *vm)
         case INST_PUSH_NUMBER: {
             if (vm->stack_top >= vm->stack_capacity)
             {
-                fprintf(stderr, "Fatal Error: Stack overflow in program execution.\n");
-                exit(1);
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
             }
 
             size_t offset = *(vm->program->code.items + ip);
@@ -185,21 +184,18 @@ void dplv_run(DPL_VirtualMachine *vm)
             ip += sizeof(external_num);
 
             if (vm->externals == NULL) {
-                fprintf(stderr, "Fatal Error: Cannot resolve external function call `%02X` at position %zu: No external function definitions were provided to the vm.\n", external_num, ip_begin);
-                exit(1);
+                DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: No external function definitions were provided to the vm.", external_num, ip_begin);
             }
 
             if (external_num >= vm->externals->count) {
-                fprintf(stderr, "Fatal Error: Cannot resolve external function call `%02X` at position %zu: Invalid external num.\n", external_num, ip_begin);
-                exit(1);
+                DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: Invalid external num.", external_num, ip_begin);
             }
 
             vm->externals->items[external_num].callback(vm);
         }
         break;
         default:
-            fprintf(stderr, "Fatal Error: Unknown instruction code '%02X' at position %zu.\n", instruction, ip_begin);
-            exit(1);
+            DW_ERROR("Fatal Error: Unknown instruction code '%02X' at position %zu.", instruction, ip_begin);
         }
 
         if (vm->trace)
