@@ -10,8 +10,28 @@ void dplp_free(DPL_Program* program) {
     nob_da_free(program->code);
 }
 
+bool _dplp_find_constant(DPL_Program* program, DPL_Value value, size_t* output) {
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
+        DPL_Constant constant = program->constants_dictionary.items[i];
+        if (dpl_value_equals(constant.value, value)) {
+            *output = constant.offset;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 size_t _dplp_add_number_constant(DPL_Program *program, double value) {
+    DPL_Value test_value = {
+        .kind = VALUE_NUMBER,
+        .as.number = value,
+    };
     size_t offset = program->constants.count;
+    if (_dplp_find_constant(program, test_value, &offset)) {
+        return offset;
+    }
+
     nob_da_append_many(&program->constants, &value, sizeof(value));
 
     DPL_Constant dictionary_entry = {
@@ -27,7 +47,15 @@ size_t _dplp_add_number_constant(DPL_Program *program, double value) {
 }
 
 size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
+    DPL_Value test_value = {
+        .kind = VALUE_STRING,
+        .as.string = nob_sv_from_cstr(value),
+    };
     size_t offset = program->constants.count;
+    if (_dplp_find_constant(program, test_value, &offset)) {
+        return offset;
+    }
+
     size_t length = strlen(value);
     nob_da_append_many(&program->constants, &length, sizeof(length));
     nob_da_append_many(&program->constants, value, sizeof(char) * length);
@@ -211,6 +239,7 @@ void dplp_print(DPL_Program *program) {
         dpl_value_print(program->constants_dictionary.items[i].value);
         printf(" (offset: %zu)\n", program->constants_dictionary.items[i].offset);
     }
+    printf("\n");
 }
 
 bool _dplp_save_chunk(FILE* out, const char* name, size_t size, void* data)

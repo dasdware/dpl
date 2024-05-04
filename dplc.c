@@ -22,7 +22,6 @@ int main(int argc, char** argv) {
     dple_init(&externals);
 
     DPL dpl = {0};
-    // dpl.debug = true;
 
     char* source_filename = NULL;
     while (argc > 0)

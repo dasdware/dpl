@@ -79,3 +79,17 @@ void dpl_value_print(DPL_Value value) {
     }
 }
 
+bool dpl_value_equals(DPL_Value value1, DPL_Value value2) {
+    if (value1.kind != value2.kind) {
+        return false;
+    }
+
+    switch (value1.kind) {
+    case VALUE_NUMBER:
+        return fabs(value1.as.number - value2.as.number) < EPSILON;
+    case VALUE_STRING:
+        return nob_sv_eq(value1.as.string, value2.as.string);
+    default:
+        DW_ERROR("Cannot compare values of unknown kind `%d`.", value1.kind);
+    }
+}

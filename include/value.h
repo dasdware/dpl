@@ -30,4 +30,6 @@ DPL_Value dpl_value_make_string(Nob_String_View value);
 
 void dpl_value_print(DPL_Value value);
 
+bool dpl_value_equals(DPL_Value value1, DPL_Value value2);
+
 #endif // __DPL_VALUE_H

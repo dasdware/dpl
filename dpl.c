@@ -1,5 +1,6 @@
 #include "error.h"
 #include "externals.h"
+#include "value.h"
 #include "vm.h"
 
 #define ARENA_IMPLEMENTATION
@@ -35,7 +36,7 @@ int main(int argc, char** argv) {
         printf("VM stack after execution:\n");
         for (size_t i = 0; i < vm.stack_top; ++i) {
             printf("* %zu: ", i);
-            dplv_print_value(&vm, vm.stack[i]);
+            dpl_value_print(vm.stack[i]);
             printf("\n");
         }
         printf("Entries remaining in string table: %zu\n", ST_CAPACITY - vm.strings.free_items.count);
