@@ -1,40 +1,35 @@
 #include "dpl.h"
+#include "error.h"
 
-#define DPL_ERROR(format, ...)                                                \
-    do {                                                                      \
-        fprintf(stderr, format, ## __VA_ARGS__);                              \
-        fprintf(stderr, "\n");                                                \
-        exit(1);                                                              \
+#define DPL_ERROR DW_ERROR
+
+#define DPL_TOKEN_ERROR(dpl, token, format, ...)                                      \
+    do {                                                                              \
+        DW_ERROR_MSG(LOC_Fmt": ERROR: ", LOC_Arg((token).location));                  \
+        DW_ERROR_MSG(format, ## __VA_ARGS__);                                         \
+        DW_ERROR_MSG("\n");                                                           \
+        _dpll_print_token(DW_ERROR_STREAM, (dpl), (token));                           \
+        exit(1);                                                                      \
+    } while(false)
+
+#define DPL_LEXER_ERROR(dpl, format, ...)                                             \
+    do {                                                                              \
+        DPL_Token error_token = _dpll_build_token((dpl), TOKEN_NONE);                 \
+        DW_ERROR_MSG(LOC_Fmt": ERROR: ", LOC_Arg(error_token.location));              \
+        DW_ERROR_MSG(format, ## __VA_ARGS__);                                         \
+        DW_ERROR_MSG("\n");                                                           \
+        _dpll_print_token(DW_ERROR_STREAM, (dpl), error_token);                       \
+        exit(1);                                                                      \
     } while(false)
 
 
-#define DPL_TOKEN_ERROR(dpl, token, format, ...)                              \
-    do {                                                                      \
-        fprintf(stderr, LOC_Fmt": ERROR: ", LOC_Arg((token).location));       \
-        fprintf(stderr, format, ## __VA_ARGS__);                              \
-        fprintf(stderr, "\n");                                                \
-        _dpll_print_token(stderr, (dpl), (token));                            \
-        exit(1);                                                              \
-    } while(false)
-
-#define DPL_LEXER_ERROR(dpl, format, ...)                                     \
-    do {                                                                      \
-        DPL_Token error_token = _dpll_build_token((dpl), TOKEN_NONE);         \
-        fprintf(stderr, LOC_Fmt": ERROR: ", LOC_Arg(error_token.location));   \
-        fprintf(stderr, format, ## __VA_ARGS__);                              \
-        fprintf(stderr, "\n");                                                \
-        _dpll_print_token(stderr, (dpl), error_token);                        \
-        exit(1);                                                              \
-    } while(false)
-
-
-#define DPL_AST_ERROR(dpl, node, format, ...)                                 \
-    do {                                                                      \
-        fprintf(stderr, LOC_Fmt": ERROR: ", LOC_Arg((node)->first.location)); \
-        fprintf(stderr, format, ## __VA_ARGS__);                              \
-        fprintf(stderr, "\n");                                                \
-        _dpll_print_token_range(stderr, (dpl), (node)->first, (node)->last);  \
-        exit(1);                                                              \
+#define DPL_AST_ERROR(dpl, node, format, ...)                                         \
+    do {                                                                              \
+        DW_ERROR_MSG(LOC_Fmt": ERROR: ", LOC_Arg((node)->first.location));            \
+        DW_ERROR_MSG(format, ## __VA_ARGS__);                                         \
+        DW_ERROR_MSG("\n");                                                           \
+        _dpll_print_token_range(DW_ERROR_STREAM, (dpl), (node)->first, (node)->last); \
+        exit(1);                                                                      \
     } while(false)
 
 
