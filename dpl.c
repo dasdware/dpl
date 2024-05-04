@@ -1,3 +1,4 @@
+#include "error.h"
 #include "externals.h"
 #include "vm.h"
 
@@ -14,8 +15,7 @@ int main(int argc, char** argv) {
     const char* exe = nob_shift_args(&argc, &argv);
 
     if (argc <= 0) {
-        fprintf(stderr, "Usage: %s program.dplp\n", exe);
-        exit(1);
+        DW_ERROR("Usage: %s program.dplp", exe);
     }
 
     const char* filename = nob_shift_args(&argc, &argv);

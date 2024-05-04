@@ -1,4 +1,5 @@
 #include "program.h"
+#include "error.h"
 
 void dplp_init(DPL_Program* program) {
     program->version = 1;
@@ -98,8 +99,7 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_CALL_EXTERNAL";
     }
 
-    fprintf(stderr, "ERROR: Cannot get name for instruction kind %d.\n", kind);
-    exit(1);
+    DW_ERROR("ERROR: Cannot get name for instruction kind %d.", kind);
 }
 
 void dplp_print_escaped_string(const char* value, size_t length) {
@@ -281,7 +281,7 @@ bool dplp_load(DPL_Program* program, const char* file_name)
         }
         else
         {
-            fprintf(stderr, "This version of dpl does not support program chunks of type \"%s\". Chunk will be ignored.\n", chunk.name);
+            DW_ERROR_MSGLN("This version of dpl does not support program chunks of type \"%s\". Chunk will be ignored.", chunk.name);
         }
     }
 

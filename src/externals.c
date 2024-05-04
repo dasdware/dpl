@@ -1,3 +1,4 @@
+#include "error.h"
 #include "externals.h"
 
 DPL_ExternalFunction* dple_add_by_name(DPL_ExternalFunctions* externals, const char* name)
@@ -25,8 +26,7 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
         printf("%s", st_get(&vm->strings, value.as.string));
         break;
     default:
-        fprintf(stderr, "ERROR: `print` function callback cannot print values of kind `%s`.", dplv_value_kind_name(value.kind));
-        exit(1);
+        DW_ERROR("ERROR: `print` function callback cannot print values of kind `%s`.", dplv_value_kind_name(value.kind));
     }
 }
 

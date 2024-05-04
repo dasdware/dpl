@@ -210,7 +210,8 @@ union DPL_Ast_Node_As
 struct _DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
-    DPL_Token identifier;
+    DPL_Token first;
+    DPL_Token last;
     union DPL_Ast_Node_As as;
 };
 
