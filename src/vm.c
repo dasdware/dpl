@@ -4,85 +4,6 @@
 #include "externals.h"
 #include "math.h"
 
-const char* dplv_value_kind_name(DPL_ValueKind kind) {
-    switch (kind) {
-    case VALUE_NUMBER:
-        return "number";
-    case VALUE_STRING:
-        return "string";
-    }
-
-    DW_ERROR("ERROR: Invalid value kind `%02X`.", kind);
-}
-
-DPL_Value dplv_number(double value) {
-    return (DPL_Value) {
-        .kind = VALUE_NUMBER,
-        .as = {
-            .number = value
-        }
-    };
-}
-
-DPL_Value dplv_string(DW_StringTable_Handle value) {
-    return (DPL_Value) {
-        .kind = VALUE_STRING,
-        .as = {
-            .string = value
-        }
-    };
-}
-
-#define EPSILON 0.00001
-
-const char* dplv_format_number(DPL_Value value) {
-    static char buffer[16];
-    double abs_value = fabs(value.as.number);
-    if (abs_value - floorf(abs_value) < EPSILON) {
-        snprintf(buffer, 16, "%i", (int) round(value.as.number));
-    } else {
-        snprintf(buffer, 16, "%f", value.as.number);
-    }
-    return buffer;
-}
-
-void dplv_print_value(DPL_VirtualMachine* vm, DPL_Value value) {
-    (void) vm;
-    const char* kind_name = dplv_value_kind_name(value.kind);
-    switch (value.kind) {
-    case VALUE_NUMBER:
-        printf("[%s: %s]", kind_name, dplv_format_number(value));
-        break;
-    case VALUE_STRING: {
-        printf("[%s: \"", kind_name);
-
-        const char* pos = st_get(&vm->strings, value.as.string);
-        size_t length = st_length(&vm->strings, value.as.string);
-
-        for (size_t i = 0; i < length; ++i) {
-            switch (*pos) {
-            case '\n':
-                printf("\\n");
-                break;
-            case '\r':
-                printf("\\r");
-                break;
-            case '\t':
-                printf("\\t");
-                break;
-            default:
-                printf("%c", *pos);
-            }
-            ++pos;
-        }
-        printf("\"]");
-    }
-    break;
-    default:
-        DW_ERROR("Cannot debug print value of kind `%s`.", kind_name);
-    }
-}
-
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals)
 {
     vm->program = program;
@@ -154,7 +75,7 @@ void dplv_run(DPL_VirtualMachine *vm)
                 TOP1.as.number = TOP1.as.number + TOP0.as.number;
                 --vm->stack_top;
             } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
-                DW_StringTable_Handle result = st_concat(&vm->strings, TOP1.as.string, TOP0.as.string);
+                Nob_String_View result = st_allocate_concat(&vm->strings, TOP1.as.string, TOP0.as.string);
                 st_release(&vm->strings, TOP0.as.string);
                 st_release(&vm->strings, TOP1.as.string);
                 TOP1.as.string = result;
@@ -204,7 +125,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             for (size_t i = 0; i < vm->stack_top; ++i)
             {
                 printf(" ");
-                dplv_print_value(vm, vm->stack[i]);
+                dpl_value_print(vm->stack[i]);
             }
             printf("\n");
         }
