@@ -131,6 +131,7 @@ typedef enum
     TOKEN_STRING,
 
     TOKEN_KEYWORD_CONSTANT,
+    TOKEN_KEYWORD_VAR,
 } DPL_TokenKind;
 
 typedef struct

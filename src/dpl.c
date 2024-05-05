@@ -659,6 +659,8 @@ DPL_Token _dpll_next_token(DPL* dpl)
         DPL_Token t = _dpll_build_token(dpl, TOKEN_IDENTIFIER);
         if (nob_sv_eq(t.text, nob_sv_from_cstr("constant"))) {
             t.kind = TOKEN_KEYWORD_CONSTANT;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
+            t.kind = TOKEN_KEYWORD_VAR;
         }
 
         return t;
@@ -718,6 +720,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "IDENTIFIER";
     case TOKEN_KEYWORD_CONSTANT:
         return "CONSTANT";
+    case TOKEN_KEYWORD_VAR:
+        return "VAR";
 
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
@@ -890,8 +894,8 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind
 
 DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     DPL_Token keyword_candidate = _dplp_peek_token(dpl);
-    if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT) {
-        DPL_Token keyword = _dplp_expect_token(dpl, TOKEN_KEYWORD_CONSTANT);
+    if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT || keyword_candidate.kind == TOKEN_KEYWORD_VAR) {
+        DPL_Token keyword = _dplp_next_token(dpl);
         DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
         DPL_Token type = {0};
