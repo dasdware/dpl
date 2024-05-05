@@ -788,6 +788,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_DECLARATION";
     case AST_NODE_SYMBOL:
         return "AST_NODE_SYMBOL";
+    case AST_NODE_ASSIGNMENT:
+        return "AST_NODE_ASSIGNMENT";
     }
 
     assert(false && "unreachable: _dpla_node_kind_name");
@@ -853,6 +855,19 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print_indent(level + 1);
         printf("<initialization>\n");
         _dpla_print(declaration.initialization, level + 2);
+    }
+    break;
+    case AST_NODE_ASSIGNMENT: {
+        DPL_Ast_Assignment assigment = node->as.assignment;
+        printf("\n");
+
+        _dpla_print_indent(level + 1);
+        printf("<target>\n");
+        _dpla_print(assigment.target, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<exression>\n");
+        _dpla_print(assigment.expression, level + 2);
     }
     break;
     default: {
@@ -1105,9 +1120,32 @@ DPL_Ast_Node* _dplp_parse_additive(DPL* dpl)
     return expression;
 }
 
+DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
+{
+    DPL_Ast_Node* target = _dplp_parse_additive(dpl);
+
+    if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
+        if (target->kind != AST_NODE_SYMBOL) {
+            DPL_AST_ERROR(dpl, target, "`%s` is not a valid assignment target.",
+                          _dpla_node_kind_name(target->kind));
+        }
+
+        DPL_Token assignment = _dplp_next_token(dpl);
+        DPL_Ast_Node* expression = _dplp_parse_assignment(dpl);
+
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_ASSIGNMENT, target->first, expression->last);
+        node->as.assignment.target = target;
+        node->as.assignment.assignment = assignment;
+        node->as.assignment.expression = expression;
+        return node;
+    }
+
+    return target;
+}
+
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl)
 {
-    return _dplp_parse_additive(dpl);
+    return _dplp_parse_assignment(dpl);
 }
 
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind)

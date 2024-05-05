@@ -152,6 +152,7 @@ typedef enum
     AST_NODE_SCOPE,
     AST_NODE_DECLARATION,
     AST_NODE_SYMBOL,
+    AST_NODE_ASSIGNMENT,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -197,6 +198,13 @@ typedef struct
     DPL_Ast_Node* initialization;
 } DPL_Ast_Declaration;
 
+typedef struct
+{
+    DPL_Ast_Node* target;
+    DPL_Token assignment;
+    DPL_Ast_Node* expression;
+} DPL_Ast_Assignment;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
@@ -206,6 +214,7 @@ union DPL_Ast_Node_As
     DPL_Ast_Scope scope;
     DPL_Ast_Declaration declaration;
     DPL_Token symbol;
+    DPL_Ast_Assignment assignment;
 };
 
 struct _DPL_Ast_Node
