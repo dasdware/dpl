@@ -4,5 +4,5 @@ print("x: "); print(x); print("\n");
 x := x + 1;
 print("x: "); print(x); print("\n");
 
-var y := 2 * x;
+var y: number := 2 * x;
 print("y: "); print(y); print("\n");
