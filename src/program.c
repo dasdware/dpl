@@ -94,8 +94,18 @@ void dplp_write_push_string(DPL_Program *program, const char* value) {
     nob_da_append_many(&program->code, &offset, sizeof(offset));
 }
 
+void dplp_write_push_local(DPL_Program *program, size_t scope_index) {
+    dplp_write(program, INST_PUSH_LOCAL);
+    nob_da_append_many(&program->code, &scope_index, sizeof(scope_index));
+}
+
 void dplp_write_pop(DPL_Program* program) {
     dplp_write(program, INST_POP);
+}
+
+void dplp_write_pop_scope(DPL_Program* program, size_t n) {
+    dplp_write(program, INST_POP_SCOPE);
+    nob_da_append_many(&program->code, &n, sizeof(n));
 }
 
 void dplp_write_negate(DPL_Program *program) {
@@ -123,7 +133,12 @@ void dplp_write_call_external(DPL_Program *program, size_t external_num) {
     nob_da_append(&program->code, (uint8_t) external_num);
 }
 
-const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
+void dplp_write_store_local(DPL_Program *program, size_t scope_index) {
+    dplp_write(program, INST_STORE_LOCAL);
+    nob_da_append_many(&program->code, &scope_index, sizeof(scope_index));
+}
+
+const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
         return "INST_NOOP";
@@ -145,9 +160,15 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_DIVIDE";
     case INST_CALL_EXTERNAL:
         return "INST_CALL_EXTERNAL";
+    case INST_PUSH_LOCAL:
+        return "INST_PUSH_LOCAL";
+    case INST_STORE_LOCAL:
+        return "INST_STORE_LOCAL";
+    case INST_POP_SCOPE:
+        return "INST_POP_SCOPE";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
-
-    DW_ERROR("ERROR: Cannot get name for instruction kind %d.", kind);
 }
 
 void dplp_print_escaped_string(const char* value, size_t length) {
@@ -189,7 +210,7 @@ void dplp_print(DPL_Program *program) {
         DPL_Instruction_Kind kind = program->code.items[ip];
         ++ip;
 
-        printf("%s", _dplp_inst_kind_name(kind));
+        printf("%s", dplp_inst_kind_name(kind));
         switch (kind) {
         case INST_PUSH_NUMBER: {
             size_t offset = *(program->code.items + ip);
@@ -213,6 +234,13 @@ void dplp_print(DPL_Program *program) {
             ip += sizeof(offset);
         }
         break;
+        case INST_PUSH_LOCAL: {
+            size_t scope_index = *(program->code.items + ip);
+
+            printf(" %zu", scope_index);
+            ip += sizeof(scope_index);
+        }
+        break;
         case INST_NOOP:
         case INST_POP:
         case INST_NEGATE:
@@ -227,6 +255,22 @@ void dplp_print(DPL_Program *program) {
             printf(" %u", external_num);
         }
         break;
+        case INST_STORE_LOCAL: {
+            size_t scope_index = *(program->code.items + ip);
+
+            printf(" %zu", scope_index);
+            ip += sizeof(scope_index);
+        }
+        break;
+        case INST_POP_SCOPE: {
+            size_t n = *(program->code.items + ip);
+
+            printf(" %zu", n);
+            ip += sizeof(n);
+        }
+        break;
+        default:
+            DW_UNIMPLEMENTED_MSG("%s", dplp_inst_kind_name(kind));
         }
 
         printf("\n");

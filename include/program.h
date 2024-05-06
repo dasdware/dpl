@@ -18,6 +18,9 @@ typedef enum
     INST_MULTIPLY,
     INST_DIVIDE,
     INST_CALL_EXTERNAL,
+    INST_PUSH_LOCAL,
+    INST_STORE_LOCAL,
+    INST_POP_SCOPE,
 } DPL_Instruction_Kind;
 
 typedef struct
@@ -58,7 +61,9 @@ void dplp_write_noop(DPL_Program *program);
 
 void dplp_write_push_number(DPL_Program *program, double value);
 void dplp_write_push_string(DPL_Program *program, const char* value);
+void dplp_write_push_local(DPL_Program *program, size_t scope_index);
 void dplp_write_pop(DPL_Program* program);
+void dplp_write_pop_scope(DPL_Program* program, size_t n);
 
 void dplp_write_negate(DPL_Program *program);
 
@@ -68,6 +73,10 @@ void dplp_write_multiply(DPL_Program *program);
 void dplp_write_divide(DPL_Program *program);
 
 void dplp_write_call_external(DPL_Program *program, size_t external_num);
+
+void dplp_write_store_local(DPL_Program *program, size_t scope_index);
+
+const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
 
 void dplp_print_escaped_string(const char* value, size_t length);
 void dplp_print(DPL_Program *program);

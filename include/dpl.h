@@ -131,6 +131,7 @@ typedef enum
     TOKEN_STRING,
 
     TOKEN_KEYWORD_CONSTANT,
+    TOKEN_KEYWORD_VAR,
 } DPL_TokenKind;
 
 typedef struct
@@ -151,6 +152,7 @@ typedef enum
     AST_NODE_SCOPE,
     AST_NODE_DECLARATION,
     AST_NODE_SYMBOL,
+    AST_NODE_ASSIGNMENT,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -196,6 +198,13 @@ typedef struct
     DPL_Ast_Node* initialization;
 } DPL_Ast_Declaration;
 
+typedef struct
+{
+    DPL_Ast_Node* target;
+    DPL_Token assignment;
+    DPL_Ast_Node* expression;
+} DPL_Ast_Assignment;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
@@ -205,6 +214,7 @@ union DPL_Ast_Node_As
     DPL_Ast_Scope scope;
     DPL_Ast_Declaration declaration;
     DPL_Token symbol;
+    DPL_Ast_Assignment assignment;
 };
 
 struct _DPL_Ast_Node
@@ -236,10 +246,17 @@ typedef struct {
 
 typedef enum {
     SYMBOL_CONSTANT,
+    SYMBOL_VAR,
 } DPL_SymbolKind;
+
+typedef struct {
+    DPL_Handle type_handle;
+    size_t scope_index;
+} DPL_CallTree_Var;
 
 typedef union {
     DPL_CallTree_Value constant;
+    DPL_CallTree_Var var;
 } DPL_Symbol_As;
 
 typedef struct {
@@ -265,11 +282,24 @@ typedef struct {
     DPL_Frames frames;
 } DPL_SymbolStack;
 
+typedef struct {
+    size_t offset;
+    size_t count;
+} DPL_Scope;
+
+typedef struct {
+    DPL_Scope *items;
+    size_t count;
+    size_t capacity;
+} DPL_ScopeStack;
+
 typedef enum
 {
     CALLTREE_NODE_VALUE = 0,
     CALLTREE_NODE_FUNCTION,
     CALLTREE_NODE_SCOPE,
+    CALLTREE_NODE_VARREF,
+    CALLTREE_NODE_ASSIGNMENT,
 } DPL_CallTreeNodeKind;
 
 typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
@@ -292,17 +322,25 @@ typedef struct
     DPL_CallTree_Nodes expressions;
 } DPL_CallTree_Scope;
 
+typedef struct {
+    size_t scope_index;
+    DPL_CallTree_Node* expression;
+} DPL_CallTree_Assignment;
+
 typedef union
 {
     DPL_CallTree_Value value;
     DPL_CallTree_Function function;
     DPL_CallTree_Scope scope;
+    size_t varref;
+    DPL_CallTree_Assignment assignment;
 } DPL_CallTree_Node_As;
 
 struct _DPL_CallTree_Node
 {
     DPL_CallTreeNodeKind kind;
     DPL_Handle type_handle;
+    bool persistent;
     DPL_CallTree_Node_As as;
 };
 
@@ -343,6 +381,7 @@ typedef struct _DPL
 
     // Binder
     DPL_SymbolStack symbol_stack;
+    DPL_ScopeStack scope_stack;
     DPL_CallTree calltree;
 } DPL;
 

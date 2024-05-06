@@ -8,6 +8,11 @@
 
 struct DPL_ExternalFunctions;
 
+typedef struct {
+    size_t stack_top;
+    size_t return_ip;
+} DPL_CallFrame;
+
 typedef struct
 {
     DPL_Program *program;
@@ -19,6 +24,10 @@ typedef struct
     size_t stack_capacity;
     size_t stack_top;
     DPL_Value *stack;
+
+    size_t callstack_capacity;
+    size_t callstack_top;
+    DPL_CallFrame *callstack;
 
     DW_StringTable strings;
 

@@ -278,8 +278,10 @@ void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type)
         _dpl_print_signature(out, dpl, &type->as.function);
         fprintf(out, "]");
         break;
-    default:
+    case TYPE_BASE:
         break;
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", type->kind);
     }
 }
 
@@ -659,6 +661,8 @@ DPL_Token _dpll_next_token(DPL* dpl)
         DPL_Token t = _dpll_build_token(dpl, TOKEN_IDENTIFIER);
         if (nob_sv_eq(t.text, nob_sv_from_cstr("constant"))) {
             t.kind = TOKEN_KEYWORD_CONSTANT;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
+            t.kind = TOKEN_KEYWORD_VAR;
         }
 
         return t;
@@ -718,6 +722,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "IDENTIFIER";
     case TOKEN_KEYWORD_CONSTANT:
         return "CONSTANT";
+    case TOKEN_KEYWORD_VAR:
+        return "VAR";
 
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
@@ -752,8 +758,7 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "SEMICOLON";
 
     default:
-        assert(false && "Unreachable");
-        exit(1);
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
 }
 
@@ -784,10 +789,11 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_DECLARATION";
     case AST_NODE_SYMBOL:
         return "AST_NODE_SYMBOL";
+    case AST_NODE_ASSIGNMENT:
+        return "AST_NODE_ASSIGNMENT";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
-
-    assert(false && "unreachable: _dpla_node_kind_name");
-    return "";
 }
 
 void _dpla_print_indent(size_t level) {
@@ -851,6 +857,19 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(declaration.initialization, level + 2);
     }
     break;
+    case AST_NODE_ASSIGNMENT: {
+        DPL_Ast_Assignment assigment = node->as.assignment;
+        printf("\n");
+
+        _dpla_print_indent(level + 1);
+        printf("<target>\n");
+        _dpla_print(assigment.target, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<exression>\n");
+        _dpla_print(assigment.expression, level + 2);
+    }
+    break;
     default: {
         printf("\n");
         break;
@@ -890,8 +909,8 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind
 
 DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     DPL_Token keyword_candidate = _dplp_peek_token(dpl);
-    if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT) {
-        DPL_Token keyword = _dplp_expect_token(dpl, TOKEN_KEYWORD_CONSTANT);
+    if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT || keyword_candidate.kind == TOKEN_KEYWORD_VAR) {
+        DPL_Token keyword = _dplp_next_token(dpl);
         DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
         DPL_Token type = {0};
@@ -1101,9 +1120,32 @@ DPL_Ast_Node* _dplp_parse_additive(DPL* dpl)
     return expression;
 }
 
+DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
+{
+    DPL_Ast_Node* target = _dplp_parse_additive(dpl);
+
+    if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
+        if (target->kind != AST_NODE_SYMBOL) {
+            DPL_AST_ERROR(dpl, target, "`%s` is not a valid assignment target.",
+                          _dpla_node_kind_name(target->kind));
+        }
+
+        DPL_Token assignment = _dplp_next_token(dpl);
+        DPL_Ast_Node* expression = _dplp_parse_assignment(dpl);
+
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_ASSIGNMENT, target->first, expression->last);
+        node->as.assignment.target = target;
+        node->as.assignment.assignment = assignment;
+        node->as.assignment.expression = expression;
+        return node;
+    }
+
+    return target;
+}
+
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl)
 {
-    return _dplp_parse_additive(dpl);
+    return _dplp_parse_assignment(dpl);
 }
 
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind)
@@ -1153,6 +1195,23 @@ void _dplp_parse(DPL* dpl)
 
 // CALLTREE
 
+const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
+    switch (kind) {
+    case CALLTREE_NODE_VALUE:
+        return "CALLTREE_NODE_VALUE";
+    case CALLTREE_NODE_FUNCTION:
+        return "CALLTREE_NODE_FUNCTION";
+    case CALLTREE_NODE_SCOPE:
+        return "CALLTREE_NODE_SCOPE";
+    case CALLTREE_NODE_VARREF:
+        return "CALLTREE_NODE_VARREF";
+    case CALLTREE_NODE_ASSIGNMENT:
+        return "CALLTREE_NODE_ASSIGNMENT";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
+    }
+}
+
 void _dplc_symbols_begin_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     nob_da_append(&s->frames, s->symbols.count);
@@ -1172,6 +1231,40 @@ DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
         }
     }
     return NULL;
+}
+
+const char* _dplc_symbols_kind_name(DPL_SymbolKind kind) {
+    switch (kind) {
+    case SYMBOL_CONSTANT:
+        return "constant";
+    case SYMBOL_VAR:
+        return "variable";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
+    }
+}
+
+DPL_Scope* _dplc_scopes_current(DPL* dpl) {
+    if (dpl->scope_stack.count == 0) {
+        DPL_ERROR("Cannot get current scope information: no scope pushed onto stack.");
+    }
+
+    return &dpl->scope_stack.items[dpl->scope_stack.count - 1];
+}
+
+void _dplc_scopes_begin_scope(DPL* dpl) {
+    DPL_Scope scope = {0};
+
+    if (dpl->scope_stack.count > 0) {
+        DPL_Scope* current_top = _dplc_scopes_current(dpl);
+        scope.offset = current_top->offset + current_top->count;
+    }
+
+    nob_da_append(&dpl->scope_stack, scope);
+}
+
+void _dplc_scopes_end_scope(DPL* dpl) {
+    dpl->scope_stack.count--;
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
@@ -1285,6 +1378,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
 {
     _dplc_symbols_begin_scope(dpl);
+    _dplc_scopes_begin_scope(dpl);
 
     DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
     result_ctn->kind = CALLTREE_NODE_SCOPE;
@@ -1300,6 +1394,7 @@ DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
         result_ctn->type_handle = expr_ctn->type_handle;
     }
 
+    _dplc_scopes_end_scope(dpl);
     _dplc_symbols_end_scope(dpl);
     return result_ctn;
 }
@@ -1451,10 +1546,8 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     }
     break;
     default:
-        break;
+        DPL_AST_ERROR(dpl, node, "Cannot fold constant expression of type `%s`.\n", _dpla_node_kind_name(node->kind));
     }
-
-    DPL_AST_ERROR(dpl, node, "Cannot fold constant expression of type `%s`.\n", _dpla_node_kind_name(node->kind));
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
@@ -1522,29 +1615,62 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         return _dplc_bind_scope(dpl, node);
     case AST_NODE_DECLARATION: {
         DPL_Ast_Declaration* decl = &node->as.declaration;
-        DPL_Symbol s = {
-            .kind = SYMBOL_CONSTANT,
-            .name = decl->name.text,
-            .as.constant =  _dplc_fold_constant(dpl, decl->initialization),
-        };
 
-        if (decl->type.kind != TOKEN_NONE) {
+        if (decl->keyword.kind == TOKEN_KEYWORD_CONSTANT) {
+            DPL_Symbol s = {
+                .kind = SYMBOL_CONSTANT,
+                .name = decl->name.text,
+                .as.constant =  _dplc_fold_constant(dpl, decl->initialization),
+            };
+
+            if (decl->type.kind != TOKEN_NONE) {
+                DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
+                if (!declared_type) {
+                    DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.",
+                                    SV_Arg(decl->type.text), SV_Arg(decl->name.text));
+                }
+
+                DPL_Type* folded_type = _dplt_find_by_handle(dpl,  s.as.constant.type_handle);
+                if (folded_type->handle != declared_type->handle) {
+                    DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match folded type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.",
+                                  SV_Arg(declared_type->name), SV_Arg(folded_type->name), SV_Arg(decl->name.text));
+                }
+            }
+
+            nob_da_append(&dpl->symbol_stack.symbols, s);
+
+            return NULL;
+        } else {
+            DPL_CallTree_Node* expression = _dplc_bind_node(dpl, decl->initialization);
+
             DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
             if (!declared_type) {
-                DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.",
+                DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of variable `"SV_Fmt"`.",
                                 SV_Arg(decl->type.text), SV_Arg(decl->name.text));
             }
 
-            DPL_Type* folded_type = _dplt_find_by_handle(dpl,  s.as.constant.type_handle);
-            if (folded_type->handle != declared_type->handle) {
-                DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match folded type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.",
-                              SV_Arg(declared_type->name), SV_Arg(folded_type->name), SV_Arg(decl->name.text));
+            DPL_Type* expression_type = _dplt_find_by_handle(dpl, expression->type_handle);
+            if (declared_type->handle != expression_type->handle) {
+                DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match expression type `"SV_Fmt"` in declaration of variable `"SV_Fmt"`.",
+                              SV_Arg(declared_type->name), SV_Arg(expression_type->name), SV_Arg(decl->name.text));
             }
+
+            DPL_Scope* current_scope = _dplc_scopes_current(dpl);
+            DPL_Symbol s = {
+                .kind = SYMBOL_VAR,
+                .name = decl->name.text,
+                .as.var = {
+                    .type_handle = expression_type->handle,
+                    .scope_index = current_scope->offset + current_scope->count,
+                }
+            };
+            current_scope->count++;
+
+            nob_da_append(&dpl->symbol_stack.symbols, s);
+
+            expression->persistent = true;
+            return expression;
         }
-
-        nob_da_append(&dpl->symbol_stack.symbols, s);
-
-        return NULL;
     }
     break;
     case AST_NODE_SYMBOL: {
@@ -1554,18 +1680,55 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                           SV_Arg(node->as.symbol.text));
         }
 
-        DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
-        calltree_node->kind = CALLTREE_NODE_VALUE;
-        calltree_node->type_handle = symbol->as.constant.type_handle;
-        calltree_node->as.value = symbol->as.constant;
-        return calltree_node;
+        switch (symbol->kind) {
+        case SYMBOL_CONSTANT: {
+            DPL_CallTree_Node* node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            node->kind = CALLTREE_NODE_VALUE;
+            node->type_handle = symbol->as.constant.type_handle;
+            node->as.value = symbol->as.constant;
+            return node;
+        }
+        break;
+        case SYMBOL_VAR: {
+            DPL_CallTree_Node* node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            node->kind = CALLTREE_NODE_VARREF;
+            node->type_handle = symbol->as.var.type_handle;
+            node->as.varref = symbol->as.var.scope_index;
+            return node;
+        }
+        break;
+        default:
+            DPL_AST_ERROR(dpl, node, "Cannot resolve symbols of type `%s`.",
+                          _dplc_symbols_kind_name(symbol->kind));
+
+        }
+    }
+    case AST_NODE_ASSIGNMENT: {
+        if (node->as.assignment.target->kind != AST_NODE_SYMBOL) {
+            DPL_AST_ERROR(dpl, node, "Cannot assign to target of type `%s`.",
+                          _dpla_node_kind_name(node->as.assignment.target->kind));
+        }
+
+        Nob_String_View symbol_name = node->as.assignment.target->as.symbol.text;
+        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, symbol_name);
+        if (!symbol) {
+            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot resolve symbol `"SV_Fmt"` in current scope.",
+                          SV_Arg(symbol_name));
+        }
+
+        DPL_CallTree_Node* ct_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+        ct_node->kind = CALLTREE_NODE_ASSIGNMENT;
+        ct_node->type_handle = symbol->as.var.type_handle;
+        ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
+        ct_node->as.assignment.expression = _dplc_bind_node(dpl, node->as.assignment.expression);
+
+        return ct_node;
     }
     default:
-        break;
+        DPL_AST_ERROR(dpl, node, "Cannot resolve function call tree for AST node of kind \"%s\".",
+                      _dpla_node_kind_name(node->kind));
     }
 
-    DPL_AST_ERROR(dpl, node, "Cannot resolve function call tree for AST node of kind \"%s\".",
-                  _dpla_node_kind_name(node->kind));
 }
 
 void _dplc_bind(DPL* dpl)
@@ -1581,6 +1744,10 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     if (!node) {
         printf("<nil>\n");
         return;
+    }
+
+    if (node->persistent) {
+        printf("*");
     }
 
     DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
@@ -1630,6 +1797,28 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
         printf(")\n");
     }
     break;
+    case CALLTREE_NODE_VARREF: {
+        printf("$varref(scope_index = %zu)\n", node->as.varref);
+    }
+    break;
+    case CALLTREE_NODE_ASSIGNMENT: {
+        printf("$assignment(\n");
+
+        for (size_t i = 0; i < level + 1; ++i) {
+            printf("  ");
+        }
+        printf("scope_index %zu\n", node->as.assignment.scope_index);
+
+        _dplc_print(dpl, node->as.assignment.expression, level + 1);
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    default:
+        DW_UNIMPLEMENTED_MSG("%s", _dplc_nodekind_name(node->kind));
     }
 }
 
@@ -1662,14 +1851,37 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     break;
     case CALLTREE_NODE_SCOPE: {
         DPL_CallTree_Scope s = node->as.scope;
+        bool prev_was_persistent = false;
+        size_t persistent_count = 0;
         for (size_t i = 0; i < s.expressions.count; ++i) {
             if (i > 0) {
-                dplp_write_pop(program);
+                if (!prev_was_persistent) {
+
+                    dplp_write_pop(program);
+                } else {
+                    persistent_count++;
+                }
             }
             _dplg_generate(dpl, s.expressions.items[i], program);
+            prev_was_persistent = s.expressions.items[i]->persistent;
+        }
+
+        if (persistent_count > 0) {
+            dplp_write_pop_scope(program, persistent_count);
         }
     }
     break;
+    case CALLTREE_NODE_VARREF: {
+        dplp_write_push_local(program, node->as.varref);
+    }
+    break;
+    case CALLTREE_NODE_ASSIGNMENT: {
+        _dplg_generate(dpl, node->as.assignment.expression, program);
+        dplp_write_store_local(program, node->as.assignment.scope_index);
+    }
+    break;
+    default:
+        DW_UNIMPLEMENTED_MSG("`%s`", _dplc_nodekind_name(node->kind));
     }
 }
 
