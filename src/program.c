@@ -103,8 +103,8 @@ void dplp_write_pop(DPL_Program* program) {
     dplp_write(program, INST_POP);
 }
 
-void dplp_write_pop_n(DPL_Program* program, size_t n) {
-    dplp_write(program, INST_POP_N);
+void dplp_write_pop_scope(DPL_Program* program, size_t n) {
+    dplp_write(program, INST_POP_SCOPE);
     nob_da_append_many(&program->code, &n, sizeof(n));
 }
 
@@ -164,8 +164,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_PUSH_LOCAL";
     case INST_STORE_LOCAL:
         return "INST_STORE_LOCAL";
-    case INST_POP_N:
-        return "INST_POP_N";
+    case INST_POP_SCOPE:
+        return "INST_POP_SCOPE";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -262,7 +262,7 @@ void dplp_print(DPL_Program *program) {
             ip += sizeof(scope_index);
         }
         break;
-        case INST_POP_N: {
+        case INST_POP_SCOPE: {
             size_t n = *(program->code.items + ip);
 
             printf(" %zu", n);

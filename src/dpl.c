@@ -1856,6 +1856,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         for (size_t i = 0; i < s.expressions.count; ++i) {
             if (i > 0) {
                 if (!prev_was_persistent) {
+
                     dplp_write_pop(program);
                 } else {
                     persistent_count++;
@@ -1866,7 +1867,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
 
         if (persistent_count > 0) {
-            dplp_write_pop_n(program, persistent_count);
+            dplp_write_pop_scope(program, persistent_count);
         }
     }
     break;

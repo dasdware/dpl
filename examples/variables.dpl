@@ -1,8 +1,18 @@
 var x: number := 0;
 print("x: "); print(x); print("\n");
 
-x := x + 1;
+x := x.add(1);
 print("x: "); print(x); print("\n");
 
-var y: number := 2 * x;
-print("y: "); print(y); print("\n");
+{
+    var y: number := 2 * x;
+    print("y: "); print(y); print("\n");
+    print(x.add(y)); print("\n");
+};
+
+{
+    var y: number := 4 * x;
+    print("y: "); print(y); print("\n");
+    print(x.add(y)); print("\n");
+};
+
