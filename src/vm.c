@@ -25,6 +25,17 @@ void dplv_free(DPL_VirtualMachine *vm)
     arena_free(&vm->memory);
 }
 
+void _dplv_trace_stack(DPL_VirtualMachine *vm) {
+    printf("Stack:");
+    for (size_t i = 0; i < vm->stack_top; ++i)
+    {
+        printf(" ");
+        dpl_value_print(vm->stack[i]);
+    }
+    printf("\n");
+
+}
+
 void dplv_run(DPL_VirtualMachine *vm)
 {
 #define TOP0 (vm->stack[vm->stack_top - 1])
@@ -116,18 +127,13 @@ void dplv_run(DPL_VirtualMachine *vm)
         }
         break;
         default:
-            DW_ERROR("Fatal Error: Unknown instruction code '%02X' at position %zu.", instruction, ip_begin);
+            printf("\n=======================================\n");
+            _dplv_trace_stack(vm);
+            DW_UNIMPLEMENTED_MSG("`%s` at position %zu.", dplp_inst_kind_name(instruction), ip_begin);
         }
 
-        if (vm->trace)
-        {
-            printf("Stack:");
-            for (size_t i = 0; i < vm->stack_top; ++i)
-            {
-                printf(" ");
-                dpl_value_print(vm->stack[i]);
-            }
-            printf("\n");
+        if (vm->trace) {
+            _dplv_trace_stack(vm);
         }
     }
 

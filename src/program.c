@@ -138,7 +138,7 @@ void dplp_write_store_local(DPL_Program *program, size_t scope_index) {
     nob_da_append_many(&program->code, &scope_index, sizeof(scope_index));
 }
 
-const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
+const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
         return "INST_NOOP";
@@ -210,7 +210,7 @@ void dplp_print(DPL_Program *program) {
         DPL_Instruction_Kind kind = program->code.items[ip];
         ++ip;
 
-        printf("%s", _dplp_inst_kind_name(kind));
+        printf("%s", dplp_inst_kind_name(kind));
         switch (kind) {
         case INST_PUSH_NUMBER: {
             size_t offset = *(program->code.items + ip);
@@ -270,7 +270,7 @@ void dplp_print(DPL_Program *program) {
         }
         break;
         default:
-            DW_UNIMPLEMENTED_MSG("%s", _dplp_inst_kind_name(kind));
+            DW_UNIMPLEMENTED_MSG("%s", dplp_inst_kind_name(kind));
         }
 
         printf("\n");

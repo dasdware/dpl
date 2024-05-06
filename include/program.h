@@ -76,6 +76,8 @@ void dplp_write_call_external(DPL_Program *program, size_t external_num);
 
 void dplp_write_store_local(DPL_Program *program, size_t scope_index);
 
+const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
+
 void dplp_print_escaped_string(const char* value, size_t length);
 void dplp_print(DPL_Program *program);
 

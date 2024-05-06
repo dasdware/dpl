@@ -34,8 +34,8 @@
 #define DW_UNIMPLEMENTED                                 \
     DW_ERROR("\n\n%s:%d: UNIMPLEMENTED (function %s)", __FILE__, __LINE__, __FUNCTION__)
 
-#define DW_UNIMPLEMENTED_MSG(format, args)               \
-    DW_ERROR("\n\n%s:%d: UNIMPLEMENTED (function %s): " format, __FILE__, __LINE__, __FUNCTION__, args)
+#define DW_UNIMPLEMENTED_MSG(format, ...)               \
+    DW_ERROR("\n\n%s:%d: UNIMPLEMENTED (function %s): " format, __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 
 
 #endif // __DW_ERROR_H
