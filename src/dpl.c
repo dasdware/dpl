@@ -1859,9 +1859,10 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
     }
     break;
-    default: {
-        DPL_ERROR("Unimplemented\n");
+    case CALLTREE_NODE_VARREF: {
+        dplp_write_push_local(program, node->as.varref);
     }
+    break;
     default:
         DW_UNIMPLEMENTED_MSG("`%s`", _dplc_nodekind_name(node->kind));
     }

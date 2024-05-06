@@ -94,6 +94,11 @@ void dplp_write_push_string(DPL_Program *program, const char* value) {
     nob_da_append_many(&program->code, &offset, sizeof(offset));
 }
 
+void dplp_write_push_local(DPL_Program *program, size_t scope_index) {
+    dplp_write(program, INST_PUSH_LOCAL);
+    nob_da_append_many(&program->code, &scope_index, sizeof(scope_index));
+}
+
 void dplp_write_pop(DPL_Program* program) {
     dplp_write(program, INST_POP);
 }
