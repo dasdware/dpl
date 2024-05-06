@@ -145,9 +145,9 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_DIVIDE";
     case INST_CALL_EXTERNAL:
         return "INST_CALL_EXTERNAL";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
-
-    DW_ERROR("ERROR: Cannot get name for instruction kind %d.", kind);
 }
 
 void dplp_print_escaped_string(const char* value, size_t length) {
@@ -227,6 +227,8 @@ void dplp_print(DPL_Program *program) {
             printf(" %u", external_num);
         }
         break;
+        default:
+            DW_UNIMPLEMENTED_MSG("%s", _dplp_inst_kind_name(kind));
         }
 
         printf("\n");

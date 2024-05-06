@@ -278,8 +278,10 @@ void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type)
         _dpl_print_signature(out, dpl, &type->as.function);
         fprintf(out, "]");
         break;
-    default:
+    case TYPE_BASE:
         break;
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", type->kind);
     }
 }
 
@@ -756,8 +758,7 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "SEMICOLON";
 
     default:
-        assert(false && "Unreachable");
-        exit(1);
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
 }
 
@@ -790,10 +791,9 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_SYMBOL";
     case AST_NODE_ASSIGNMENT:
         return "AST_NODE_ASSIGNMENT";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
-
-    assert(false && "unreachable: _dpla_node_kind_name");
-    return "";
 }
 
 void _dpla_print_indent(size_t level) {
@@ -1195,6 +1195,23 @@ void _dplp_parse(DPL* dpl)
 
 // CALLTREE
 
+const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
+    switch (kind) {
+    case CALLTREE_NODE_VALUE:
+        return "CALLTREE_NODE_VALUE";
+    case CALLTREE_NODE_FUNCTION:
+        return "CALLTREE_NODE_FUNCTION";
+    case CALLTREE_NODE_SCOPE:
+        return "CALLTREE_NODE_SCOPE";
+    case CALLTREE_NODE_VARREF:
+        return "CALLTREE_NODE_VARREF";
+    case CALLTREE_NODE_ASSIGNMENT:
+        return "CALLTREE_NODE_ASSIGNMENT";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
+    }
+}
+
 void _dplc_symbols_begin_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     nob_da_append(&s->frames, s->symbols.count);
@@ -1222,9 +1239,9 @@ const char* _dplc_symbols_kind_name(DPL_SymbolKind kind) {
         return "constant";
     case SYMBOL_VAR:
         return "variable";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
     }
-
-    DPL_ERROR("Cannot get symbol kind name for value `%d`.", kind);
 }
 
 DPL_Scope* _dplc_scopes_current(DPL* dpl) {
@@ -1529,10 +1546,8 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     }
     break;
     default:
-        break;
+        DPL_AST_ERROR(dpl, node, "Cannot fold constant expression of type `%s`.\n", _dpla_node_kind_name(node->kind));
     }
-
-    DPL_AST_ERROR(dpl, node, "Cannot fold constant expression of type `%s`.\n", _dpla_node_kind_name(node->kind));
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
@@ -1710,11 +1725,10 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         return ct_node;
     }
     default:
-        break;
+        DPL_AST_ERROR(dpl, node, "Cannot resolve function call tree for AST node of kind \"%s\".",
+                      _dpla_node_kind_name(node->kind));
     }
 
-    DPL_AST_ERROR(dpl, node, "Cannot resolve function call tree for AST node of kind \"%s\".",
-                  _dpla_node_kind_name(node->kind));
 }
 
 void _dplc_bind(DPL* dpl)
@@ -1803,6 +1817,8 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
         printf(")\n");
     }
     break;
+    default:
+        DW_UNIMPLEMENTED_MSG("%s", _dplc_nodekind_name(node->kind));
     }
 }
 
@@ -1846,6 +1862,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     default: {
         DPL_ERROR("Unimplemented\n");
     }
+    default:
+        DW_UNIMPLEMENTED_MSG("`%s`", _dplc_nodekind_name(node->kind));
     }
 }
 

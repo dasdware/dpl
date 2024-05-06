@@ -24,11 +24,18 @@
         fprintf(DW_ERROR_STREAM, "\n");                  \
     } while (false)
 
-#define DW_ERROR(format, ...)                \
-    do                                       \
-    {                                        \
-        DW_ERROR_MSG(format, ##__VA_ARGS__); \
-        exit(DW_ERROR_EXIT_CODE);            \
+#define DW_ERROR(format, ...)                            \
+    do                                                   \
+    {                                                    \
+        DW_ERROR_MSGLN(format, ##__VA_ARGS__);           \
+        exit(DW_ERROR_EXIT_CODE);                        \
     } while (false)
+
+#define DW_UNIMPLEMENTED                                 \
+    DW_ERROR("%s:%d: UNIMPLEMENTED (function %s)", __FILE__, __LINE__, __FUNCTION__)
+
+#define DW_UNIMPLEMENTED_MSG(format, args)               \
+    DW_ERROR("%s:%d: UNIMPLEMENTED (function %s): " format, __FILE__, __LINE__, __FUNCTION__, args)
+
 
 #endif // __DW_ERROR_H
