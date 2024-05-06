@@ -1851,16 +1851,32 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     break;
     case CALLTREE_NODE_SCOPE: {
         DPL_CallTree_Scope s = node->as.scope;
+        bool prev_was_persistent = false;
+        size_t persistent_count = 0;
         for (size_t i = 0; i < s.expressions.count; ++i) {
             if (i > 0) {
-                dplp_write_pop(program);
+                if (!prev_was_persistent) {
+                    dplp_write_pop(program);
+                } else {
+                    persistent_count++;
+                }
             }
             _dplg_generate(dpl, s.expressions.items[i], program);
+            prev_was_persistent = s.expressions.items[i]->persistent;
+        }
+
+        if (persistent_count > 0) {
+            dplp_write_pop_n(program, persistent_count);
         }
     }
     break;
     case CALLTREE_NODE_VARREF: {
         dplp_write_push_local(program, node->as.varref);
+    }
+    break;
+    case CALLTREE_NODE_ASSIGNMENT: {
+        _dplg_generate(dpl, node->as.assignment.expression, program);
+        dplp_write_store_local(program, node->as.assignment.scope_index);
     }
     break;
     default:

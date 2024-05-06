@@ -103,6 +103,11 @@ void dplp_write_pop(DPL_Program* program) {
     dplp_write(program, INST_POP);
 }
 
+void dplp_write_pop_n(DPL_Program* program, size_t n) {
+    dplp_write(program, INST_POP_N);
+    nob_da_append_many(&program->code, &n, sizeof(n));
+}
+
 void dplp_write_negate(DPL_Program *program) {
     dplp_write(program, INST_NEGATE);
 }
@@ -128,6 +133,11 @@ void dplp_write_call_external(DPL_Program *program, size_t external_num) {
     nob_da_append(&program->code, (uint8_t) external_num);
 }
 
+void dplp_write_store_local(DPL_Program *program, size_t scope_index) {
+    dplp_write(program, INST_STORE_LOCAL);
+    nob_da_append_many(&program->code, &scope_index, sizeof(scope_index));
+}
+
 const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
@@ -150,6 +160,12 @@ const char* _dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "INST_DIVIDE";
     case INST_CALL_EXTERNAL:
         return "INST_CALL_EXTERNAL";
+    case INST_PUSH_LOCAL:
+        return "INST_PUSH_LOCAL";
+    case INST_STORE_LOCAL:
+        return "INST_STORE_LOCAL";
+    case INST_POP_N:
+        return "INST_POP_N";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -218,6 +234,13 @@ void dplp_print(DPL_Program *program) {
             ip += sizeof(offset);
         }
         break;
+        case INST_PUSH_LOCAL: {
+            size_t scope_index = *(program->code.items + ip);
+
+            printf(" %zu", scope_index);
+            ip += sizeof(scope_index);
+        }
+        break;
         case INST_NOOP:
         case INST_POP:
         case INST_NEGATE:
@@ -230,6 +253,20 @@ void dplp_print(DPL_Program *program) {
             uint8_t external_num = *(program->code.items + ip);
             ip += sizeof(external_num);
             printf(" %u", external_num);
+        }
+        break;
+        case INST_STORE_LOCAL: {
+            size_t scope_index = *(program->code.items + ip);
+
+            printf(" %zu", scope_index);
+            ip += sizeof(scope_index);
+        }
+        break;
+        case INST_POP_N: {
+            size_t n = *(program->code.items + ip);
+
+            printf(" %zu", n);
+            ip += sizeof(n);
         }
         break;
         default:
