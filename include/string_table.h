@@ -46,6 +46,7 @@ void st_free(DW_StringTable *table);
 Nob_String_View st_allocate(DW_StringTable *table, size_t length);
 Nob_String_View st_allocate_cstr(DW_StringTable *table, const char *value);
 Nob_String_View st_allocate_lstr(DW_StringTable *table, const char *data, size_t length);
+Nob_String_View st_allocate_sv(DW_StringTable *table, Nob_String_View sv);
 Nob_String_View st_allocate_concat(DW_StringTable *table, Nob_String_View handle1, Nob_String_View handle2);
 
 void st_release(DW_StringTable *table, Nob_String_View handle);
@@ -119,6 +120,10 @@ Nob_String_View st_allocate_lstr(DW_StringTable *table, const char *data, size_t
     memcpy((char*)result.data, data, length);
 
     return result;
+}
+
+Nob_String_View st_allocate_sv(DW_StringTable *table, Nob_String_View sv) {
+    return st_allocate_lstr(table, sv.data, sv.count);
 }
 
 Nob_String_View st_allocate_concat(DW_StringTable *table, Nob_String_View sv1, Nob_String_View sv2)

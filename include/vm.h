@@ -40,6 +40,12 @@ void dplv_free(DPL_VirtualMachine *vm);
 void dplv_run(DPL_VirtualMachine *vm);
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm);
-void dplv_replace_top(DPL_VirtualMachine *vm, DPL_Value value);
+
+DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value);
+void dplv_release(DPL_VirtualMachine* vm, DPL_Value value);
+
+void dplv_return(DPL_VirtualMachine* vm, size_t arity, DPL_Value value);
+void dplv_return_number(DPL_VirtualMachine* vm, size_t arity, double value);
+void dplv_return_string(DPL_VirtualMachine* vm, size_t arity, Nob_String_View value);
 
 #endif // __DPL_VM_H

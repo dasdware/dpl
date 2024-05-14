@@ -32,16 +32,13 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
 
 void _dple_length_string_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
-
-    double length =  value.as.string.count;
-    st_release(&vm->strings, value.as.string);
-
-    dplv_replace_top(vm, dpl_value_make_number(length));
+    dplv_return_number(vm, 1, value.as.string.count);
 }
 
 void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
-    dplv_replace_top(vm, dpl_value_make_string(st_allocate_cstr(&vm->strings, dpl_value_format_number(value))));
+    dplv_return_string(vm, 1,
+                       st_allocate_cstr(&vm->strings, dpl_value_format_number(value)));
 }
 
 

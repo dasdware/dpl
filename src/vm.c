@@ -66,7 +66,37 @@ void _dplv_trace_stack(DPL_VirtualMachine *vm) {
         dpl_value_print(vm->stack[i]);
     }
     printf("\n");
+}
 
+DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
+    if (value.kind == VALUE_STRING) {
+        return dpl_value_make_string(
+                   st_allocate_sv(&vm->strings, value.as.string));
+    }
+    return value;
+}
+
+void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
+    if (value.kind == VALUE_STRING) {
+        st_release(&vm->strings, value.as.string);
+    }
+}
+
+void dplv_return(DPL_VirtualMachine* vm, size_t arity, DPL_Value value) {
+    for (size_t i = vm->stack_top - arity; i < vm->stack_top; ++i) {
+        dplv_release(vm, vm->stack[i]);
+    }
+
+    vm->stack_top -= (arity - 1);
+    vm->stack[vm->stack_top - 1] = value;
+}
+
+void dplv_return_number(DPL_VirtualMachine* vm, size_t arity, double value) {
+    dplv_return(vm, arity, dpl_value_make_number(value));
+}
+
+void dplv_return_string(DPL_VirtualMachine* vm, size_t arity, Nob_String_View value) {
+    dplv_return(vm, arity, dpl_value_make_string(value));
 }
 
 void dplv_run(DPL_VirtualMachine *vm)
@@ -96,9 +126,9 @@ void dplv_run(DPL_VirtualMachine *vm)
             ip += sizeof(offset);
 
             double value = *(double*)(vm->program->constants.items + offset);
-            vm->stack[vm->stack_top].kind = VALUE_NUMBER;
-            vm->stack[vm->stack_top].as.number = value;
+
             ++vm->stack_top;
+            TOP0 = dpl_value_make_number(value);
         }
         break;
         case INST_PUSH_STRING: {
@@ -113,42 +143,31 @@ void dplv_run(DPL_VirtualMachine *vm)
             size_t length = *(size_t*)(vm->program->constants.items + offset);
             char* data = (char*)(vm->program->constants.items + offset + sizeof(length));
 
-            vm->stack[vm->stack_top].kind = VALUE_STRING;
-            vm->stack[vm->stack_top].as.string = st_allocate_lstr(&vm->strings, data, length);
             ++vm->stack_top;
+            TOP0 = dpl_value_make_string(st_allocate_lstr(&vm->strings, data, length));
         }
         break;
         case INST_NEGATE:
-            TOP0.as.number = -TOP0.as.number;
+            dplv_return_number(vm, 1, -TOP0.as.number);
             break;
         case INST_ADD:
             if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
-                TOP1.as.number = TOP1.as.number + TOP0.as.number;
-                --vm->stack_top;
+                dplv_return_number(vm, 2, TOP1.as.number + TOP0.as.number);
             } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
-                Nob_String_View result = st_allocate_concat(&vm->strings, TOP1.as.string, TOP0.as.string);
-                st_release(&vm->strings, TOP0.as.string);
-                st_release(&vm->strings, TOP1.as.string);
-                TOP1.as.string = result;
-                --vm->stack_top;
+                dplv_return_string(vm, 2, st_allocate_concat(&vm->strings, TOP1.as.string, TOP0.as.string));
             }
             break;
         case INST_SUBTRACT:
-            TOP1.as.number = TOP1.as.number - TOP0.as.number;
-            --vm->stack_top;
+            dplv_return_number(vm, 2, TOP1.as.number - TOP0.as.number);
             break;
         case INST_MULTIPLY:
-            TOP1.as.number = TOP1.as.number * TOP0.as.number;
-            --vm->stack_top;
+            dplv_return_number(vm, 2, TOP1.as.number * TOP0.as.number);
             break;
         case INST_DIVIDE:
-            TOP1.as.number = TOP1.as.number / TOP0.as.number;
-            --vm->stack_top;
+            dplv_return_number(vm, 2, TOP1.as.number / TOP0.as.number);
             break;
         case INST_POP:
-            if (TOP0.kind == VALUE_STRING) {
-                st_release(&vm->strings, TOP0.as.string);
-            }
+            dplv_release(vm, TOP0);
             --vm->stack_top;
             break;
         case INST_CALL_EXTERNAL: {
@@ -175,24 +194,27 @@ void dplv_run(DPL_VirtualMachine *vm)
             size_t scope_index = *(vm->program->code.items + ip);
             ip += sizeof(scope_index);
 
-            vm->stack[vm->stack_top] = vm->stack[_dplv_peek_callframe(vm)->stack_top + scope_index];
+            size_t slot = _dplv_peek_callframe(vm)->stack_top + scope_index;
+
             ++vm->stack_top;
+            TOP0 = dplv_reference(vm, vm->stack[slot]);
         }
         break;
         case INST_STORE_LOCAL: {
             size_t scope_index = *(vm->program->code.items + ip);
             ip += sizeof(scope_index);
 
-            vm->stack[_dplv_peek_callframe(vm)->stack_top + scope_index] = vm->stack[vm->stack_top - 1];
+            size_t slot = _dplv_peek_callframe(vm)->stack_top + scope_index;
+
+            dplv_release(vm, vm->stack[slot]);
+            vm->stack[slot] = dplv_reference(vm, TOP0);
         }
         break;
         case INST_POP_SCOPE: {
             size_t scope_size = *(vm->program->code.items + ip);
             ip += sizeof(scope_size);
 
-            DPL_Value result_value = vm->stack[vm->stack_top - 1];
-            vm->stack_top -= scope_size;
-            vm->stack[vm->stack_top - 1] = result_value;
+            dplv_return(vm, scope_size + 1, dplv_reference(vm, TOP0));
         }
         break;
         default:
@@ -215,8 +237,4 @@ void dplv_run(DPL_VirtualMachine *vm)
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
     return vm->stack[vm->stack_top - 1];
-}
-
-void dplv_replace_top(DPL_VirtualMachine *vm, DPL_Value value) {
-    vm->stack[vm->stack_top - 1] = value;
 }
