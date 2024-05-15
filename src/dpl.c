@@ -661,6 +661,8 @@ DPL_Token _dpll_next_token(DPL* dpl)
         DPL_Token t = _dpll_build_token(dpl, TOKEN_IDENTIFIER);
         if (nob_sv_eq(t.text, nob_sv_from_cstr("constant"))) {
             t.kind = TOKEN_KEYWORD_CONSTANT;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("function"))) {
+            t.kind = TOKEN_KEYWORD_FUNCTION;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
             t.kind = TOKEN_KEYWORD_VAR;
         }
@@ -722,6 +724,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "IDENTIFIER";
     case TOKEN_KEYWORD_CONSTANT:
         return "CONSTANT";
+    case TOKEN_KEYWORD_FUNCTION:
+        return "FUNCTION";
     case TOKEN_KEYWORD_VAR:
         return "VAR";
 
@@ -791,6 +795,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_SYMBOL";
     case AST_NODE_ASSIGNMENT:
         return "AST_NODE_ASSIGNMENT";
+    case AST_NODE_FUNCTION:
+        return "AST_NODE_FUNCTION";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -870,6 +876,22 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(assigment.expression, level + 2);
     }
     break;
+    case AST_NODE_FUNCTION: {
+        DPL_Ast_Function function = node->as.function;
+        printf(" [%s "SV_Fmt": (", _dpll_token_kind_name(function.keyword.kind), SV_Arg(function.name.text));
+        for (size_t i = 0; i < function.signature.argument_count; ++i) {
+            if (i > 0) {
+                printf(", ");
+            }
+            DPL_Ast_FunctionArgument arg = function.signature.arguments[i];
+            printf(SV_Fmt": "SV_Fmt, SV_Arg(arg.name.text), SV_Arg(arg.type_name.text));
+        }
+        printf("): "SV_Fmt"]\n", SV_Arg(function.signature.type_name.text));
+        _dpla_print_indent(level + 1);
+        printf("<body>\n");
+        _dpla_print(function.body, level + 2);
+    }
+    break;
     default: {
         printf("\n");
         break;
@@ -907,6 +929,12 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind);
 
+typedef struct {
+    DPL_Ast_FunctionArgument* items;
+    size_t count;
+    size_t capacity;
+} _DPL_Ast_Arguments;
+
 DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     DPL_Token keyword_candidate = _dplp_peek_token(dpl);
     if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT || keyword_candidate.kind == TOKEN_KEYWORD_VAR) {
@@ -931,6 +959,50 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         declaration->as.declaration.assignment = assignment;
         declaration->as.declaration.initialization = initialization;
         return declaration;
+    } else if (keyword_candidate.kind == TOKEN_KEYWORD_FUNCTION) {
+        DPL_Token keyword = _dplp_next_token(dpl);
+        DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+
+        _DPL_Ast_Arguments arguments = {0};
+        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+        if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
+            while (true) {
+                DPL_Ast_FunctionArgument argument = {0};
+                argument.name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+                _dplp_expect_token(dpl, TOKEN_COLON);
+                argument.type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+
+                nob_da_append(&arguments, argument);
+
+                if (_dplp_peek_token(dpl).kind != TOKEN_COMMA) {
+                    break;
+                } else {
+                    _dplp_next_token(dpl);
+                }
+            }
+        }
+        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+        _dplp_expect_token(dpl, TOKEN_COLON);
+        DPL_Token result_type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+
+        _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
+        DPL_Ast_Node *body = _dplp_parse_expression(dpl);
+
+        DPL_Ast_Node* function = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTION, keyword, body->last);
+        function->as.function.keyword = keyword;
+        function->as.function.name = name;
+
+        function->as.function.signature.argument_count = arguments.count;
+        if (arguments.count > 0) {
+            function->as.function.signature.arguments = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
+            memcpy(function->as.function.signature.arguments, arguments.items, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
+            nob_da_free(arguments);
+        }
+        function->as.function.signature.type_name = result_type_name;
+
+        function->as.function.body = body;
+
+        return function;
     }
 
     return _dplp_parse_expression(dpl);

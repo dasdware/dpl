@@ -131,6 +131,7 @@ typedef enum
     TOKEN_STRING,
 
     TOKEN_KEYWORD_CONSTANT,
+    TOKEN_KEYWORD_FUNCTION,
     TOKEN_KEYWORD_VAR,
 } DPL_TokenKind;
 
@@ -153,6 +154,7 @@ typedef enum
     AST_NODE_DECLARATION,
     AST_NODE_SYMBOL,
     AST_NODE_ASSIGNMENT,
+    AST_NODE_FUNCTION,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -205,6 +207,24 @@ typedef struct
     DPL_Ast_Node* expression;
 } DPL_Ast_Assignment;
 
+typedef struct {
+    DPL_Token name;
+    DPL_Token type_name;
+} DPL_Ast_FunctionArgument;
+
+typedef struct {
+    size_t argument_count;
+    DPL_Ast_FunctionArgument* arguments;
+    DPL_Token type_name;
+} DPL_Ast_FunctionSignature;
+
+typedef struct {
+    DPL_Token keyword;
+    DPL_Token name;
+    DPL_Ast_FunctionSignature signature;
+    DPL_Ast_Node* body;
+} DPL_Ast_Function;
+
 union DPL_Ast_Node_As
 {
     DPL_Ast_Literal literal;
@@ -215,6 +235,7 @@ union DPL_Ast_Node_As
     DPL_Ast_Declaration declaration;
     DPL_Token symbol;
     DPL_Ast_Assignment assignment;
+    DPL_Ast_Function function;
 };
 
 struct _DPL_Ast_Node
