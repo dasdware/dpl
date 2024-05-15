@@ -1,0 +1,3 @@
+function square(n: number): number := n * n;
+
+print(5.square()); print("\n");
