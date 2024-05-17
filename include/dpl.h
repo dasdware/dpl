@@ -255,6 +255,8 @@ typedef struct
 
 // CALLTREE
 
+typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
+
 typedef union {
     double number;
     Nob_String_View string;
@@ -268,6 +270,8 @@ typedef struct {
 typedef enum {
     SYMBOL_CONSTANT,
     SYMBOL_VAR,
+    SYMBOL_FUNCTION,
+    SYMBOL_ARGUMENT,
 } DPL_SymbolKind;
 
 typedef struct {
@@ -275,9 +279,19 @@ typedef struct {
     size_t scope_index;
 } DPL_CallTree_Var;
 
+typedef struct {
+    DPL_Signature signature;
+    DPL_CallTree_Node* body;
+    bool used;
+    DPL_Handle user_handle;
+    DPL_Handle function_handle;
+} DPL_CallTree_Function;
+
 typedef union {
     DPL_CallTree_Value constant;
     DPL_CallTree_Var var;
+    DPL_CallTree_Var argument;
+    DPL_CallTree_Function function;
 } DPL_Symbol_As;
 
 typedef struct {
@@ -301,6 +315,7 @@ typedef struct {
 typedef struct {
     DPL_Symbols symbols;
     DPL_Frames frames;
+    size_t bottom;
 } DPL_SymbolStack;
 
 typedef struct {
@@ -320,10 +335,9 @@ typedef enum
     CALLTREE_NODE_FUNCTIONCALL,
     CALLTREE_NODE_SCOPE,
     CALLTREE_NODE_VARREF,
+    CALLTREE_NODE_ARGREF,
     CALLTREE_NODE_ASSIGNMENT,
 } DPL_CallTreeNodeKind;
-
-typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
 
 typedef struct
 {
@@ -354,6 +368,7 @@ typedef union
     DPL_CallTree_FunctionCall function_call;
     DPL_CallTree_Scope scope;
     size_t varref;
+    size_t argref;
     DPL_CallTree_Assignment assignment;
 } DPL_CallTree_Node_As;
 
@@ -371,6 +386,18 @@ typedef struct
     DPL_CallTree_Node *root;
 } DPL_CallTree;
 
+typedef struct {
+    DPL_Handle function_handle;
+    size_t begin_ip;
+    size_t arity;
+    DPL_CallTree_Node* body;
+} DPL_UserFunction;
+
+typedef struct {
+    DPL_UserFunction* items;
+    size_t count;
+    size_t capacity;
+} DPL_UserFunctions;
 
 // COMPILATION CONTEXT
 
@@ -404,6 +431,9 @@ typedef struct _DPL
     DPL_SymbolStack symbol_stack;
     DPL_ScopeStack scope_stack;
     DPL_CallTree calltree;
+
+    // Generator
+    DPL_UserFunctions user_functions;
 } DPL;
 
 void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals);
