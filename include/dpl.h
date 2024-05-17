@@ -317,7 +317,7 @@ typedef struct {
 typedef enum
 {
     CALLTREE_NODE_VALUE = 0,
-    CALLTREE_NODE_FUNCTION,
+    CALLTREE_NODE_FUNCTIONCALL,
     CALLTREE_NODE_SCOPE,
     CALLTREE_NODE_VARREF,
     CALLTREE_NODE_ASSIGNMENT,
@@ -336,7 +336,7 @@ typedef struct
 {
     DPL_Handle function_handle;
     DPL_CallTree_Nodes arguments;
-} DPL_CallTree_Function;
+} DPL_CallTree_FunctionCall;
 
 typedef struct
 {
@@ -351,7 +351,7 @@ typedef struct {
 typedef union
 {
     DPL_CallTree_Value value;
-    DPL_CallTree_Function function;
+    DPL_CallTree_FunctionCall function_call;
     DPL_CallTree_Scope scope;
     size_t varref;
     DPL_CallTree_Assignment assignment;

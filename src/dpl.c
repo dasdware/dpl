@@ -1271,8 +1271,8 @@ const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
     switch (kind) {
     case CALLTREE_NODE_VALUE:
         return "CALLTREE_NODE_VALUE";
-    case CALLTREE_NODE_FUNCTION:
-        return "CALLTREE_NODE_FUNCTION";
+    case CALLTREE_NODE_FUNCTIONCALL:
+        return "CALLTREE_NODE_FUNCTIONCALL";
     case CALLTREE_NODE_SCOPE:
         return "CALLTREE_NODE_SCOPE";
     case CALLTREE_NODE_VARREF:
@@ -1354,11 +1354,11 @@ DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* fu
                                  operand->type_handle);
     if (function) {
         DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
-        calltree_node->kind = CALLTREE_NODE_FUNCTION;
+        calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
         calltree_node->type_handle = function->signature.returns;
 
-        calltree_node->as.function.function_handle = function->handle;
-        nob_da_append(&calltree_node->as.function.arguments, operand);
+        calltree_node->as.function_call.function_handle = function->handle;
+        nob_da_append(&calltree_node->as.function_call.arguments, operand);
 
         return calltree_node;
     }
@@ -1387,12 +1387,12 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
                                  lhs->type_handle, rhs->type_handle);
     if (function) {
         DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
-        calltree_node->kind = CALLTREE_NODE_FUNCTION;
+        calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
         calltree_node->type_handle = function->signature.returns;
 
-        calltree_node->as.function.function_handle = function->handle;
-        nob_da_append(&calltree_node->as.function.arguments, lhs);
-        nob_da_append(&calltree_node->as.function.arguments, rhs);
+        calltree_node->as.function_call.function_handle = function->handle;
+        nob_da_append(&calltree_node->as.function_call.arguments, lhs);
+        nob_da_append(&calltree_node->as.function_call.arguments, rhs);
 
         return calltree_node;
     }
@@ -1407,7 +1407,7 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
 DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 {
     DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
-    result_ctn->kind = CALLTREE_NODE_FUNCTION;
+    result_ctn->kind = CALLTREE_NODE_FUNCTIONCALL;
 
     DPL_Handles argument_types = {0};
 
@@ -1417,13 +1417,13 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
         if (!arg_ctn) {
             DPL_AST_ERROR(dpl, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
-        nob_da_append(&result_ctn->as.function.arguments, arg_ctn);
+        nob_da_append(&result_ctn->as.function_call.arguments, arg_ctn);
         _dpl_add_handle(&argument_types, arg_ctn->type_handle);
     }
 
     DPL_Function* function = _dplf_find_by_signature(dpl, fc.name.text, &argument_types);
     if (function) {
-        result_ctn->as.function.function_handle = function->handle;
+        result_ctn->as.function_call.function_handle = function->handle;
         result_ctn->type_handle = function->signature.returns;
         return result_ctn;
     }
@@ -1432,7 +1432,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     {
         nob_sb_append_sv(&signature_builder, fc.name.text);
         nob_sb_append_cstr(&signature_builder, "(");
-        DPL_CallTree_Nodes arguments = result_ctn->as.function.arguments;
+        DPL_CallTree_Nodes arguments = result_ctn->as.function_call.arguments;
         for (size_t i = 0; i < arguments.count; ++i) {
             if (i > 0) {
                 nob_sb_append_cstr(&signature_builder, ", ");
@@ -1830,12 +1830,12 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     }
 
     switch(node->kind) {
-    case CALLTREE_NODE_FUNCTION: {
-        DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function.function_handle);
+    case CALLTREE_NODE_FUNCTIONCALL: {
+        DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function_call.function_handle);
         printf(SV_Fmt"(\n", SV_Arg(function->name));
 
-        for (size_t i = 0; i < node->as.function.arguments.count; ++i) {
-            _dplc_print(dpl, node->as.function.arguments.items[i], level + 1);
+        for (size_t i = 0; i < node->as.function_call.arguments.count; ++i) {
+            _dplc_print(dpl, node->as.function_call.arguments.items[i], level + 1);
         }
 
         for (size_t i = 0; i < level; ++i) {
@@ -1911,8 +1911,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
     }
     break;
-    case CALLTREE_NODE_FUNCTION: {
-        DPL_CallTree_Function f = node->as.function;
+    case CALLTREE_NODE_FUNCTIONCALL: {
+        DPL_CallTree_FunctionCall f = node->as.function_call;
         for (size_t i = 0; i < f.arguments.count; ++i) {
             _dplg_generate(dpl, f.arguments.items[i], program);
         }
