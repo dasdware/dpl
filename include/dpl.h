@@ -9,6 +9,8 @@
 
 // COMMON
 
+typedef struct _DPL DPL;
+
 #ifndef DPL_HANDLES_CAPACITY
 #define DPL_HANDLES_CAPACITY 16
 #endif
@@ -64,7 +66,7 @@ typedef struct
 
 /// FUNCTIONS
 
-typedef void (*DPL_Generator_Callback)(DPL_Program *, void *);
+typedef void (*DPL_Generator_Callback)(DPL* dpl, DPL_Program *, void *);
 
 typedef struct
 {
@@ -401,7 +403,7 @@ typedef struct {
 
 // COMPILATION CONTEXT
 
-typedef struct _DPL
+struct _DPL
 {
     // Configuration
     bool debug;
@@ -434,7 +436,7 @@ typedef struct _DPL
 
     // Generator
     DPL_UserFunctions user_functions;
-} DPL;
+};
 
 void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals);
 void dpl_free(DPL *dpl);

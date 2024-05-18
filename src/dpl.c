@@ -49,8 +49,9 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
 void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
 
-void _dplg_generate_inst(DPL_Program* program, void* instruction)
+void _dplg_generate_inst(DPL* dpl, DPL_Program* program, void* instruction)
 {
+    (void) dpl;
     dplp_write(program, (DPL_Instruction_Kind) instruction);
 }
 
@@ -378,8 +379,9 @@ void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function) {
 
 // EXTERNALS
 
-void _dplg_call_external_callback(DPL_Program* program, void* user_data)
+void _dplg_call_external_callback(DPL* dpl, DPL_Program* program, void* user_data)
 {
+    (void) dpl;
     dplp_write_call_external(program, (size_t)user_data);
 }
 
@@ -1399,8 +1401,9 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
                   function_name, SV_Arg(lhs_type->name), SV_Arg(rhs_type->name), SV_Arg(operator_token.text));
 }
 
-void _dplg_generate_call_userfunction(DPL_Program* program, void* data)
+void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data)
 {
+    (void) dpl;
     (void) program;
     (void) data;
     DW_UNIMPLEMENTED;
@@ -2028,7 +2031,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
 
         DPL_Function* function = _dplf_find_by_handle(dpl, f.function_handle);
-        function->generator.callback(program, function->generator.user_data);
+        function->generator.callback(dpl, program, function->generator.user_data);
     }
     break;
     case CALLTREE_NODE_SCOPE: {
