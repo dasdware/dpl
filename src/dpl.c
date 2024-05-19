@@ -1260,6 +1260,8 @@ const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
         return "CALLTREE_NODE_SCOPE";
     case CALLTREE_NODE_VARREF:
         return "CALLTREE_NODE_VARREF";
+    case CALLTREE_NODE_ARGREF:
+        return "CALLTREE_NODE_ARGREF";
     case CALLTREE_NODE_ASSIGNMENT:
         return "CALLTREE_NODE_ASSIGNMENT";
     default:
@@ -1403,10 +1405,8 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
 
 void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data)
 {
-    (void) dpl;
-    (void) program;
-    (void) data;
-    DW_UNIMPLEMENTED;
+    DPL_UserFunction* uf = &dpl->user_functions.items[(size_t) data];
+    dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
 DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
@@ -2056,6 +2056,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         }
     }
     break;
+    case CALLTREE_NODE_ARGREF:
     case CALLTREE_NODE_VARREF: {
         dplp_write_push_local(program, node->as.varref);
     }
@@ -2095,6 +2096,13 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
         printf("### program ###\n");
         _dplc_print(dpl, dpl->calltree.root, 0);
         printf("\n");
+    }
+
+    for (size_t i = 0; i < dpl->user_functions.count; ++i) {
+        DPL_UserFunction* uf = &dpl->user_functions.items[i];
+        uf->begin_ip = program->code.count;
+        _dplg_generate(dpl, uf->body, program);
+        dplp_write_return(program);
     }
 
     _dplg_generate(dpl, dpl->calltree.root, program);
