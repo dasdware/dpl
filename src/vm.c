@@ -106,7 +106,7 @@ void dplv_run(DPL_VirtualMachine *vm)
 
     _dplv_push_callframe(vm, 0);
 
-    size_t ip = 0;
+    size_t ip = vm->program->entry;
     while (ip < vm->program->code.count)
     {
         size_t ip_begin = ip;

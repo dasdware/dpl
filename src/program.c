@@ -206,18 +206,21 @@ void dplp_print_escaped_string(const char* value, size_t length) {
 }
 
 void dplp_print(DPL_Program *program) {
-    printf("%zu bytes in constant chunk:\n", program->constants.count);
-    for (size_t i = 0; i < program->constants.count; ++i) {
-        printf(" %02X", program->constants.items[i]);
-    }
-    printf("\n\n");
+    printf("============ PROGRAM ============\n");
+    printf("        Version: %u\n", program->version);
+    printf("          Entry: %zu\n", program->entry);
 
-    printf("%zu bytes in code chunk:\n", program->code.count);
-    for (size_t i = 0; i < program->code.count; ++i) {
-        printf(" %02X", program->code.items[i]);
-
+    printf("----- CONSTANTS DICTIONARY ------\n");
+    printf("           Size: %zu:\n", program->constants_dictionary.count);
+    printf("     Chunk size: %zu\n", program->constants.count);
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
+        printf(" #%zu: ", i);
+        dpl_value_print(program->constants_dictionary.items[i].value);
+        printf(" (offset: %zu)\n", program->constants_dictionary.items[i].offset);
     }
-    printf("\n\n");
+
+    printf("------------- CODE --------------\n");
+    printf("     Chunk size: %zu\n", program->code.count);
 
     size_t ip = 0;
     while (ip < program->code.count) {
@@ -299,14 +302,7 @@ void dplp_print(DPL_Program *program) {
 
         printf("\n");
     }
-    printf("\n");
-
-    printf("%zu constants in dictionary:\n", program->constants_dictionary.count);
-    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
-        printf(" #%zu: ", i);
-        dpl_value_print(program->constants_dictionary.items[i].value);
-        printf(" (offset: %zu)\n", program->constants_dictionary.items[i].offset);
-    }
+    printf("=================================\n");
     printf("\n");
 }
 
@@ -325,7 +321,11 @@ bool dplp_save(DPL_Program* program, const char* file_name)
 {
     FILE *out = fopen(file_name, "wb");
 
-    _dplp_save_chunk(out, "HEAD", sizeof(program->version), &program->version);
+    DPL_Bytes header = {0};
+    nob_da_append_many(&header, &program->version, sizeof(program->version));
+    nob_da_append_many(&header, &program->entry, sizeof(program->entry));
+    _dplp_save_chunk(out, "HEAD", header.count, header.items);
+
     _dplp_save_chunk(out, "CONS", program->constants.count, program->constants.items);
     _dplp_save_chunk(out, "CODE", program->code.count, program->code.items);
 
@@ -394,6 +394,7 @@ bool dplp_load(DPL_Program* program, const char* file_name)
         if (strcmp(chunk.name, "HEAD") == 0)
         {
             program->version = chunk.items[0];
+            program->entry = *(uint64_t*)(chunk.items + sizeof(program->version));
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {

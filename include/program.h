@@ -48,6 +48,8 @@ typedef struct
 typedef struct
 {
     uint8_t version;
+    uint64_t entry;
+
     DPL_Bytes code;
     DPL_Bytes constants;
 

@@ -2105,6 +2105,7 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
         dplp_write_return(program);
     }
 
+    program->entry = program->code.count;
     _dplg_generate(dpl, dpl->calltree.root, program);
     if (dpl->debug)
     {
