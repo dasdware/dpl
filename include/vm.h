@@ -10,6 +10,7 @@ struct DPL_ExternalFunctions;
 
 typedef struct {
     size_t stack_top;
+    size_t arity;
     size_t return_ip;
 } DPL_CallFrame;
 
