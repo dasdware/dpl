@@ -37,5 +37,7 @@
 #define DW_UNIMPLEMENTED_MSG(format, ...)               \
     DW_ERROR("\n\n%s:%d: UNIMPLEMENTED (function %s): " format, __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 
+#define DW_UNUSED(x) ((void) x)
+
 
 #endif // __DW_ERROR_H

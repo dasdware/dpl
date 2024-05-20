@@ -31,14 +31,15 @@ void dplv_free(DPL_VirtualMachine *vm)
     arena_free(&vm->memory);
 }
 
-void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t return_ip) {
+void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t arity, size_t return_ip) {
     if (vm->callstack_top >= vm->callstack_capacity)
     {
         DW_ERROR("Fatal Error: Callstack overflow in program execution.");
     }
 
     vm->callstack[vm->callstack_top].return_ip = return_ip;
-    vm->callstack[vm->callstack_top].stack_top = vm->stack_top;
+    vm->callstack[vm->callstack_top].arity = arity;
+    vm->callstack[vm->callstack_top].stack_top = vm->stack_top - arity;
     ++vm->callstack_top;
 }
 
@@ -104,11 +105,14 @@ void dplv_run(DPL_VirtualMachine *vm)
 #define TOP0 (vm->stack[vm->stack_top - 1])
 #define TOP1 (vm->stack[vm->stack_top - 2])
 
-    _dplv_push_callframe(vm, 0);
+    _dplv_push_callframe(vm, 0, 0);
 
-    size_t ip = 0;
+    size_t ip = vm->program->entry;
     while (ip < vm->program->code.count)
     {
+        if (vm->trace) {
+            printf("[%03zu] ", ip);
+        }
         size_t ip_begin = ip;
         DPL_Instruction_Kind instruction = vm->program->code.items[ip];
         ++ip;
@@ -216,6 +220,25 @@ void dplv_run(DPL_VirtualMachine *vm)
 
             dplv_return(vm, scope_size + 1, dplv_reference(vm, TOP0));
         }
+        break;
+        case INST_CALL_USER: {
+            uint8_t arity = *(vm->program->code.items + ip);
+            ip += sizeof(arity);
+            size_t begin_ip = *(vm->program->code.items + ip);
+            ip += sizeof(begin_ip);
+
+            _dplv_push_callframe(vm, arity, ip);
+
+            ip = begin_ip;
+        };
+        break;
+        case INST_RETURN: {
+            DPL_CallFrame *frame = _dplv_peek_callframe(vm);
+            dplv_return(vm, frame->arity + 1, dplv_reference(vm, TOP0));
+            ip = frame->return_ip;
+
+            _dplv_pop_callframe(vm);
+        };
         break;
         default:
             printf("\n=======================================\n");

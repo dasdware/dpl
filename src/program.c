@@ -133,6 +133,16 @@ void dplp_write_call_external(DPL_Program *program, size_t external_num) {
     nob_da_append(&program->code, (uint8_t) external_num);
 }
 
+void dplp_write_call_user(DPL_Program *program, size_t arity, size_t ip_begin) {
+    dplp_write(program, INST_CALL_USER);
+    nob_da_append(&program->code, (uint8_t) arity);
+    nob_da_append_many(&program->code, &ip_begin, sizeof(ip_begin));
+}
+
+void dplp_write_return(DPL_Program* program) {
+    dplp_write(program, INST_RETURN);
+}
+
 void dplp_write_store_local(DPL_Program *program, size_t scope_index) {
     dplp_write(program, INST_STORE_LOCAL);
     nob_da_append_many(&program->code, &scope_index, sizeof(scope_index));
@@ -141,31 +151,35 @@ void dplp_write_store_local(DPL_Program *program, size_t scope_index) {
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
-        return "INST_NOOP";
+        return "NOOP";
     case INST_PUSH_NUMBER:
-        return "INST_PUSH_NUMBER";
+        return "PUSH_NUMBER";
     case INST_PUSH_STRING:
-        return "INST_PUSH_STRING";
+        return "PUSH_STRING";
     case INST_POP:
-        return "INST_POP";
+        return "POP";
     case INST_NEGATE:
-        return "INST_NEGATE";
+        return "NEGATE";
     case INST_ADD:
-        return "INST_ADD";
+        return "ADD";
     case INST_SUBTRACT:
-        return "INST_SUBTRACT";
+        return "SUBTRACT";
     case INST_MULTIPLY:
-        return "INST_MULTIPLY";
+        return "MULTIPLY";
     case INST_DIVIDE:
-        return "INST_DIVIDE";
+        return "DIVIDE";
     case INST_CALL_EXTERNAL:
-        return "INST_CALL_EXTERNAL";
+        return "CALL_EXTERNAL";
+    case INST_CALL_USER:
+        return "CALL_USER";
+    case INST_RETURN:
+        return "RETURN";
     case INST_PUSH_LOCAL:
-        return "INST_PUSH_LOCAL";
+        return "PUSH_LOCAL";
     case INST_STORE_LOCAL:
-        return "INST_STORE_LOCAL";
+        return "STORE_LOCAL";
     case INST_POP_SCOPE:
-        return "INST_POP_SCOPE";
+        return "POP_SCOPE";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -192,25 +206,28 @@ void dplp_print_escaped_string(const char* value, size_t length) {
 }
 
 void dplp_print(DPL_Program *program) {
-    printf("%zu bytes in constant chunk:\n", program->constants.count);
-    for (size_t i = 0; i < program->constants.count; ++i) {
-        printf(" %02X", program->constants.items[i]);
-    }
-    printf("\n\n");
+    printf("============ PROGRAM ============\n");
+    printf("        Version: %u\n", program->version);
+    printf("          Entry: %zu\n", program->entry);
 
-    printf("%zu bytes in code chunk:\n", program->code.count);
-    for (size_t i = 0; i < program->code.count; ++i) {
-        printf(" %02X", program->code.items[i]);
-
+    printf("----- CONSTANTS DICTIONARY ------\n");
+    printf("           Size: %zu:\n", program->constants_dictionary.count);
+    printf("     Chunk size: %zu\n", program->constants.count);
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
+        printf(" #%zu: ", i);
+        dpl_value_print(program->constants_dictionary.items[i].value);
+        printf(" (offset: %zu)\n", program->constants_dictionary.items[i].offset);
     }
-    printf("\n\n");
+
+    printf("------------- CODE --------------\n");
+    printf("     Chunk size: %zu\n", program->code.count);
 
     size_t ip = 0;
     while (ip < program->code.count) {
         DPL_Instruction_Kind kind = program->code.items[ip];
         ++ip;
 
-        printf("%s", dplp_inst_kind_name(kind));
+        printf("[%04zu] %s", ip - 1, dplp_inst_kind_name(kind));
         switch (kind) {
         case INST_PUSH_NUMBER: {
             size_t offset = *(program->code.items + ip);
@@ -248,11 +265,21 @@ void dplp_print(DPL_Program *program) {
         case INST_SUBTRACT:
         case INST_MULTIPLY:
         case INST_DIVIDE:
+        case INST_RETURN:
             break;
         case INST_CALL_EXTERNAL: {
             uint8_t external_num = *(program->code.items + ip);
             ip += sizeof(external_num);
             printf(" %u", external_num);
+        }
+        break;
+        case INST_CALL_USER: {
+            uint8_t arity = *(program->code.items + ip);
+            ip += sizeof(arity);
+            size_t begin_ip = *(program->code.items + ip);
+            ip += sizeof(begin_ip);
+
+            printf(" %u %zu", arity, begin_ip);
         }
         break;
         case INST_STORE_LOCAL: {
@@ -275,14 +302,7 @@ void dplp_print(DPL_Program *program) {
 
         printf("\n");
     }
-    printf("\n");
-
-    printf("%zu constants in dictionary:\n", program->constants_dictionary.count);
-    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
-        printf(" #%zu: ", i);
-        dpl_value_print(program->constants_dictionary.items[i].value);
-        printf(" (offset: %zu)\n", program->constants_dictionary.items[i].offset);
-    }
+    printf("=================================\n");
     printf("\n");
 }
 
@@ -301,7 +321,11 @@ bool dplp_save(DPL_Program* program, const char* file_name)
 {
     FILE *out = fopen(file_name, "wb");
 
-    _dplp_save_chunk(out, "HEAD", sizeof(program->version), &program->version);
+    DPL_Bytes header = {0};
+    nob_da_append_many(&header, &program->version, sizeof(program->version));
+    nob_da_append_many(&header, &program->entry, sizeof(program->entry));
+    _dplp_save_chunk(out, "HEAD", header.count, header.items);
+
     _dplp_save_chunk(out, "CONS", program->constants.count, program->constants.items);
     _dplp_save_chunk(out, "CODE", program->code.count, program->code.items);
 
@@ -370,6 +394,7 @@ bool dplp_load(DPL_Program* program, const char* file_name)
         if (strcmp(chunk.name, "HEAD") == 0)
         {
             program->version = chunk.items[0];
+            program->entry = *(uint64_t*)(chunk.items + sizeof(program->version));
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {

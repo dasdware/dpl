@@ -1,0 +1,8 @@
+function square(n: number): number 
+    := n * n;
+function times(n: number, m: number): number
+    := n * m;
+
+print(5.square()); print("\n");
+print(5.times(6)); print("\n");
+print(5.times(6).square()); print("\n");
