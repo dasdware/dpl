@@ -28,7 +28,7 @@ typedef enum
 } DPL_Instruction_Kind;
 
 typedef struct {
-    DPL_Value value;
+    DPL_ValueKind kind;
     size_t offset;
 } DPL_Constant;
 
