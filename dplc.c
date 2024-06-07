@@ -10,6 +10,9 @@
 #define DW_STRING_TABLE_IMPLEMENTATION
 #include <string_table.h>
 
+#define DW_BYTEBUFFER_IMPLEMENTATION
+#include <byte_buffer.h>
+
 void usage(const char* program)
 {
     DW_ERROR("Usage: %s [-d] source.dpl", program);
@@ -22,6 +25,7 @@ int main(int argc, char** argv) {
     dple_init(&externals);
 
     DPL dpl = {0};
+    dpl.debug = true;
 
     char* source_filename = NULL;
     while (argc > 0)
