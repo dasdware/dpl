@@ -220,7 +220,7 @@ void dplp_print(DPL_Program *program) {
     printf("          Entry: %zu\n", program->entry);
 
     printf("----- CONSTANTS DICTIONARY ------\n");
-    printf("           Size: %zu:\n", program->constants_dictionary.count);
+    printf("           Size: %zu\n", program->constants_dictionary.count);
     printf("     Chunk size: %zu\n", program->constants.count);
     for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
         _dplp_print_constant(program, i);

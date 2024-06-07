@@ -107,15 +107,20 @@ void dplv_run(DPL_VirtualMachine *vm)
 
     _dplv_push_callframe(vm, 0, 0);
 
-    size_t ip = vm->program->entry;
-    while (ip < vm->program->code.count)
+    DW_ByteStream program = {
+        .buffer = vm->program->code,
+        .position = vm->program->entry,
+    };
+
+    while (!bs_at_end(&program))
     {
         if (vm->trace) {
-            printf("[%03zu] ", ip);
+            printf("[%03zu] ", program.position);
         }
-        size_t ip_begin = ip;
-        DPL_Instruction_Kind instruction = vm->program->code.items[ip];
-        ++ip;
+
+        size_t ip_begin = program.position;
+
+        DPL_Instruction_Kind instruction = bs_read_u8(&program);
         switch (instruction)
         {
         case INST_NOOP:
@@ -126,10 +131,8 @@ void dplv_run(DPL_VirtualMachine *vm)
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
             }
 
-            size_t offset = *(vm->program->code.items + ip);
-            ip += sizeof(offset);
-
-            double value = *(double*)(vm->program->constants.items + offset);
+            size_t offset = bs_read_u64(&program);
+            double value = bb_read_f64(vm->program->constants, offset);
 
             ++vm->stack_top;
             TOP0 = dpl_value_make_number(value);
@@ -141,14 +144,12 @@ void dplv_run(DPL_VirtualMachine *vm)
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
             }
 
-            size_t offset = *(vm->program->code.items + ip);
-            ip += sizeof(offset);
+            size_t offset = bs_read_u64(&program);
 
-            size_t length = *(size_t*)(vm->program->constants.items + offset);
-            char* data = (char*)(vm->program->constants.items + offset + sizeof(length));
+            Nob_String_View value = bb_read_sv(vm->program->constants, offset);
 
             ++vm->stack_top;
-            TOP0 = dpl_value_make_string(st_allocate_lstr(&vm->strings, data, length));
+            TOP0 = dpl_value_make_string(st_allocate_sv(&vm->strings, value));
         }
         break;
         case INST_NEGATE:
@@ -175,8 +176,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             --vm->stack_top;
             break;
         case INST_CALL_EXTERNAL: {
-            uint8_t external_num = *(vm->program->code.items + ip);
-            ip += sizeof(external_num);
+            uint8_t external_num = bs_read_u8(&program);
 
             if (vm->externals == NULL) {
                 DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: No external function definitions were provided to the vm.", external_num, ip_begin);
@@ -195,9 +195,7 @@ void dplv_run(DPL_VirtualMachine *vm)
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
             }
 
-            size_t scope_index = *(vm->program->code.items + ip);
-            ip += sizeof(scope_index);
-
+            size_t scope_index = bs_read_u64(&program);
             size_t slot = _dplv_peek_callframe(vm)->stack_top + scope_index;
 
             ++vm->stack_top;
@@ -205,9 +203,7 @@ void dplv_run(DPL_VirtualMachine *vm)
         }
         break;
         case INST_STORE_LOCAL: {
-            size_t scope_index = *(vm->program->code.items + ip);
-            ip += sizeof(scope_index);
-
+            size_t scope_index = bs_read_u64(&program);
             size_t slot = _dplv_peek_callframe(vm)->stack_top + scope_index;
 
             dplv_release(vm, vm->stack[slot]);
@@ -215,27 +211,24 @@ void dplv_run(DPL_VirtualMachine *vm)
         }
         break;
         case INST_POP_SCOPE: {
-            size_t scope_size = *(vm->program->code.items + ip);
-            ip += sizeof(scope_size);
+            size_t scope_size = bs_read_u64(&program);
 
             dplv_return(vm, scope_size + 1, dplv_reference(vm, TOP0));
         }
         break;
         case INST_CALL_USER: {
-            uint8_t arity = *(vm->program->code.items + ip);
-            ip += sizeof(arity);
-            size_t begin_ip = *(vm->program->code.items + ip);
-            ip += sizeof(begin_ip);
+            uint8_t arity = bs_read_u8(&program);
+            size_t begin_ip = bs_read_u64(&program);
 
-            _dplv_push_callframe(vm, arity, ip);
+            _dplv_push_callframe(vm, arity, program.position);
 
-            ip = begin_ip;
+            program.position = begin_ip;
         };
         break;
         case INST_RETURN: {
             DPL_CallFrame *frame = _dplv_peek_callframe(vm);
             dplv_return(vm, frame->arity + 1, dplv_reference(vm, TOP0));
-            ip = frame->return_ip;
+            program.position = frame->return_ip;
 
             _dplv_pop_callframe(vm);
         };
