@@ -20,7 +20,7 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
     DPL_Value value = dplv_peek(vm);
     switch (value.kind) {
     case VALUE_NUMBER:
-        printf("%s", dpl_value_format_number(value));
+        printf("%s", dpl_value_format_number(value.as.number));
         break;
     case VALUE_STRING:
         printf(SV_Fmt, SV_Arg(value.as.string));
@@ -38,7 +38,7 @@ void _dple_length_string_callback(DPL_VirtualMachine* vm) {
 void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
     dplv_return_string(vm, 1,
-                       st_allocate_cstr(&vm->strings, dpl_value_format_number(value)));
+                       st_allocate_cstr(&vm->strings, dpl_value_format_number(value.as.number)));
 }
 
 

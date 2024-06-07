@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 #include "nob.h"
+
+#include "byte_buffer.h"
 #include "value.h"
 
 typedef enum
@@ -25,15 +27,8 @@ typedef enum
     INST_RETURN,
 } DPL_Instruction_Kind;
 
-typedef struct
-{
-    uint8_t *items;
-    size_t count;
-    size_t capacity;
-} DPL_Bytes;
-
 typedef struct {
-    DPL_Value value;
+    DPL_ValueKind kind;
     size_t offset;
 } DPL_Constant;
 
@@ -50,8 +45,8 @@ typedef struct
     uint8_t version;
     uint64_t entry;
 
-    DPL_Bytes code;
-    DPL_Bytes constants;
+    DW_ByteBuffer code;
+    DW_ByteBuffer constants;
 
     DPL_Constants_Dictionary constants_dictionary;
 } DPL_Program;
