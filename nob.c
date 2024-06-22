@@ -201,7 +201,21 @@ void run(Nob_String_View program, int *argc, char ***argv)
         exit(1);
     }
 
-    const char* program_to_run = nob_shift_args(argc, argv);
+    bool debug = false;
+    bool trace = false;
+
+    const char* program_or_flag = nob_shift_args(argc, argv);
+    while (*argc > 0) {
+        if (strcmp(program_or_flag, "-d") == 0) {
+            debug = true;
+        } else if (strcmp(program_or_flag, "-t") == 0) {
+            trace = true;
+        } else {
+            break;
+        }
+
+        program_or_flag = nob_shift_args(argc, argv);
+    }
     check_command_end(program, argc, argv, "run");
 
     Nob_Cmd cmd = {0};
@@ -209,7 +223,10 @@ void run(Nob_String_View program, int *argc, char ***argv)
         cmd.count = 0;
 
         nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPLC_OUTPUT);
-        nob_cmd_append(&cmd, program_to_run);
+        if (debug) {
+            nob_cmd_append(&cmd, "-d");
+        }
+        nob_cmd_append(&cmd, program_or_flag);
 
         bool success = nob_cmd_run_sync(cmd);
         if (!success) {
@@ -221,7 +238,13 @@ void run(Nob_String_View program, int *argc, char ***argv)
         cmd.count = 0;
 
         nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPL_OUTPUT);
-        nob_cmd_append(&cmd, nob_temp_change_file_ext(program_to_run, "dplp"));
+        if (debug) {
+            nob_cmd_append(&cmd, "-d");
+        }
+        if (trace) {
+            nob_cmd_append(&cmd, "-t");
+        }
+        nob_cmd_append(&cmd, nob_temp_change_file_ext(program_or_flag, "dplp"));
 
         bool success = nob_cmd_run_sync(cmd);
         if (!success) {

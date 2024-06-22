@@ -15,22 +15,40 @@
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <byte_buffer.h>
 
+void usage(const char* program)
+{
+    DW_ERROR("Usage: %s [-d] [-t] program.dplp", program);
+}
+
 int main(int argc, char** argv) {
     const char* exe = nob_shift_args(&argc, &argv);
 
-    if (argc <= 0) {
-        DW_ERROR("Usage: %s program.dplp", exe);
+    DPL_VirtualMachine vm = {0};
+
+    char* program_filename = NULL;
+    while (argc > 0)
+    {
+        char* arg = nob_shift_args(&argc, &argv);
+        if (strcmp(arg, "-d") == 0) {
+            vm.debug = true;
+        } else if (strcmp(arg, "-t") == 0) {
+            vm.trace = true;
+        } else {
+            program_filename = arg;
+        }
     }
 
-    const char* filename = nob_shift_args(&argc, &argv);
+    if (program_filename == NULL) {
+        DW_ERROR_MSGLN("ERROR: No program file given.");
+        usage(exe);
+    }
 
     DPL_ExternalFunctions externals = {0};
     dple_init(&externals);
 
     DPL_Program program = {0};
-    dplp_load(&program, filename);
+    dplp_load(&program, program_filename);
 
-    DPL_VirtualMachine vm = {0};
     dplv_init(&vm, &program, &externals);
     dplv_run(&vm);
 
