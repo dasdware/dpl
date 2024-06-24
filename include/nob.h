@@ -206,9 +206,11 @@ void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render);
 
 // Run command asynchronously
 Nob_Proc nob_cmd_run_async(Nob_Cmd cmd);
+Nob_Proc nob_cmd_run_async_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb);
 
 // Run command synchronously
 bool nob_cmd_run_sync(Nob_Cmd cmd);
+bool nob_cmd_run_sync_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb);
 
 #ifndef NOB_TEMP_CAPACITY
 #define NOB_TEMP_CAPACITY (8*1024*1024)
@@ -560,6 +562,101 @@ Nob_Proc nob_cmd_run_async(Nob_Cmd cmd)
 #endif
 }
 
+Nob_Proc nob_cmd_run_async_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
+{
+    if (cmd.count < 1) {
+        nob_log(NOB_ERROR, "Could not run empty command");
+        return NOB_INVALID_PROC;
+    }
+
+    Nob_String_Builder sb = {0};
+    nob_cmd_render(cmd, &sb);
+    nob_sb_append_null(&sb);
+    nob_log(NOB_INFO, "CMD: %s", sb.items);
+    nob_sb_free(sb);
+    memset(&sb, 0, sizeof(sb));
+
+#ifdef _WIN32
+    SECURITY_ATTRIBUTES saSecurityAttributes;
+    saSecurityAttributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+    saSecurityAttributes.bInheritHandle = TRUE;
+    saSecurityAttributes.lpSecurityDescriptor = NULL;
+  
+    HANDLE StdOutPipeRead, StdOutPipeWrite;
+    BOOL pipeCreated = CreatePipe(&StdOutPipeRead, &StdOutPipeWrite, &saSecurityAttributes, 0);
+    if (!pipeCreated) {
+        nob_log(NOB_ERROR, "Could not create pipe for capturing: %lu", GetLastError());
+    }
+
+    // https://docs.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
+    STARTUPINFO siStartInfo;
+    ZeroMemory(&siStartInfo, sizeof(siStartInfo));
+    siStartInfo.cb = sizeof(STARTUPINFO);
+    // NOTE: theoretically setting NULL to std handles should not be a problem
+    // https://docs.microsoft.com/en-us/windows/console/getstdhandle?redirectedfrom=MSDN#attachdetach-behavior
+    // TODO: check for errors in GetStdHandle
+    siStartInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    siStartInfo.hStdOutput = StdOutPipeWrite;
+    siStartInfo.hStdInput = StdOutPipeWrite;
+    siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+    PROCESS_INFORMATION piProcInfo;
+    ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
+
+    // TODO: use a more reliable rendering of the command instead of cmd_render
+    // cmd_render is for logging primarily
+    nob_cmd_render(cmd, &sb);
+    nob_sb_append_null(&sb);
+    BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
+    nob_sb_free(sb);
+
+    if (!bSuccess) {
+        nob_log(NOB_ERROR, "Could not create child process: %lu", GetLastError());
+        return NOB_INVALID_PROC;
+    }
+
+    CloseHandle(StdOutPipeWrite);
+    CloseHandle(piProcInfo.hThread);
+
+    char buffer[256];
+    DWORD bytesRead;
+    BOOL readSuccess;
+    do {
+        readSuccess = ReadFile(StdOutPipeRead, buffer, NOB_ARRAY_LEN(buffer), &bytesRead, NULL);
+        if (readSuccess) {
+            nob_sb_append_buf(capture_sb, buffer, bytesRead);
+        }
+    } while (readSuccess && bytesRead > 0);
+
+    CloseHandle(StdOutPipeRead);    
+
+    return piProcInfo.hProcess;
+#else
+    #error __FUNCTIONW__ " is only supported for Win32."
+    // pid_t cpid = fork();
+    // if (cpid < 0) {
+    //     nob_log(NOB_ERROR, "Could not fork child process: %s", strerror(errno));
+    //     return NOB_INVALID_PROC;
+    // }
+
+    // if (cpid == 0) {
+    //     // NOTE: This leaks a bit of memory in the child process.
+    //     // But do we actually care? It's a one off leak anyway...
+    //     Nob_Cmd cmd_null = {0};
+    //     nob_da_append_many(&cmd_null, cmd.items, cmd.count);
+    //     nob_cmd_append(&cmd_null, NULL);
+
+    //     if (execvp(cmd.items[0], (char * const*) cmd_null.items) < 0) {
+    //         nob_log(NOB_ERROR, "Could not exec child process: %s", strerror(errno));
+    //         exit(1);
+    //     }
+    //     NOB_ASSERT(0 && "unreachable");
+    // }
+
+    // return cpid;
+#endif
+}
+
 bool nob_procs_wait(Nob_Procs procs)
 {
     bool success = true;
@@ -629,6 +726,13 @@ bool nob_proc_wait(Nob_Proc proc)
 bool nob_cmd_run_sync(Nob_Cmd cmd)
 {
     Nob_Proc p = nob_cmd_run_async(cmd);
+    if (p == NOB_INVALID_PROC) return false;
+    return nob_proc_wait(p);
+}
+
+bool nob_cmd_run_sync_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
+{
+    Nob_Proc p = nob_cmd_run_async_capture(cmd, capture_sb);
     if (p == NOB_INVALID_PROC) return false;
     return nob_proc_wait(p);
 }
