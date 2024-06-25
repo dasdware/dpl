@@ -223,6 +223,13 @@ void run(Nob_String_View program, int *argc, char ***argv)
     }
     check_command_end(program, argc, argv, "run");
 
+    Nob_String_View input_file = nob_sv_filename_of(nob_sv_from_cstr(program_or_flag));
+    Nob_String_Builder output_path = {0};
+    nob_sb_append_cstr(&output_path, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(&output_path, input_file);
+    nob_sb_append_cstr(&output_path, "p");
+    nob_sb_append_null(&output_path);
+
     Nob_Cmd cmd = {0};
     {
         cmd.count = 0;
@@ -231,6 +238,7 @@ void run(Nob_String_View program, int *argc, char ***argv)
         if (debug) {
             nob_cmd_append(&cmd, "-d");
         }
+        nob_cmd_append(&cmd, "-o", output_path.items);
         nob_cmd_append(&cmd, program_or_flag);
 
         bool success = nob_cmd_run_sync(cmd);
@@ -249,7 +257,7 @@ void run(Nob_String_View program, int *argc, char ***argv)
         if (trace) {
             nob_cmd_append(&cmd, "-t");
         }
-        nob_cmd_append(&cmd, nob_temp_change_file_ext(program_or_flag, "dplp"));
+        nob_cmd_append(&cmd, output_path.items);
 
         bool success = nob_cmd_run_sync(cmd);
         if (!success) {
@@ -258,6 +266,7 @@ void run(Nob_String_View program, int *argc, char ***argv)
     }
 
     nob_cmd_free(cmd);
+    nob_sb_free(output_path);
 }
 
 int main(int argc, char **argv)
