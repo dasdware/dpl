@@ -1,8 +1,11 @@
 #define NOB_IMPLEMENTATION
 #include "./include/nob.h"
 
-#define DPLC_OUTPUT "dplc.exe"
-#define DPL_OUTPUT "dpl.exe"
+#define BUILD_DIR "build"
+#define BUILD_OUTPUT(output) "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR output
+
+#define DPLC_OUTPUT BUILD_OUTPUT("dplc.exe")
+#define DPL_OUTPUT BUILD_OUTPUT("dpl.exe")
 
 #define COMMAND_DELIM nob_sv_from_cstr("--")
 
@@ -59,7 +62,7 @@ void build_dplc(void) {
                    "./dplc.c",
                   );
     nob_cmd_append(&cmd, "-lm");
-    nob_cmd_append(&cmd, "-o", "./"DPLC_OUTPUT);
+    nob_cmd_append(&cmd, "-o", DPLC_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
@@ -83,7 +86,7 @@ void build_dpl(void)
                    "./dpl.c",
                   );
     nob_cmd_append(&cmd, "-lm");
-    nob_cmd_append(&cmd, "-o", "./"DPL_OUTPUT);
+    nob_cmd_append(&cmd, "-o", DPL_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     if (!success) {
@@ -95,8 +98,10 @@ void build_dpl(void)
 
 void build(Nob_String_View program, int *argc, char ***argv)
 {
+    nob_mkdir_if_not_exists(BUILD_DIR);
+
     bool have_built = false;
-    while (argc > 0) {
+    while (*argc > 0) {
         Nob_String_View target = nob_sv_shift_args(argc, argv);
         if (nob_sv_eq(target, COMMAND_DELIM)) {
             break;
@@ -128,9 +133,9 @@ void cmd(Nob_String_View program, int *argc, char ***argv)
 
     Nob_String_View target = nob_sv_shift_args(argc, argv);
     if (nob_sv_eq(target, TARGET_DPLC)) {
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPLC_OUTPUT);
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
     } else if (nob_sv_eq(target, TARGET_DPL)) {
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPL_OUTPUT);
+        nob_cmd_append(&cmd, DPL_OUTPUT);
     } else {
         nob_log(NOB_ERROR, "Unknown build target \""SV_Fmt"\".\n", target);
         usage(program, true);
@@ -222,7 +227,7 @@ void run(Nob_String_View program, int *argc, char ***argv)
     {
         cmd.count = 0;
 
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPLC_OUTPUT);
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
         if (debug) {
             nob_cmd_append(&cmd, "-d");
         }
@@ -237,7 +242,7 @@ void run(Nob_String_View program, int *argc, char ***argv)
     {
         cmd.count = 0;
 
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPL_OUTPUT);
+        nob_cmd_append(&cmd, DPL_OUTPUT);
         if (debug) {
             nob_cmd_append(&cmd, "-d");
         }
