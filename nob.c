@@ -1,3 +1,4 @@
+#include "./include/error.h"
 #define NOB_IMPLEMENTATION
 #include "./include/nob.h"
 
@@ -13,6 +14,7 @@
 #define COMMAND_CMD nob_sv_from_cstr("cmd")
 #define COMMAND_HELP nob_sv_from_cstr("help")
 #define COMMAND_RUN nob_sv_from_cstr("run")
+#define COMMAND_TEST nob_sv_from_cstr("test")
 
 #define TARGET_DPLC nob_sv_from_cstr("dplc")
 #define TARGET_DPL nob_sv_from_cstr("dpl")
@@ -198,6 +200,14 @@ void help(Nob_String_View program, int *argc, char ***argv)
     );
 }
 
+void build_dplc_output(Nob_String_Builder* output_path, const char* dpl_file) {
+    Nob_String_View input_file = nob_sv_filename_of(nob_sv_from_cstr(dpl_file));
+    nob_sb_append_cstr(output_path, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(output_path, input_file);
+    nob_sb_append_cstr(output_path, "p");
+    nob_sb_append_null(output_path);
+}
+
 void run(Nob_String_View program, int *argc, char ***argv)
 {
     if (*argc == 0) {
@@ -223,12 +233,8 @@ void run(Nob_String_View program, int *argc, char ***argv)
     }
     check_command_end(program, argc, argv, "run");
 
-    Nob_String_View input_file = nob_sv_filename_of(nob_sv_from_cstr(program_or_flag));
     Nob_String_Builder output_path = {0};
-    nob_sb_append_cstr(&output_path, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
-    nob_sb_append_sv(&output_path, input_file);
-    nob_sb_append_cstr(&output_path, "p");
-    nob_sb_append_null(&output_path);
+    build_dplc_output(&output_path, program_or_flag);
 
     Nob_Cmd cmd = {0};
     {
@@ -269,6 +275,83 @@ void run(Nob_String_View program, int *argc, char ***argv)
     nob_sb_free(output_path);
 }
 
+void run_test(Nob_String_View test_filename, bool record)
+{
+    nob_log(NOB_INFO, "Test: "SV_Fmt, SV_Arg(test_filename));
+
+    Nob_String_Builder test_filepath = {0};
+    nob_sb_append_cstr(&test_filepath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(&test_filepath, test_filename);
+    nob_sb_append_null(&test_filepath);
+
+    Nob_String_Builder test_dplppath = {0};
+    build_dplc_output(&test_dplppath, test_filepath.items);
+
+    Nob_String_Builder test_outpath = {0};
+    nob_sb_append_cstr(&test_outpath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(&test_outpath, test_filename);
+    nob_sb_append_cstr(&test_outpath, ".out");
+    nob_sb_append_null(&test_outpath);
+
+    Nob_Cmd cmd = {0};
+    {
+        cmd.count = 0;
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
+        nob_cmd_append(&cmd, "-o", test_dplppath.items);
+        nob_cmd_append(&cmd, test_filepath.items);
+        if (!nob_cmd_run_sync(cmd)) exit(1);
+
+        cmd.count = 0;
+        nob_cmd_append(&cmd, DPL_OUTPUT);
+        nob_cmd_append(&cmd, test_dplppath.items);
+
+        Nob_String_Builder output = {0};
+        if (!nob_cmd_run_sync_capture(cmd, &output)) exit(1);
+
+        if (record) {
+            if (!nob_write_entire_file(test_outpath.items, output.items, output.count)) exit(1);
+        } else {
+            DW_UNIMPLEMENTED;
+        }
+    }
+    nob_cmd_free(cmd);
+
+    nob_sb_free(test_filepath);
+    nob_sb_free(test_dplppath);
+    nob_sb_free(test_outpath);
+}
+
+void test(Nob_String_View program, int *argc, char ***argv)
+{
+    DIR* dfd;
+    if ((dfd = opendir("." NOB_PATH_DELIM_STR "tests")) == NULL) {
+        nob_log(NOB_ERROR, "Cannot iterate test files.");
+        exit(1);
+    }
+
+    bool record = false;
+
+    if (*argc > 0) {
+        const char* arg = nob_shift_args(argc, argv);
+        if (strcmp(arg, "-r") == 0) {
+            record = true;
+        }
+    }
+    check_command_end(program, argc, argv, "test");
+
+    struct dirent* dp;
+    while ((dp = readdir(dfd)) != NULL) {
+        Nob_String_View test_filename = nob_sv_from_cstr(dp->d_name);
+        if ((test_filename.count > 0 && test_filename.data[0] == '.') ||
+                (test_filename.count >= 4 && memcmp(test_filename.data + test_filename.count - 4, ".out", 4) == 0)) {
+            continue;
+        }
+        run_test(test_filename, record);
+    }
+
+    closedir(dfd);
+}
+
 int main(int argc, char **argv)
 {
     NOB_GO_REBUILD_URSELF(argc, argv);
@@ -293,6 +376,8 @@ int main(int argc, char **argv)
             help(program, &argc, &argv);
         } else if (nob_sv_eq(command, COMMAND_RUN)) {
             run(program, &argc, &argv);
+        } else if (nob_sv_eq(command, COMMAND_TEST)) {
+            test(program, &argc, &argv);
         } else {
             nob_log(NOB_ERROR, "Unknown command \""SV_Fmt"\".", SV_Arg(command));
             usage(program, true);
