@@ -275,8 +275,18 @@ void run(Nob_String_View program, int *argc, char ***argv)
     nob_sb_free(output_path);
 }
 
-void run_test(Nob_String_View test_filename, bool record)
+typedef struct {
+    int successes;
+    int failures;
+    int count;
+} TestResults;
+
+void run_test(Nob_String_View test_filename, bool record, TestResults *test_results)
 {
+    if (!record && !test_results) {
+        nob_log(NOB_ERROR, "Cannot perform tests: neither `record` nor `test_results` is set.");
+        exit(1);
+    }
     nob_log(NOB_INFO, "Test: "SV_Fmt, SV_Arg(test_filename));
 
     Nob_String_Builder test_filepath = {0};
@@ -311,7 +321,51 @@ void run_test(Nob_String_View test_filename, bool record)
         if (record) {
             if (!nob_write_entire_file(test_outpath.items, output.items, output.count)) exit(1);
         } else {
-            DW_UNIMPLEMENTED;
+            if (!nob_file_exists(test_outpath.items)) {
+                nob_log(NOB_ERROR, "Test output file `%s` does not exist.", test_outpath.items);
+                exit(1);
+            }
+
+            Nob_String_Builder expected_output = {0};
+            if (!nob_read_entire_file(test_outpath.items, &expected_output)) exit(1);
+
+            Nob_String_View output_view = nob_sv_from_parts(output.items, output.count);
+            Nob_String_View expected_output_view = nob_sv_from_parts(expected_output.items, expected_output.count);
+
+            size_t line_count = 0;
+            bool failed = false;
+            while (output_view.count > 0 && expected_output_view.count > 0) {
+                Nob_String_View line = nob_sv_trim(nob_sv_chop_by_delim(&output_view, '\n'));
+                Nob_String_View expected_line = nob_sv_trim(nob_sv_chop_by_delim(&expected_output_view, '\n'));
+                line_count++;
+                if (!nob_sv_eq(line, expected_line)) {
+                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`, line %zu:", SV_Arg(test_filename), line_count);
+                    nob_log(NOB_WARNING, "  expected `"SV_Fmt"`,", SV_Arg(expected_line));
+                    nob_log(NOB_WARNING, "       got `"SV_Fmt"`.", SV_Arg(line));
+                    failed = true;
+                    break;
+                }
+            }
+
+            if (!failed) {
+                if (output_view.count > 0) {
+                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`: Actual output has too many lines.",
+                            SV_Arg(test_filename));
+                    failed = true;
+                } else if (expected_output_view.count > 0) {
+                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`: Actual output has too few lines.",
+                            SV_Arg(test_filename));
+                    failed = true;
+                }
+            }
+
+            if (failed) {
+                test_results->failures++;
+            } else {
+                test_results->successes++;
+            }
+
+            test_results->count++;
         }
     }
     nob_cmd_free(cmd);
@@ -339,6 +393,7 @@ void test(Nob_String_View program, int *argc, char ***argv)
     }
     check_command_end(program, argc, argv, "test");
 
+    TestResults test_results = {0};
     struct dirent* dp;
     while ((dp = readdir(dfd)) != NULL) {
         Nob_String_View test_filename = nob_sv_from_cstr(dp->d_name);
@@ -346,10 +401,15 @@ void test(Nob_String_View program, int *argc, char ***argv)
                 (test_filename.count >= 4 && memcmp(test_filename.data + test_filename.count - 4, ".out", 4) == 0)) {
             continue;
         }
-        run_test(test_filename, record);
+        run_test(test_filename, record, &test_results);
     }
-
     closedir(dfd);
+
+    nob_log(NOB_INFO, "Tests performed: %d", test_results.count);
+    nob_log(NOB_INFO, "Tests succeeded: %d", test_results.successes);
+    nob_log(NOB_INFO, "   Tests failed: %d", test_results.failures);
+
+    if (test_results.failures > 0) exit(1);
 }
 
 int main(int argc, char **argv)
