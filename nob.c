@@ -316,7 +316,7 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
         nob_cmd_append(&cmd, test_dplppath.items);
 
         Nob_String_Builder output = {0};
-        if (!nob_cmd_run_sync_capture(cmd, &output)) exit(1);
+        if (!nob_cmd_capture_sync(cmd, &output)) exit(1);
 
         if (record) {
             if (!nob_write_entire_file(test_outpath.items, output.items, output.count)) exit(1);

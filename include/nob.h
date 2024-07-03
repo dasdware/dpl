@@ -206,11 +206,11 @@ void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render);
 
 // Run command asynchronously
 Nob_Proc nob_cmd_run_async(Nob_Cmd cmd);
-Nob_Proc nob_cmd_run_async_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb);
+Nob_Proc nob_cmd_capture_async(Nob_Cmd cmd, Nob_String_Builder *capture_sb);
 
 // Run command synchronously
 bool nob_cmd_run_sync(Nob_Cmd cmd);
-bool nob_cmd_run_sync_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb);
+bool nob_cmd_capture_sync(Nob_Cmd cmd, Nob_String_Builder *capture_sb);
 
 #ifndef NOB_TEMP_CAPACITY
 #define NOB_TEMP_CAPACITY (8*1024*1024)
@@ -562,7 +562,7 @@ Nob_Proc nob_cmd_run_async(Nob_Cmd cmd)
 #endif
 }
 
-Nob_Proc nob_cmd_run_async_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
+Nob_Proc nob_cmd_capture_async(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
 {
     if (cmd.count < 1) {
         nob_log(NOB_ERROR, "Could not run empty command");
@@ -730,9 +730,9 @@ bool nob_cmd_run_sync(Nob_Cmd cmd)
     return nob_proc_wait(p);
 }
 
-bool nob_cmd_run_sync_capture(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
+bool nob_cmd_capture_sync(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
 {
-    Nob_Proc p = nob_cmd_run_async_capture(cmd, capture_sb);
+    Nob_Proc p = nob_cmd_capture_async(cmd, capture_sb);
     if (p == NOB_INVALID_PROC) return false;
     return nob_proc_wait(p);
 }
