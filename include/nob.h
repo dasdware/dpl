@@ -632,28 +632,48 @@ Nob_Proc nob_cmd_capture_async(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
 
     return piProcInfo.hProcess;
 #else
-    #error __FUNCTION__ " is only supported for Win32."
-    // pid_t cpid = fork();
-    // if (cpid < 0) {
-    //     nob_log(NOB_ERROR, "Could not fork child process: %s", strerror(errno));
-    //     return NOB_INVALID_PROC;
-    // }
+    int link[2];
 
-    // if (cpid == 0) {
-    //     // NOTE: This leaks a bit of memory in the child process.
-    //     // But do we actually care? It's a one off leak anyway...
-    //     Nob_Cmd cmd_null = {0};
-    //     nob_da_append_many(&cmd_null, cmd.items, cmd.count);
-    //     nob_cmd_append(&cmd_null, NULL);
+    if (pipe(link) == -1) {
+        nob_log(NOB_ERROR, "Could create pipe for communication with child process: %s", strerror(errno));
+        return NOB_INVALID_PROC;
+    }
 
-    //     if (execvp(cmd.items[0], (char * const*) cmd_null.items) < 0) {
-    //         nob_log(NOB_ERROR, "Could not exec child process: %s", strerror(errno));
-    //         exit(1);
-    //     }
-    //     NOB_ASSERT(0 && "unreachable");
-    // }
+    pid_t cpid = fork();
+    if (cpid < 0) {
+        nob_log(NOB_ERROR, "Could not fork child process: %s", strerror(errno));
+        return NOB_INVALID_PROC;
+    }
 
-    // return cpid;
+    if (cpid == 0) {
+        dup2(link[1], STDOUT_FILENO);
+        dup2(link[1], STDERR_FIlENO);
+        close(link[0]);
+        close(link[1]);
+
+        // NOTE: This leaks a bit of memory in the child process.
+        // But do we actually care? It's a one off leak anyway...
+        Nob_Cmd cmd_null = {0};
+        nob_da_append_many(&cmd_null, cmd.items, cmd.count);
+        nob_cmd_append(&cmd_null, NULL);
+
+        if (execvp(cmd.items[0], (char * const*) cmd_null.items) < 0) {
+            nob_log(NOB_ERROR, "Could not exec child process: %s", strerror(errno));
+            exit(1);
+        }
+        NOB_ASSERT(0 && "unreachable");
+    } else {
+        close(link[1]);
+
+        char buffer[256];
+        int bytesRead;
+        do {
+            bytesRead = read(link[0], buffer, 256)
+            nob_sb_append_buf(capture_sb, buffer, bytesRead);
+        } while (bytesRead > 0);
+    }
+
+    return cpid;
 #endif
 }
 
