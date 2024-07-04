@@ -15,7 +15,7 @@
 
 void usage(const char* program)
 {
-    DW_ERROR("Usage: %s [-d] source.dpl", program);
+    DW_ERROR("Usage: %s [-d] [-o output_file] source.dpl", program);
 }
 
 int main(int argc, char** argv) {
@@ -26,12 +26,19 @@ int main(int argc, char** argv) {
 
     DPL dpl = {0};
 
-    char* source_filename = NULL;
+    const char* source_filename = NULL;
+    const char* output_filename = NULL;
     while (argc > 0)
     {
         char* arg = nob_shift_args(&argc, &argv);
         if (strcmp(arg, "-d") == 0) {
             dpl.debug = true;
+        } else if (strcmp(arg, "-o") == 0) {
+            if (argc == 0) {
+                DW_ERROR_MSGLN("Option -o expects an output filename.");
+                usage(program);
+            }
+            output_filename = nob_shift_args(&argc, &argv);
         } else {
             source_filename = arg;
         }
@@ -40,6 +47,9 @@ int main(int argc, char** argv) {
     if (source_filename == NULL) {
         DW_ERROR_MSGLN("ERROR: No source file given.");
         usage(program);
+    }
+    if (output_filename == NULL) {
+        output_filename = nob_temp_change_file_ext(source_filename, "dplp");
     }
 
     Nob_String_Builder source = {0};
@@ -52,7 +62,7 @@ int main(int argc, char** argv) {
     DPL_Program compiled_program = {0};
     dplp_init(&compiled_program);
     dpl_compile(&dpl, &compiled_program);
-    dplp_save(&compiled_program, nob_temp_change_file_ext(source_filename, "dplp"));
+    dplp_save(&compiled_program, output_filename);
 
     dplp_free(&compiled_program);
     dpl_free(&dpl);

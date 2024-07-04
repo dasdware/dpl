@@ -1,8 +1,12 @@
+#include "./include/error.h"
 #define NOB_IMPLEMENTATION
 #include "./include/nob.h"
 
-#define DPLC_OUTPUT "dplc.exe"
-#define DPL_OUTPUT "dpl.exe"
+#define BUILD_DIR "build"
+#define BUILD_OUTPUT(output) "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR output
+
+#define DPLC_OUTPUT BUILD_OUTPUT("dplc.exe")
+#define DPL_OUTPUT BUILD_OUTPUT("dpl.exe")
 
 #define COMMAND_DELIM nob_sv_from_cstr("--")
 
@@ -10,6 +14,7 @@
 #define COMMAND_CMD nob_sv_from_cstr("cmd")
 #define COMMAND_HELP nob_sv_from_cstr("help")
 #define COMMAND_RUN nob_sv_from_cstr("run")
+#define COMMAND_TEST nob_sv_from_cstr("test")
 
 #define TARGET_DPLC nob_sv_from_cstr("dplc")
 #define TARGET_DPL nob_sv_from_cstr("dpl")
@@ -59,7 +64,7 @@ void build_dplc(void) {
                    "./dplc.c",
                   );
     nob_cmd_append(&cmd, "-lm");
-    nob_cmd_append(&cmd, "-o", "./"DPLC_OUTPUT);
+    nob_cmd_append(&cmd, "-o", DPLC_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
@@ -83,7 +88,7 @@ void build_dpl(void)
                    "./dpl.c",
                   );
     nob_cmd_append(&cmd, "-lm");
-    nob_cmd_append(&cmd, "-o", "./"DPL_OUTPUT);
+    nob_cmd_append(&cmd, "-o", DPL_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     if (!success) {
@@ -95,8 +100,10 @@ void build_dpl(void)
 
 void build(Nob_String_View program, int *argc, char ***argv)
 {
+    nob_mkdir_if_not_exists(BUILD_DIR);
+
     bool have_built = false;
-    while (argc > 0) {
+    while (*argc > 0) {
         Nob_String_View target = nob_sv_shift_args(argc, argv);
         if (nob_sv_eq(target, COMMAND_DELIM)) {
             break;
@@ -128,9 +135,9 @@ void cmd(Nob_String_View program, int *argc, char ***argv)
 
     Nob_String_View target = nob_sv_shift_args(argc, argv);
     if (nob_sv_eq(target, TARGET_DPLC)) {
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPLC_OUTPUT);
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
     } else if (nob_sv_eq(target, TARGET_DPL)) {
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPL_OUTPUT);
+        nob_cmd_append(&cmd, DPL_OUTPUT);
     } else {
         nob_log(NOB_ERROR, "Unknown build target \""SV_Fmt"\".\n", target);
         usage(program, true);
@@ -193,6 +200,14 @@ void help(Nob_String_View program, int *argc, char ***argv)
     );
 }
 
+void build_dplc_output(Nob_String_Builder* output_path, const char* dpl_file) {
+    Nob_String_View input_file = nob_sv_filename_of(nob_sv_from_cstr(dpl_file));
+    nob_sb_append_cstr(output_path, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(output_path, input_file);
+    nob_sb_append_cstr(output_path, "p");
+    nob_sb_append_null(output_path);
+}
+
 void run(Nob_String_View program, int *argc, char ***argv)
 {
     if (*argc == 0) {
@@ -218,14 +233,18 @@ void run(Nob_String_View program, int *argc, char ***argv)
     }
     check_command_end(program, argc, argv, "run");
 
+    Nob_String_Builder output_path = {0};
+    build_dplc_output(&output_path, program_or_flag);
+
     Nob_Cmd cmd = {0};
     {
         cmd.count = 0;
 
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPLC_OUTPUT);
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
         if (debug) {
             nob_cmd_append(&cmd, "-d");
         }
+        nob_cmd_append(&cmd, "-o", output_path.items);
         nob_cmd_append(&cmd, program_or_flag);
 
         bool success = nob_cmd_run_sync(cmd);
@@ -237,14 +256,14 @@ void run(Nob_String_View program, int *argc, char ***argv)
     {
         cmd.count = 0;
 
-        nob_cmd_append(&cmd, "."NOB_PATH_DELIM_STR  DPL_OUTPUT);
+        nob_cmd_append(&cmd, DPL_OUTPUT);
         if (debug) {
             nob_cmd_append(&cmd, "-d");
         }
         if (trace) {
             nob_cmd_append(&cmd, "-t");
         }
-        nob_cmd_append(&cmd, nob_temp_change_file_ext(program_or_flag, "dplp"));
+        nob_cmd_append(&cmd, output_path.items);
 
         bool success = nob_cmd_run_sync(cmd);
         if (!success) {
@@ -253,6 +272,144 @@ void run(Nob_String_View program, int *argc, char ***argv)
     }
 
     nob_cmd_free(cmd);
+    nob_sb_free(output_path);
+}
+
+typedef struct {
+    int successes;
+    int failures;
+    int count;
+} TestResults;
+
+void run_test(Nob_String_View test_filename, bool record, TestResults *test_results)
+{
+    if (!record && !test_results) {
+        nob_log(NOB_ERROR, "Cannot perform tests: neither `record` nor `test_results` is set.");
+        exit(1);
+    }
+    nob_log(NOB_INFO, "Test: "SV_Fmt, SV_Arg(test_filename));
+
+    Nob_String_Builder test_filepath = {0};
+    nob_sb_append_cstr(&test_filepath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(&test_filepath, test_filename);
+    nob_sb_append_null(&test_filepath);
+
+    Nob_String_Builder test_dplppath = {0};
+    build_dplc_output(&test_dplppath, test_filepath.items);
+
+    Nob_String_Builder test_outpath = {0};
+    nob_sb_append_cstr(&test_outpath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
+    nob_sb_append_sv(&test_outpath, test_filename);
+    nob_sb_append_cstr(&test_outpath, ".out");
+    nob_sb_append_null(&test_outpath);
+
+    Nob_Cmd cmd = {0};
+    {
+        cmd.count = 0;
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
+        nob_cmd_append(&cmd, "-o", test_dplppath.items);
+        nob_cmd_append(&cmd, test_filepath.items);
+        if (!nob_cmd_run_sync(cmd)) exit(1);
+
+        cmd.count = 0;
+        nob_cmd_append(&cmd, DPL_OUTPUT);
+        nob_cmd_append(&cmd, test_dplppath.items);
+
+        Nob_String_Builder output = {0};
+        if (!nob_cmd_capture_sync(cmd, &output)) exit(1);
+
+        if (record) {
+            if (!nob_write_entire_file(test_outpath.items, output.items, output.count)) exit(1);
+        } else {
+            if (!nob_file_exists(test_outpath.items)) {
+                nob_log(NOB_ERROR, "Test output file `%s` does not exist.", test_outpath.items);
+                exit(1);
+            }
+
+            Nob_String_Builder expected_output = {0};
+            if (!nob_read_entire_file(test_outpath.items, &expected_output)) exit(1);
+
+            Nob_String_View output_view = nob_sv_from_parts(output.items, output.count);
+            Nob_String_View expected_output_view = nob_sv_from_parts(expected_output.items, expected_output.count);
+
+            size_t line_count = 0;
+            bool failed = false;
+            while (output_view.count > 0 && expected_output_view.count > 0) {
+                Nob_String_View line = nob_sv_trim(nob_sv_chop_by_delim(&output_view, '\n'));
+                Nob_String_View expected_line = nob_sv_trim(nob_sv_chop_by_delim(&expected_output_view, '\n'));
+                line_count++;
+                if (!nob_sv_eq(line, expected_line)) {
+                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`, line %zu:", SV_Arg(test_filename), line_count);
+                    nob_log(NOB_WARNING, "  expected `"SV_Fmt"`,", SV_Arg(expected_line));
+                    nob_log(NOB_WARNING, "       got `"SV_Fmt"`.", SV_Arg(line));
+                    failed = true;
+                    break;
+                }
+            }
+
+            if (!failed) {
+                if (output_view.count > 0) {
+                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`: Actual output has too many lines.",
+                            SV_Arg(test_filename));
+                    failed = true;
+                } else if (expected_output_view.count > 0) {
+                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`: Actual output has too few lines.",
+                            SV_Arg(test_filename));
+                    failed = true;
+                }
+            }
+
+            if (failed) {
+                test_results->failures++;
+            } else {
+                test_results->successes++;
+            }
+
+            test_results->count++;
+        }
+    }
+    nob_cmd_free(cmd);
+
+    nob_sb_free(test_filepath);
+    nob_sb_free(test_dplppath);
+    nob_sb_free(test_outpath);
+}
+
+void test(Nob_String_View program, int *argc, char ***argv)
+{
+    DIR* dfd;
+    if ((dfd = opendir("." NOB_PATH_DELIM_STR "tests")) == NULL) {
+        nob_log(NOB_ERROR, "Cannot iterate test files.");
+        exit(1);
+    }
+
+    bool record = false;
+
+    if (*argc > 0) {
+        const char* arg = nob_shift_args(argc, argv);
+        if (strcmp(arg, "-r") == 0) {
+            record = true;
+        }
+    }
+    check_command_end(program, argc, argv, "test");
+
+    TestResults test_results = {0};
+    struct dirent* dp;
+    while ((dp = readdir(dfd)) != NULL) {
+        Nob_String_View test_filename = nob_sv_from_cstr(dp->d_name);
+        if ((test_filename.count > 0 && test_filename.data[0] == '.') ||
+                (test_filename.count >= 4 && memcmp(test_filename.data + test_filename.count - 4, ".out", 4) == 0)) {
+            continue;
+        }
+        run_test(test_filename, record, &test_results);
+    }
+    closedir(dfd);
+
+    nob_log(NOB_INFO, "Tests performed: %d", test_results.count);
+    nob_log(NOB_INFO, "Tests succeeded: %d", test_results.successes);
+    nob_log(NOB_INFO, "   Tests failed: %d", test_results.failures);
+
+    if (test_results.failures > 0) exit(1);
 }
 
 int main(int argc, char **argv)
@@ -279,6 +436,8 @@ int main(int argc, char **argv)
             help(program, &argc, &argv);
         } else if (nob_sv_eq(command, COMMAND_RUN)) {
             run(program, &argc, &argv);
+        } else if (nob_sv_eq(command, COMMAND_TEST)) {
+            test(program, &argc, &argv);
         } else {
             nob_log(NOB_ERROR, "Unknown command \""SV_Fmt"\".", SV_Arg(command));
             usage(program, true);

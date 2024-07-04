@@ -1,5 +1,5 @@
 .vscode
-*.exe
-*.exe.old
-*.dplp
+build
+nob.exe
+nob.exe.old
 test.c
