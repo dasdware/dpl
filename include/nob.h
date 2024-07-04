@@ -668,7 +668,7 @@ Nob_Proc nob_cmd_capture_async(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
         char buffer[256];
         int bytesRead;
         do {
-            bytesRead = read(link[0], buffer, 256)
+            bytesRead = read(link[0], buffer, 256);
             nob_sb_append_buf(capture_sb, buffer, bytesRead);
         } while (bytesRead > 0);
     }
