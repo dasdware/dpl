@@ -647,7 +647,7 @@ Nob_Proc nob_cmd_capture_async(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
 
     if (cpid == 0) {
         dup2(link[1], STDOUT_FILENO);
-        dup2(link[1], STDERR_FIlENO);
+        dup2(link[1], STDERR_FILENO);
         close(link[0]);
         close(link[1]);
 
