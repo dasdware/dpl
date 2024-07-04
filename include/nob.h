@@ -632,7 +632,7 @@ Nob_Proc nob_cmd_capture_async(Nob_Cmd cmd, Nob_String_Builder *capture_sb)
 
     return piProcInfo.hProcess;
 #else
-    #error __FUNCTIONW__ " is only supported for Win32."
+    #error __FUNCTION__ " is only supported for Win32."
     // pid_t cpid = fork();
     // if (cpid < 0) {
     //     nob_log(NOB_ERROR, "Could not fork child process: %s", strerror(errno));
