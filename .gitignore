@@ -1,5 +1,6 @@
 .vscode
 build
+nob
 nob.exe
 nob.exe.old
 test.c
