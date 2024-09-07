@@ -131,6 +131,8 @@ void dpl_free(DPL *dpl)
 
     // calltree freeing
     arena_free(&dpl->calltree.memory);
+
+    da_free(dpl->symbol_stack.symbols);
 }
 
 // CATALOGS
@@ -1271,20 +1273,20 @@ const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
 
 void _dplc_symbols_begin_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    nob_da_append(&s->frames, s->symbols.count);
+    nob_da_append(&s->frames, da_size(s->symbols));
 }
 
 void _dplc_symbols_end_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     s->frames.count--;
-    s->symbols.count = s->frames.items[s->frames.count];
+    da_set_size(s->symbols, s->frames.items[s->frames.count]);
 }
 
 DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    for (size_t i = s->symbols.count; i > s->bottom; --i) {
-        if (nob_sv_eq(s->symbols.items[i - 1].name, name)) {
-            return &s->symbols.items[i - 1];
+    for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
+        if (nob_sv_eq(s->symbols[i - 1].name, name)) {
+            return &s->symbols[i - 1];
         }
     }
     return NULL;
@@ -1292,11 +1294,11 @@ DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
 
 DPL_Symbol* _dplc_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Handles* arguments) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    for (size_t i = s->symbols.count; i > s->bottom; --i) {
-        DPL_Symbol* sym = &s->symbols.items[i - 1];
+    for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
+        DPL_Symbol* sym = &s->symbols[i - 1];
         if (sym->kind == SYMBOL_FUNCTION && nob_sv_eq(sym->name, name)
                 && _dpl_handles_equal(&sym->as.function.signature.arguments, arguments)) {
-            return &s->symbols.items[i - 1];
+            return &s->symbols[i - 1];
         }
     }
     return NULL;
@@ -1744,7 +1746,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 }
             }
 
-            nob_da_append(&dpl->symbol_stack.symbols, s);
+            da_add(dpl->symbol_stack.symbols, s);
 
             return NULL;
         } else {
@@ -1773,7 +1775,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             };
             current_scope->count++;
 
-            nob_da_append(&dpl->symbol_stack.symbols, s);
+            da_add(dpl->symbol_stack.symbols, s);
 
             expression->persistent = true;
             return expression;
@@ -1871,7 +1873,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         _dplc_scopes_begin_scope(dpl);
 
         size_t current_bottom = dpl->symbol_stack.bottom;
-        dpl->symbol_stack.bottom = dpl->symbol_stack.symbols.count;
+        dpl->symbol_stack.bottom = da_size(dpl->symbol_stack.symbols);
 
         for (size_t i = 0; i < function->signature.argument_count; ++i) {
             DPL_Symbol arg_symbol = {
@@ -1883,7 +1885,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 }
             };
 
-            nob_da_append(&dpl->symbol_stack.symbols, arg_symbol);
+            da_add(dpl->symbol_stack.symbols, arg_symbol);
         }
 
         DPL_Symbol s = {
@@ -1902,7 +1904,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         _dplc_scopes_end_scope(dpl);
         _dplc_symbols_end_scope(dpl);
 
-        nob_da_append(&dpl->symbol_stack.symbols, s);
+        da_add(dpl->symbol_stack.symbols, s);
         return NULL;
     }
     default:

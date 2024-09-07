@@ -26,7 +26,12 @@ typedef struct {
 } DA_Header;
 
 size_t da_size(void* array);
+void da_set_size(void *array, size_t new_size);
+#define da_clear(array) da_set_size(array,  0)
+
 size_t da_capacity(void *array);
+
+void da_free(void* array);
 
 void* _da_check_capacity(void *array, size_t element_size, size_t n);
 
@@ -46,9 +51,6 @@ void* _da_check_capacity(void *array, size_t element_size, size_t n);
         ((DA_Header*) array)[-1].size += count;                             \
     } while(false)
 
-#define da_clear(array) (((DA_Header*) array)[-1].size = 0)
-
-#define da_free(array) DA_FREE(((DA_Header*) array) - 1)
 
 typedef da_array(char) str_t;
 
@@ -81,6 +83,12 @@ size_t da_size(void* array) {
     return ((DA_Header*) array)[-1].size;
 }
 
+void da_set_size(void *array, size_t new_size) {
+    if (new_size < da_capacity(array))  {
+        ((DA_Header*) array)[-1].size = new_size;
+    }
+}
+
 size_t da_capacity(void *array) {
     if (!array) {
         return 0;
@@ -110,6 +118,13 @@ void* _da_check_capacity(void *array, size_t element_size, size_t n) {
 
     return array;
 }
+
+void da_free(void* array) {
+    if (array) {
+        DA_FREE(((DA_Header*) array) - 1);
+    }
+}
+
 
 str_t str_new(const char* text) {
     str_t result = 0;
