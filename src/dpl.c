@@ -34,8 +34,8 @@
 
 
 // Forward declarations needed for initialization
-DPL_Handle _dplt_register(DPL* types, DPL_Type type);
-DPL_Handle _dplt_register_by_name(DPL* types, Nob_String_View name);
+DPL_Handle _dplt_register(DPL* dpl, DPL_Type type);
+DPL_Handle _dplt_register_by_name(DPL* dpl, Nob_String_View name);
 void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type);
 
 DPL_Handle _dplf_register(DPL* dpl,
@@ -95,9 +95,9 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     if (dpl->debug)
     {
         printf("Types:\n");
-        for (size_t i = 0; i < dpl->types.count; ++i) {
-            printf("* %u: ", dpl->types.items[i].handle);
-            _dplt_print(stdout, dpl, &dpl->types.items[i]);
+        for (size_t i = 0; i < da_size(dpl->types); ++i) {
+            printf("* %u: ", dpl->types[i].handle);
+            _dplt_print(stdout, dpl, &dpl->types[i]);
             printf("\n");
         }
         printf("\n");
@@ -121,7 +121,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 void dpl_free(DPL *dpl)
 {
     // catalog freeing
-    nob_da_free(dpl->types);
+    da_free(dpl->types);
     da_free(dpl->functions);
 
     // parser freeing
@@ -164,8 +164,8 @@ bool _dpl_handles_equal(DPL_Handles first, DPL_Handles second)
 }
 
 DPL_Handle _dplt_add(DPL* dpl, DPL_Type type) {
-    size_t index = dpl->types.count;
-    nob_da_append(&dpl->types, type);
+    size_t index = da_size(dpl->types);
+    da_add(dpl->types, type);
 
     return index;
 }
@@ -174,7 +174,7 @@ DPL_Handle _dplt_register_by_name(DPL* dpl, Nob_String_View name)
 {
     DPL_Type type = {
         .name = name,
-        .handle = dpl->types.count + 1,
+        .handle = da_size(dpl->types) + 1,
         .hash = _dplt_hash(name),
     };
     _dplt_add(dpl, type);
@@ -183,7 +183,7 @@ DPL_Handle _dplt_register_by_name(DPL* dpl, Nob_String_View name)
 
 DPL_Handle _dplt_register(DPL* dpl, DPL_Type type)
 {
-    type.handle = dpl->types.count + 1;
+    type.handle = da_size(dpl->types) + 1;
     type.hash = _dplt_hash(type.name);
     _dplt_add(dpl, type);
     return type.handle;
@@ -191,9 +191,9 @@ DPL_Handle _dplt_register(DPL* dpl, DPL_Type type)
 
 DPL_Type* _dplt_find_by_handle(DPL *dpl, DPL_Handle handle)
 {
-    for (size_t i = 0;  i < dpl->types.count; ++i) {
-        if (dpl->types.items[i].handle == handle) {
-            return &dpl->types.items[i];
+    for (size_t i = 0;  i < da_size(dpl->types); ++i) {
+        if (dpl->types[i].handle == handle) {
+            return &dpl->types[i];
         }
     }
     return 0;
@@ -201,9 +201,9 @@ DPL_Type* _dplt_find_by_handle(DPL *dpl, DPL_Handle handle)
 
 DPL_Type* _dplt_find_by_name(DPL *dpl, Nob_String_View name)
 {
-    for (size_t i = 0;  i < dpl->types.count; ++i) {
-        if (nob_sv_eq(dpl->types.items[i].name, name)) {
-            return &dpl->types.items[i];
+    for (size_t i = 0;  i < da_size(dpl->types); ++i) {
+        if (nob_sv_eq(dpl->types[i].name, name)) {
+            return &dpl->types[i];
         }
     }
     return 0;
@@ -211,9 +211,9 @@ DPL_Type* _dplt_find_by_name(DPL *dpl, Nob_String_View name)
 
 DPL_Type* _dplt_find_by_signature(DPL* dpl, DPL_Handles arguments, DPL_Handle returns)
 {
-    for (size_t i = 0;  i < dpl->types.count; ++i)
+    for (size_t i = 0;  i < da_size(dpl->types); ++i)
     {
-        DPL_Type *type = &dpl->types.items[i];
+        DPL_Type *type = &dpl->types[i];
         if (type->kind == TYPE_FUNCTION
                 && _dpl_handles_equal(type->as.function.arguments, arguments)
                 && type->as.function.returns == returns)

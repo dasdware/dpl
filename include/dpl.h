@@ -46,12 +46,7 @@ typedef struct
     DPL_Type_As as;
 } DPL_Type;
 
-typedef struct
-{
-    DPL_Type *items;
-    size_t count;
-    size_t capacity;
-} DPL_Types;
+typedef da_array(DPL_Type) DPL_Types;
 
 /// FUNCTIONS
 
