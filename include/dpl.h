@@ -12,8 +12,16 @@
 
 typedef struct _DPL DPL;
 
+#ifndef DPL_HANDLES_CAPACITY
+#define DPL_HANDLES_CAPACITY 16
+#endif
+
 typedef uint16_t DPL_Handle;
-typedef da_array(DPL_Handle) DPL_Handles;
+
+typedef struct {
+    DPL_Handle items[DPL_HANDLES_CAPACITY];
+    uint8_t count;
+} DPL_Handles;
 
 typedef struct {
     DPL_Handles arguments;
