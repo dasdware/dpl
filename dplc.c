@@ -7,6 +7,9 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
+#define DW_ARRAY_IMPLEMENTATION
+#include <dw_array.h>
+
 #define DW_STRING_TABLE_IMPLEMENTATION
 #include <string_table.h>
 

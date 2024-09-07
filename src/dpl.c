@@ -108,9 +108,9 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     if (dpl->debug)
     {
         printf("Functions:\n");
-        for (size_t i = 0; i < dpl->functions.count; ++i) {
-            printf("* %u: ", dpl->functions.items[i].handle);
-            _dplf_print(stdout, dpl, &dpl->functions.items[i]);
+        for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+            printf("* %u: ", dpl->functions[i].handle);
+            _dplf_print(stdout, dpl, &dpl->functions[i]);
             printf("\n");
         }
         printf("\n");
@@ -124,7 +124,7 @@ void dpl_free(DPL *dpl)
 {
     // catalog freeing
     nob_da_free(dpl->types);
-    nob_da_free(dpl->functions);
+    da_free(dpl->functions);
 
     // parser freeing
     arena_free(&dpl->tree.memory);
@@ -295,7 +295,7 @@ DPL_Handle _dplf_register(DPL* dpl,
                           void* generator_user_data)
 {
     DPL_Function function = {
-        .handle = dpl->functions.count + 1,
+        .handle = da_size(dpl->functions) + 1,
         .name = name,
         .signature = *signature,
         .generator = {
@@ -303,16 +303,16 @@ DPL_Handle _dplf_register(DPL* dpl,
             .user_data = generator_user_data,
         },
     };
-    nob_da_append(&dpl->functions, function);
+    da_add(dpl->functions, function);
 
     return function.handle;
 }
 
 DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Handle handle)
 {
-    for (size_t i = 0;  i < dpl->functions.count; ++i) {
-        if (dpl->functions.items[i].handle == handle) {
-            return &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        if (dpl->functions[i].handle == handle) {
+            return &dpl->functions[i];
         }
     }
     return 0;
@@ -321,8 +321,8 @@ DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Handle handle)
 DPL_Function* _dplf_find_by_signature(DPL *dpl,
                                       Nob_String_View name, DPL_Handles* arguments)
 {
-    for (size_t i = 0; i < dpl->functions.count; ++i) {
-        DPL_Function* function = &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        DPL_Function* function = &dpl->functions[i];
         if (nob_sv_eq(function->name, name)) {
             if (_dpl_handles_equal(&function->signature.arguments, arguments)) {
                 return function;
@@ -335,8 +335,8 @@ DPL_Function* _dplf_find_by_signature(DPL *dpl,
 DPL_Function* _dplf_find_by_signature1(DPL *dpl,
                                        Nob_String_View name, DPL_Handle arg0)
 {
-    for (size_t i = 0; i < dpl->functions.count; ++i) {
-        DPL_Function* function = &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        DPL_Function* function = &dpl->functions[i];
         if (nob_sv_eq(function->name, name)) {
             if (function->signature.arguments.count == 1
                     && function->signature.arguments.items[0] == arg0
@@ -352,8 +352,8 @@ DPL_Function* _dplf_find_by_signature1(DPL *dpl,
 DPL_Function* _dplf_find_by_signature2(DPL *dpl,
                                        Nob_String_View name, DPL_Handle arg0, DPL_Handle arg1)
 {
-    for (size_t i = 0; i < dpl->functions.count; ++i) {
-        DPL_Function* function = &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        DPL_Function* function = &dpl->functions[i];
         if (nob_sv_eq(function->name, name)) {
             if (function->signature.arguments.count == 2
                     && function->signature.arguments.items[0] == arg0

@@ -2,6 +2,7 @@
 #define __DPL_H
 
 #include "arena.h"
+#include "dw_array.h"
 #include "nob.h"
 
 #include "externals.h"
@@ -82,12 +83,7 @@ typedef struct
     DPL_Generator generator;
 } DPL_Function;
 
-typedef struct
-{
-    DPL_Function *items;
-    size_t count;
-    size_t capacity;
-} DPL_Functions;
+typedef da_array(DPL_Function) DPL_Functions;
 
 // LOCATION
 
