@@ -58,24 +58,24 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     // CATALOGS
 
     /// TYPES
-    dpl->types.number_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
-    dpl->types.string_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
+    dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
+    dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
 
     /// FUNCTIONS AND GENERATORS
 
     DPL_Signature unary_number = {0};
-    da_add(unary_number.arguments, dpl->types.number_handle);
-    unary_number.returns = dpl->types.number_handle;
+    da_add(unary_number.arguments, dpl->number_type_handle);
+    unary_number.returns = dpl->number_type_handle;
 
     DPL_Signature binary_number = {0};
-    da_add(binary_number.arguments, dpl->types.number_handle);
-    da_add(binary_number.arguments, dpl->types.number_handle);
-    binary_number.returns = dpl->types.number_handle;
+    da_add(binary_number.arguments, dpl->number_type_handle);
+    da_add(binary_number.arguments, dpl->number_type_handle);
+    binary_number.returns = dpl->number_type_handle;
 
     DPL_Signature binary_string = {0};
-    da_add(binary_string.arguments, dpl->types.string_handle);
-    da_add(binary_string.arguments, dpl->types.string_handle);
-    binary_string.returns = dpl->types.string_handle;
+    da_add(binary_string.arguments, dpl->string_type_handle);
+    da_add(binary_string.arguments, dpl->string_type_handle);
+    binary_string.returns = dpl->string_type_handle;
 
 
     // unary operators
@@ -1536,12 +1536,12 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         switch (value.kind) {
         case TOKEN_NUMBER:
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = atof(nob_temp_sv_to_cstr(value.text)),
             };
         case TOKEN_STRING:
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.string_handle,
+                .type_handle = dpl->string_type_handle,
                 .as.string = _dplc_unescape_string(dpl, value.text),
             };
         default:
@@ -1556,15 +1556,15 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
 
         switch (operator.kind) {
         case TOKEN_PLUS: {
-            if (lhs_value.type_handle == dpl->types.number_handle && rhs_value.type_handle == dpl->types.number_handle) {
+            if (lhs_value.type_handle == dpl->number_type_handle && rhs_value.type_handle == dpl->number_type_handle) {
                 return (DPL_CallTree_Value) {
-                    .type_handle = dpl->types.number_handle,
+                    .type_handle = dpl->number_type_handle,
                     .as.number = lhs_value.as.number + rhs_value.as.number,
                 };
             }
-            if (lhs_value.type_handle == dpl->types.string_handle && rhs_value.type_handle == dpl->types.string_handle) {
+            if (lhs_value.type_handle == dpl->string_type_handle && rhs_value.type_handle == dpl->string_type_handle) {
                 return (DPL_CallTree_Value) {
-                    .type_handle = dpl->types.string_handle,
+                    .type_handle = dpl->string_type_handle,
                     .as.string = nob_sv_from_cstr(nob_temp_sprintf(SV_Fmt SV_Fmt, SV_Arg(lhs_value.as.string), SV_Arg(rhs_value.as.string))),
                 };
             }
@@ -1574,49 +1574,49 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
 
         }
         case TOKEN_MINUS: {
-            if (lhs_value.type_handle != dpl->types.number_handle) {
+            if (lhs_value.type_handle != dpl->number_type_handle) {
                 DPL_AST_ERROR(dpl, node->as.binary.left, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
                               _dpll_token_kind_name(operator.kind));
             }
-            if (rhs_value.type_handle != dpl->types.number_handle) {
+            if (rhs_value.type_handle != dpl->number_type_handle) {
                 DPL_AST_ERROR(dpl, node->as.binary.right, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
                               _dpll_token_kind_name(operator.kind));
             }
 
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number - rhs_value.as.number,
             };
         }
         break;
         case TOKEN_STAR: {
-            if (lhs_value.type_handle != dpl->types.number_handle) {
+            if (lhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
-            if (rhs_value.type_handle != dpl->types.number_handle) {
+            if (rhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
 
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number * rhs_value.as.number,
             };
         }
         break;
         case TOKEN_SLASH: {
-            if (lhs_value.type_handle != dpl->types.number_handle) {
+            if (lhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
-            if (rhs_value.type_handle != dpl->types.number_handle) {
+            if (rhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
 
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number / rhs_value.as.number,
             };
         }
@@ -1655,14 +1655,14 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         case TOKEN_NUMBER: {
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->types.number_handle;
+            calltree_node->type_handle = dpl->number_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->types.string_handle;
+            calltree_node->type_handle = dpl->string_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
@@ -1944,9 +1944,9 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     break;
     case CALLTREE_NODE_VALUE: {
         printf("Value `");
-        if (node->as.value.type_handle == dpl->types.number_handle) {
+        if (node->as.value.type_handle == dpl->number_type_handle) {
             printf("%f", node->as.value.as.number);
-        } else if (node->as.value.type_handle == dpl->types.string_handle) {
+        } else if (node->as.value.type_handle == dpl->string_type_handle) {
             Nob_String_View value = node->as.value.as.string;
             dplp_print_escaped_string(value.data, value.count);
         }
@@ -2001,9 +2001,9 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
-        if (node->type_handle == dpl->types.number_handle) {
+        if (node->type_handle == dpl->number_type_handle) {
             dplp_write_push_number(program, node->as.value.as.number);
-        } else if (node->type_handle == dpl->types.string_handle) {
+        } else if (node->type_handle == dpl->string_type_handle) {
             dplp_write_push_string(program, node->as.value.as.string.data);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);

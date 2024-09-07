@@ -51,10 +51,6 @@ typedef struct
     DPL_Type *items;
     size_t count;
     size_t capacity;
-
-    // Common datatypes
-    DPL_Handle number_handle;
-    DPL_Handle string_handle;
 } DPL_Types;
 
 /// FUNCTIONS
@@ -398,6 +394,9 @@ struct _DPL
 
     // Catalogs
     DPL_Types types;
+    DPL_Handle number_type_handle;
+    DPL_Handle string_type_handle;
+
     DPL_Functions functions;
 
     // Common
