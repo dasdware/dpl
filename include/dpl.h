@@ -316,12 +316,7 @@ typedef enum
     CALLTREE_NODE_ASSIGNMENT,
 } DPL_CallTreeNodeKind;
 
-typedef struct
-{
-    DPL_CallTree_Node **items;
-    size_t count;
-    size_t capacity;
-} DPL_CallTree_Nodes;
+typedef da_array(DPL_CallTree_Node*)  DPL_CallTree_Nodes;
 
 typedef struct
 {
