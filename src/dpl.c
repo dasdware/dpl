@@ -1320,26 +1320,26 @@ const char* _dplc_symbols_kind_name(DPL_SymbolKind kind) {
 }
 
 DPL_Scope* _dplc_scopes_current(DPL* dpl) {
-    if (dpl->scope_stack.count == 0) {
+    if (da_empty(dpl->scope_stack)) {
         DPL_ERROR("Cannot get current scope information: no scope pushed onto stack.");
     }
 
-    return &dpl->scope_stack.items[dpl->scope_stack.count - 1];
+    return &dpl->scope_stack[da_size(dpl->scope_stack) - 1];
 }
 
 void _dplc_scopes_begin_scope(DPL* dpl) {
     DPL_Scope scope = {0};
 
-    if (dpl->scope_stack.count > 0) {
+    if (da_some(dpl->scope_stack)) {
         DPL_Scope* current_top = _dplc_scopes_current(dpl);
         scope.offset = current_top->offset + current_top->count;
     }
 
-    nob_da_append(&dpl->scope_stack, scope);
+    da_add(dpl->scope_stack, scope);
 }
 
 void _dplc_scopes_end_scope(DPL* dpl) {
-    dpl->scope_stack.count--;
+    da_pop(dpl->scope_stack);
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);

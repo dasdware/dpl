@@ -304,11 +304,7 @@ typedef struct {
     size_t count;
 } DPL_Scope;
 
-typedef struct {
-    DPL_Scope *items;
-    size_t count;
-    size_t capacity;
-} DPL_ScopeStack;
+typedef da_array(DPL_Scope) DPL_ScopeStack;
 
 typedef enum
 {
