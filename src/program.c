@@ -11,8 +11,8 @@ void dplp_free(DPL_Program* program) {
 }
 
 bool _dplp_find_number_constant(DPL_Program* program, double value, size_t* output) {
-    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
-        DPL_Constant constant = program->constants_dictionary.items[i];
+    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
+        DPL_Constant constant = program->constants_dictionary[i];
         if (constant.kind == VALUE_NUMBER
                 && dpl_value_number_equals(bb_read_f64(program->constants, constant.offset), value)) {
             *output = constant.offset;
@@ -24,8 +24,8 @@ bool _dplp_find_number_constant(DPL_Program* program, double value, size_t* outp
 }
 
 bool _dplp_find_string_constant(DPL_Program* program, Nob_String_View value, size_t* output) {
-    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
-        DPL_Constant constant = program->constants_dictionary.items[i];
+    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
+        DPL_Constant constant = program->constants_dictionary[i];
         if (constant.kind == VALUE_STRING
                 && dpl_value_string_equals(bb_read_sv(program->constants, constant.offset), value)) {
             *output = constant.offset;
@@ -48,7 +48,7 @@ size_t _dplp_add_number_constant(DPL_Program *program, double value) {
         .kind = VALUE_NUMBER,
         .offset = offset,
     };
-    nob_da_append(&program->constants_dictionary, dictionary_entry);
+    da_add(program->constants_dictionary, dictionary_entry);
 
     return offset;
 }
@@ -66,7 +66,7 @@ size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
         .offset = offset,
         .kind = VALUE_STRING,
     };
-    nob_da_append(&program->constants_dictionary, dictionary_entry);
+    da_add(program->constants_dictionary, dictionary_entry);
 
     return offset;
 }
@@ -202,7 +202,7 @@ void dplp_print_escaped_string(const char* value, size_t length) {
 
 void _dplp_print_constant(DPL_Program* program, size_t i) {
     printf(" #%zu: ", i);
-    DPL_Constant constant = program->constants_dictionary.items[i];
+    DPL_Constant constant = program->constants_dictionary[i];
     switch (constant.kind) {
     case VALUE_NUMBER:
         dpl_value_print_number(bb_read_f64(program->constants, constant.offset));
@@ -220,9 +220,9 @@ void dplp_print(DPL_Program *program) {
     printf("          Entry: %zu\n", program->entry);
 
     printf("----- CONSTANTS DICTIONARY ------\n");
-    printf("           Size: %zu\n", program->constants_dictionary.count);
+    printf("           Size: %zu\n", da_size(program->constants_dictionary));
     printf("     Chunk size: %zu\n", program->constants.count);
-    for (size_t i = 0; i < program->constants_dictionary.count; ++i) {
+    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
         _dplp_print_constant(program, i);
     }
 
@@ -418,8 +418,5 @@ bool dplp_load(DPL_Program* program, const char* file_name)
 
     nob_da_free(chunk);
     fclose(in);
-
-    (void)program;
-    (void)file_name;
     return true;
 }
