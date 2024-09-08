@@ -291,11 +291,7 @@ typedef struct {
 
 typedef da_array(DPL_Symbol) DPL_Symbols;
 
-typedef struct {
-    size_t *items;
-    size_t count;
-    size_t capacity;
-} DPL_Frames;
+typedef da_array(size_t) DPL_Frames;
 
 typedef struct {
     DPL_Symbols symbols;

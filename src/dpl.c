@@ -132,7 +132,9 @@ void dpl_free(DPL *dpl)
     // calltree freeing
     arena_free(&dpl->calltree.memory);
 
+    // symbol stack freeing
     da_free(dpl->symbol_stack.symbols);
+    da_free(dpl->symbol_stack.frames);
 }
 
 // CATALOGS
@@ -1273,13 +1275,13 @@ const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
 
 void _dplc_symbols_begin_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    nob_da_append(&s->frames, da_size(s->symbols));
+    da_add(s->frames, da_size(s->symbols));
 }
 
 void _dplc_symbols_end_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    s->frames.count--;
-    da_set_size(s->symbols, s->frames.items[s->frames.count]);
+    da_pop(s->frames);
+    da_set_size(s->symbols, s->frames[da_size(s->frames)]);
 }
 
 DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {

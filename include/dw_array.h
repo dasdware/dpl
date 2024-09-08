@@ -28,6 +28,7 @@ typedef struct {
 size_t da_size(void* array);
 void da_set_size(void *array, size_t new_size);
 #define da_clear(array) da_set_size(array,  0)
+void da_pop(void *array);
 
 size_t da_capacity(void *array);
 
@@ -88,6 +89,13 @@ void da_set_size(void *array, size_t new_size) {
         ((DA_Header*) array)[-1].size = new_size;
     }
 }
+
+void da_pop(void *array) {
+    if (da_size(array) > 0)  {
+        ((DA_Header*) array)[-1].size--;
+    }
+}
+
 
 size_t da_capacity(void *array) {
     if (!array) {
