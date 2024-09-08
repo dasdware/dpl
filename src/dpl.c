@@ -936,12 +936,6 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind);
 
-typedef struct {
-    DPL_Ast_FunctionArgument* items;
-    size_t count;
-    size_t capacity;
-} _DPL_Ast_Arguments;
-
 DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     DPL_Token keyword_candidate = _dplp_peek_token(dpl);
     if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT || keyword_candidate.kind == TOKEN_KEYWORD_VAR) {
@@ -970,7 +964,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         DPL_Token keyword = _dplp_next_token(dpl);
         DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
-        _DPL_Ast_Arguments arguments = {0};
+        da_array(DPL_Ast_FunctionArgument) arguments = 0;
         _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
         if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
             while (true) {
@@ -979,7 +973,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
                 _dplp_expect_token(dpl, TOKEN_COLON);
                 argument.type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
-                nob_da_append(&arguments, argument);
+                da_add(arguments, argument);
 
                 if (_dplp_peek_token(dpl).kind != TOKEN_COMMA) {
                     break;
@@ -999,11 +993,11 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         function->as.function.keyword = keyword;
         function->as.function.name = name;
 
-        function->as.function.signature.argument_count = arguments.count;
-        if (arguments.count > 0) {
-            function->as.function.signature.arguments = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
-            memcpy(function->as.function.signature.arguments, arguments.items, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
-            nob_da_free(arguments);
+        function->as.function.signature.argument_count = da_size(arguments);
+        if (da_some(arguments)) {
+            function->as.function.signature.arguments = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
+            memcpy(function->as.function.signature.arguments, arguments, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
+            da_free(arguments);
         }
         function->as.function.signature.type_name = result_type_name;
 
@@ -1015,29 +1009,22 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     return _dplp_parse_expression(dpl);
 }
 
-typedef struct
-{
-    DPL_Ast_Node** items;
-    size_t count;
-    size_t capacity;
-} _DPL_Ast_NodeList;
-
-void _dplp_move_nodelist(DPL* dpl, _DPL_Ast_NodeList list, size_t *target_count, DPL_Ast_Node*** target_items) {
-    *target_count = list.count;
-    if (list.count > 0) {
-        *target_items = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Node*) * list.count);
-        memcpy(*target_items, list.items, sizeof(DPL_Ast_Node*) * list.count);
-        nob_da_free(list);
+void _dplp_move_nodelist(DPL* dpl, da_array(DPL_Ast_Node*) list, size_t *target_count, DPL_Ast_Node*** target_items) {
+    *target_count = da_size(list);
+    if (da_some(list)) {
+        *target_items = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Node*) * da_size(list));
+        memcpy(*target_items, list, sizeof(DPL_Ast_Node*) * da_size(list));
+        da_free(list);
     }
 }
 
-_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
+da_array(DPL_Ast_Node*) _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
 {
-    _DPL_Ast_NodeList list = {0};
+    da_array(DPL_Ast_Node*) list = 0;
     if (allow_declarations) {
-        nob_da_append(&list, _dplp_parse_declaration(dpl));
+        da_add(list, _dplp_parse_declaration(dpl));
     } else {
-        nob_da_append(&list, _dplp_parse_expression(dpl));
+        da_add(list, _dplp_parse_expression(dpl));
     }
 
     DPL_Token delimiter_candidate = _dplp_peek_token(dpl);
@@ -1048,9 +1035,9 @@ _DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL
         }
 
         if (allow_declarations) {
-            nob_da_append(&list, _dplp_parse_declaration(dpl));
+            da_add(list, _dplp_parse_declaration(dpl));
         } else {
-            nob_da_append(&list, _dplp_parse_expression(dpl));
+            da_add(list, _dplp_parse_expression(dpl));
         }
         delimiter_candidate = _dplp_peek_token(dpl);
     }
@@ -1086,7 +1073,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
             DPL_Token name = token;
             /*DPL_Token open_paren =*/ _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
-            _DPL_Ast_NodeList arguments = {0};
+            da_array(DPL_Ast_Node*) arguments = 0;
             if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
                 arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
             }
@@ -1236,9 +1223,9 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind
                         _dpll_token_kind_name(closing_token_kind));
     }
 
-    _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token_kind, true);
+    da_array(DPL_Ast_Node*) expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token_kind, true);
     if (opening_token.kind == TOKEN_NONE) {
-        opening_token = expressions.items[0]->first;
+        opening_token = expressions[0]->first;
     }
 
     DPL_Token closing_token = _dplp_expect_token(dpl, closing_token_kind);
