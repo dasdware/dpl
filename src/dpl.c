@@ -125,6 +125,7 @@ void dpl_free(DPL *dpl)
     // catalog freeing
     da_free(dpl->types);
     da_free(dpl->functions);
+    da_free(dpl->user_functions);
 
     // parser freeing
     arena_free(&dpl->tree.memory);
@@ -1409,7 +1410,7 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
 
 void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data)
 {
-    DPL_UserFunction* uf = &dpl->user_functions.items[(size_t) data];
+    DPL_UserFunction* uf = &dpl->user_functions[(size_t) data];
     dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
@@ -1435,7 +1436,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
         DPL_CallTree_Function* f = &function_symbol->as.function;
         if (!f->used) {
             f->used = true;
-            f->user_handle = dpl->user_functions.count;
+            f->user_handle = da_size(dpl->user_functions);
 
             Nob_String_View name = nob_sv_from_cstr(
                                        nob_temp_sprintf("$%zu_"SV_Fmt,
@@ -1452,7 +1453,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
                 .begin_ip = 0,
                 .body = f->body,
             };
-            nob_da_append(&dpl->user_functions, user_function);
+            da_add(dpl->user_functions, user_function);
         }
 
         result_ctn->as.function_call.function_handle = f->function_handle;
@@ -2089,8 +2090,8 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
     _dplc_bind(dpl);
     if (dpl->debug)
     {
-        for (size_t i = 0; i < dpl->user_functions.count; ++i) {
-            DPL_UserFunction* uf = &dpl->user_functions.items[i];
+        for (size_t i = 0; i < da_size(dpl->user_functions); ++i) {
+            DPL_UserFunction* uf = &dpl->user_functions[i];
             DPL_Function* f = _dplf_find_by_handle(dpl, uf->function_handle);
             printf("### "SV_Fmt" (arity: %zu) ###\n", SV_Arg(f->name), uf->arity);
             _dplc_print(dpl, uf->body, 0);
@@ -2102,8 +2103,8 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
         printf("\n");
     }
 
-    for (size_t i = 0; i < dpl->user_functions.count; ++i) {
-        DPL_UserFunction* uf = &dpl->user_functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->user_functions); ++i) {
+        DPL_UserFunction* uf = &dpl->user_functions[i];
         uf->begin_ip = program->code.count;
         _dplg_generate(dpl, uf->body, program);
         dplp_write_return(program);

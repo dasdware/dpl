@@ -365,11 +365,7 @@ typedef struct {
     DPL_CallTree_Node* body;
 } DPL_UserFunction;
 
-typedef struct {
-    DPL_UserFunction* items;
-    size_t count;
-    size_t capacity;
-} DPL_UserFunctions;
+typedef da_array(DPL_UserFunction) DPL_UserFunctions;
 
 // COMPILATION CONTEXT
 
