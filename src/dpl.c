@@ -47,7 +47,7 @@ DPL_Handle _dplf_register(DPL* dpl,
                           void* generator_user_data);
 void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
-void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
+void _dple_register(DPL *dpl, DPL_ExternalFunctions externals);
 
 void _dplg_generate_inst(DPL* dpl, DPL_Program* program, void* instruction)
 {
@@ -55,7 +55,7 @@ void _dplg_generate_inst(DPL* dpl, DPL_Program* program, void* instruction)
     dplp_write(program, (DPL_Instruction_Kind) instruction);
 }
 
-void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
+void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 {
     // CATALOGS
 
@@ -390,11 +390,11 @@ void _dplg_call_external_callback(DPL* dpl, DPL_Program* program, void* user_dat
     dplp_write_call_external(program, (size_t)user_data);
 }
 
-void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
+void _dple_register(DPL *dpl, DPL_ExternalFunctions externals)
 {
-    for (size_t i = 0; i < externals->count; ++i)
+    for (size_t i = 0; i < da_size(externals); ++i)
     {
-        DPL_ExternalFunction* external = &externals->items[i];
+        DPL_ExternalFunction* external = &externals[i];
 
         // find the function type
 
@@ -407,11 +407,11 @@ void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
         }
         signature.returns = returns->handle;
 
-        for (size_t j = 0; j < external->argument_types.count; ++j) {
-            DPL_Type* argument = _dplt_find_by_name(dpl, nob_sv_from_cstr(external->argument_types.items[j]));
+        for (size_t j = 0; j < da_size(external->argument_types); ++j) {
+            DPL_Type* argument = _dplt_find_by_name(dpl, nob_sv_from_cstr(external->argument_types[j]));
             if (argument == NULL) {
                 DPL_ERROR("Cannot register external function `%s`: argument type `%s` cannot be resolved.",
-                          external->name, external->argument_types.items[j]);
+                          external->name, external->argument_types[j]);
             }
 
             _dpl_add_handle(&signature.arguments, argument->handle);

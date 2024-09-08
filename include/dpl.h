@@ -407,7 +407,7 @@ struct _DPL
     DPL_UserFunctions user_functions;
 };
 
-void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals);
+void dpl_init(DPL *dpl, DPL_ExternalFunctions externals);
 void dpl_free(DPL *dpl);
 
 void dpl_compile(DPL *dpl, DPL_Program *program);

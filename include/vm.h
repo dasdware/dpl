@@ -2,11 +2,10 @@
 #define __DPL_VM_H
 
 #include "arena.h"
+#include "externals.h"
 #include "program.h"
 #include "value.h"
 #include "string_table.h"
-
-struct DPL_ExternalFunctions;
 
 typedef struct {
     size_t stack_top;
@@ -14,10 +13,10 @@ typedef struct {
     size_t return_ip;
 } DPL_CallFrame;
 
-typedef struct
+typedef struct DPL_VirtualMachine
 {
     DPL_Program *program;
-    struct DPL_ExternalFunctions *externals;
+    DPL_ExternalFunctions externals;
 
     bool debug;
     bool trace;
@@ -35,7 +34,7 @@ typedef struct
     Arena memory;
 } DPL_VirtualMachine;
 
-void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals);
+void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctions externals);
 void dplv_free(DPL_VirtualMachine *vm);
 
 void dplv_run(DPL_VirtualMachine *vm);

@@ -1,18 +1,21 @@
 #include "error.h"
 #include "externals.h"
+#include "vm.h"
 
 DPL_ExternalFunction* dple_add_by_name(DPL_ExternalFunctions* externals, const char* name)
 {
+    printf("Adding external %s\n", name);
     DPL_ExternalFunction external = {
         .name = name,
-        .argument_types = {0},
+        .argument_types = 0,
         .return_type = NULL,
         .callback = NULL,
     };
 
-    size_t index = externals->count;
-    nob_da_append(externals, external);
-    return &externals->items[index];
+    size_t index = da_size(*externals);
+    da_add(*externals, external);
+    printf("returning\n");
+    return &((*externals)[index]);
 }
 
 void _dple_print_callback(DPL_VirtualMachine* vm)
@@ -45,27 +48,27 @@ void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
 void dple_init(DPL_ExternalFunctions* externals)
 {
     DPL_ExternalFunction* print_number = dple_add_by_name(externals, "print");
-    nob_da_append(&print_number->argument_types, "number");
+    da_add(print_number->argument_types, "number");
     print_number->return_type = "number";
     print_number->callback = _dple_print_callback;
 
     DPL_ExternalFunction* print_string = dple_add_by_name(externals, "print");
-    nob_da_append(&print_string->argument_types, "string");
+    da_add(print_string->argument_types, "string");
     print_string->return_type = "string";
     print_string->callback = _dple_print_callback;
 
     DPL_ExternalFunction* length_string = dple_add_by_name(externals, "length");
-    nob_da_append(&length_string->argument_types, "string");
+    da_add(length_string->argument_types, "string");
     length_string->return_type = "number";
     length_string->callback = _dple_length_string_callback;
 
     DPL_ExternalFunction* to_string_number = dple_add_by_name(externals, "to_string");
-    nob_da_append(&to_string_number->argument_types, "number");
+    da_add(to_string_number->argument_types, "number");
     to_string_number->return_type = "string";
     to_string_number->callback = _dple_to_string_number_callback;
 }
 
 void dple_free(DPL_ExternalFunctions *externals)
 {
-    nob_da_free(*externals);
+    da_free(*externals);
 }

@@ -4,7 +4,7 @@
 #include "externals.h"
 #include "math.h"
 
-void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, struct DPL_ExternalFunctions *externals)
+void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctions externals)
 {
     vm->program = program;
     vm->externals = externals;
@@ -182,11 +182,11 @@ void dplv_run(DPL_VirtualMachine *vm)
                 DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: No external function definitions were provided to the vm.", external_num, ip_begin);
             }
 
-            if (external_num >= vm->externals->count) {
+            if (external_num >= da_size(vm->externals)) {
                 DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: Invalid external num.", external_num, ip_begin);
             }
 
-            vm->externals->items[external_num].callback(vm);
+            vm->externals[external_num].callback(vm);
         }
         break;
         case INST_PUSH_LOCAL: {
