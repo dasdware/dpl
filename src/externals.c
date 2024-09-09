@@ -4,7 +4,6 @@
 
 DPL_ExternalFunction* dple_add_by_name(DPL_ExternalFunctions* externals, const char* name)
 {
-    printf("Adding external %s\n", name);
     DPL_ExternalFunction external = {
         .name = name,
         .argument_types = 0,
@@ -14,7 +13,6 @@ DPL_ExternalFunction* dple_add_by_name(DPL_ExternalFunctions* externals, const c
 
     size_t index = da_size(*externals);
     da_add(*externals, external);
-    printf("returning\n");
     return &((*externals)[index]);
 }
 
