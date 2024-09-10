@@ -343,10 +343,7 @@ bool dplp_save(DPL_Program* program, const char* file_name)
 typedef struct
 {
     char name[5];
-
-    size_t count;
-    size_t capacity;
-    uint8_t *items;
+    da_array(uint8_t) data;
 } DPL_Loaded_Chunk;
 
 bool _dplp_load_chunk(FILE* in, DPL_Loaded_Chunk* chunk)
@@ -360,30 +357,14 @@ bool _dplp_load_chunk(FILE* in, DPL_Loaded_Chunk* chunk)
         return false;
     }
 
-    if (fread(&chunk->count, sizeof(chunk->count), 1, in) < 1)
+    size_t count;
+    if (fread(&count, sizeof(count), 1, in) < 1)
     {
         return false;
     }
 
-    bool need_realloc = false;
-    while (chunk->capacity < chunk->count)
-    {
-        need_realloc = true;
-        if (chunk->capacity == 0)
-        {
-            chunk->capacity = NOB_DA_INIT_CAP;
-        }
-        else
-        {
-            chunk->capacity *= 2;
-        }
-    }
-    if (need_realloc)
-    {
-        chunk->items = NOB_REALLOC(chunk->items, chunk->capacity*sizeof(uint8_t));
-    }
-
-    if (fread(chunk->items, 1, chunk->count, in) < chunk->count)
+    da_check_size(chunk->data, count);
+    if (fread(chunk->data, 1, count, in) < count)
     {
         return false;
     }
@@ -399,16 +380,16 @@ bool dplp_load(DPL_Program* program, const char* file_name)
     while (_dplp_load_chunk(in, &chunk)) {
         if (strcmp(chunk.name, "HEAD") == 0)
         {
-            program->version = chunk.items[0];
-            program->entry = *(uint64_t*)(chunk.items + sizeof(program->version));
+            program->version = chunk.data[0];
+            program->entry = *(uint64_t*)(chunk.data + sizeof(program->version));
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {
-            da_addn(program->constants, chunk.items, chunk.count);
+            da_addn(program->constants, chunk.data, da_size(chunk.data));
         }
         else if (strcmp(chunk.name, "CODE") == 0)
         {
-            da_addn(program->code, chunk.items, chunk.count);
+            da_addn(program->code, chunk.data, da_size(chunk.data));
         }
         else
         {
@@ -416,7 +397,7 @@ bool dplp_load(DPL_Program* program, const char* file_name)
         }
     }
 
-    nob_da_free(chunk);
+    da_free(chunk.data);
     fclose(in);
     return true;
 }

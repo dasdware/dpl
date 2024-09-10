@@ -33,6 +33,12 @@ void da_set_size(void *array, size_t new_size);
 void da_pop(void *array);
 #define da_clear(array) da_set_size(array,  0)
 
+#define da_check_size(array, size)                                     \
+    do {                                                               \
+        (array) = _da_check_capacity((array), sizeof(*(array)), size); \
+        da_set_size((array), size);                                    \
+    } while(false)
+
 size_t da_capacity(void *array);
 
 void da_free(void* array);
