@@ -2092,12 +2092,12 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
 
     for (size_t i = 0; i < da_size(dpl->user_functions); ++i) {
         DPL_UserFunction* uf = &dpl->user_functions[i];
-        uf->begin_ip = program->code.count;
+        uf->begin_ip = da_size(program->code);
         _dplg_generate(dpl, uf->body, program);
         dplp_write_return(program);
     }
 
-    program->entry = program->code.count;
+    program->entry = da_size(program->code);
     _dplg_generate(dpl, dpl->calltree.root, program);
     if (dpl->debug)
     {

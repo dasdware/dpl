@@ -5,7 +5,7 @@
 
 #include "nob.h"
 
-#include "byte_buffer.h"
+#include "dw_byte_buffer.h"
 #include "dw_array.h"
 #include "value.h"
 

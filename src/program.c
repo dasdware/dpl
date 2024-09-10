@@ -6,8 +6,8 @@ void dplp_init(DPL_Program* program) {
 }
 
 void dplp_free(DPL_Program* program) {
-    nob_da_free(program->constants);
-    nob_da_free(program->code);
+    da_free(program->constants);
+    da_free(program->code);
 }
 
 bool _dplp_find_number_constant(DPL_Program* program, double value, size_t* output) {
@@ -37,7 +37,7 @@ bool _dplp_find_string_constant(DPL_Program* program, Nob_String_View value, siz
 }
 
 size_t _dplp_add_number_constant(DPL_Program *program, double value) {
-    size_t offset = program->constants.count;
+    size_t offset = da_size(program->constants);
     if (_dplp_find_number_constant(program, value, &offset)) {
         return offset;
     }
@@ -55,7 +55,7 @@ size_t _dplp_add_number_constant(DPL_Program *program, double value) {
 
 size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
     Nob_String_View value_view = nob_sv_from_cstr(value);
-    size_t offset = program->constants.count;
+    size_t offset = da_size(program->constants);
     if (_dplp_find_string_constant(program, value_view, &offset)) {
         return offset;
     }
@@ -221,37 +221,37 @@ void dplp_print(DPL_Program *program) {
 
     printf("----- CONSTANTS DICTIONARY ------\n");
     printf("           Size: %zu\n", da_size(program->constants_dictionary));
-    printf("     Chunk size: %zu\n", program->constants.count);
+    printf("     Chunk size: %zu\n", da_size(program->constants));
     for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
         _dplp_print_constant(program, i);
     }
 
     printf("------------- CODE --------------\n");
-    printf("     Chunk size: %zu\n", program->code.count);
+    printf("     Chunk size: %zu\n", da_size(program->code));
 
     size_t ip = 0;
-    while (ip < program->code.count) {
-        DPL_Instruction_Kind kind = program->code.items[ip];
+    while (ip < da_size(program->code)) {
+        DPL_Instruction_Kind kind = program->code[ip];
         ++ip;
 
         printf("[%04zu] %s", ip - 1, dplp_inst_kind_name(kind));
         switch (kind) {
         case INST_PUSH_NUMBER: {
-            size_t offset = *(program->code.items + ip);
+            size_t offset = *(program->code + ip);
             ip += sizeof(offset);
 
-            double value = *(double*)(program->constants.items + offset);
+            double value = *(double*)(program->constants + offset);
 
             printf(" %zu: %f ", offset, value);
         }
         break;
         case INST_PUSH_STRING: {
-            size_t offset = *(program->code.items + ip);
-            size_t length = *(size_t*)(program->constants.items + offset);
+            size_t offset = *(program->code + ip);
+            size_t length = *(size_t*)(program->constants + offset);
 
             printf(" %zu: (length: %zu, value: \"", offset, length);
             dplp_print_escaped_string(
-                (char*)(program->constants.items + offset + sizeof(length)),
+                (char*)(program->constants + offset + sizeof(length)),
                 length);
             printf("\")");
 
@@ -259,7 +259,7 @@ void dplp_print(DPL_Program *program) {
         }
         break;
         case INST_PUSH_LOCAL: {
-            size_t scope_index = *(program->code.items + ip);
+            size_t scope_index = *(program->code + ip);
 
             printf(" %zu", scope_index);
             ip += sizeof(scope_index);
@@ -275,29 +275,29 @@ void dplp_print(DPL_Program *program) {
         case INST_RETURN:
             break;
         case INST_CALL_EXTERNAL: {
-            uint8_t external_num = *(program->code.items + ip);
+            uint8_t external_num = *(program->code + ip);
             ip += sizeof(external_num);
             printf(" %u", external_num);
         }
         break;
         case INST_CALL_USER: {
-            uint8_t arity = *(program->code.items + ip);
+            uint8_t arity = *(program->code + ip);
             ip += sizeof(arity);
-            size_t begin_ip = *(program->code.items + ip);
+            size_t begin_ip = *(program->code + ip);
             ip += sizeof(begin_ip);
 
             printf(" %u %zu", arity, begin_ip);
         }
         break;
         case INST_STORE_LOCAL: {
-            size_t scope_index = *(program->code.items + ip);
+            size_t scope_index = *(program->code + ip);
 
             printf(" %zu", scope_index);
             ip += sizeof(scope_index);
         }
         break;
         case INST_POP_SCOPE: {
-            size_t n = *(program->code.items + ip);
+            size_t n = *(program->code + ip);
 
             printf(" %zu", n);
             ip += sizeof(n);
@@ -313,7 +313,7 @@ void dplp_print(DPL_Program *program) {
     printf("\n");
 }
 
-bool _dplp_save_chunk(FILE* out, const char* name, DW_ByteBuffer *buffer)
+bool _dplp_save_chunk(FILE* out, const char* name, DW_ByteBuffer buffer)
 {
     assert(strlen(name) == 4);
 
@@ -330,10 +330,10 @@ bool dplp_save(DPL_Program* program, const char* file_name)
     DW_ByteBuffer header = {0};
     bb_write_u8(&header, program->version);
     bb_write_u64(&header, program->entry);
-    _dplp_save_chunk(out, "HEAD", &header);
+    _dplp_save_chunk(out, "HEAD", header);
 
-    _dplp_save_chunk(out, "CONS", &program->constants);
-    _dplp_save_chunk(out, "CODE", &program->code);
+    _dplp_save_chunk(out, "CONS", program->constants);
+    _dplp_save_chunk(out, "CODE", program->code);
 
     fclose(out);
 
@@ -404,11 +404,11 @@ bool dplp_load(DPL_Program* program, const char* file_name)
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {
-            nob_da_append_many(&program->constants, chunk.items, chunk.count);
+            da_addn(program->constants, chunk.items, chunk.count);
         }
         else if (strcmp(chunk.name, "CODE") == 0)
         {
-            nob_da_append_many(&program->code, chunk.items, chunk.count);
+            da_addn(program->code, chunk.items, chunk.count);
         }
         else
         {

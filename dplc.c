@@ -11,7 +11,7 @@
 #include <string_table.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
-#include <byte_buffer.h>
+#include <dw_byte_buffer.h>
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
