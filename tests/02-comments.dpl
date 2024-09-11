@@ -1,9 +1,9 @@
 # This is a comment. It should be ignored.
-print(123);
+print("123\n");
 
 # There are no multiline comments.
 # Every line needs to start with its own `#` character.
 
-print(456); # This should be ignored until the end of the line
+print("456\n"); # This should be ignored until the end of the line
 
 # Trailing comment at end of file
