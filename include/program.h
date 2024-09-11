@@ -5,7 +5,8 @@
 
 #include "nob.h"
 
-#include "byte_buffer.h"
+#include "dw_byte_buffer.h"
+#include "dw_array.h"
 #include "value.h"
 
 typedef enum
@@ -32,13 +33,7 @@ typedef struct {
     size_t offset;
 } DPL_Constant;
 
-typedef struct
-{
-    DPL_Constant *items;
-    size_t count;
-    size_t capacity;
-} DPL_Constants_Dictionary;
-
+typedef da_array(DPL_Constant) DPL_Constants_Dictionary;
 
 typedef struct
 {

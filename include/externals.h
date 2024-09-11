@@ -1,19 +1,14 @@
 #ifndef __DPL_EXTERNALS_H
 #define __DPL_EXTERNALS_H
 
-#include "nob.h"
-#include "vm.h"
+#include "dw_array.h"
 
 typedef const char *DPL_External_TypeName;
 
-typedef struct
-{
-    DPL_External_TypeName *items;
-    size_t count;
-    size_t capacity;
-} DPL_External_TypeNames;
+typedef da_array(DPL_External_TypeName) DPL_External_TypeNames;
 
-typedef void (*DPL_ExternalFunction_Callback)(DPL_VirtualMachine *vm);
+struct DPL_VirtualMachine;
+typedef void (*DPL_ExternalFunction_Callback)(struct DPL_VirtualMachine *vm);
 
 typedef struct
 {
@@ -24,14 +19,7 @@ typedef struct
 
 } DPL_ExternalFunction;
 
-struct DPL_ExternalFunctions
-{
-    DPL_ExternalFunction *items;
-    size_t count;
-    size_t capacity;
-};
-
-typedef struct DPL_ExternalFunctions DPL_ExternalFunctions;
+typedef da_array(DPL_ExternalFunction) DPL_ExternalFunctions;
 
 void dple_init(DPL_ExternalFunctions *externals);
 void dple_free(DPL_ExternalFunctions *externals);

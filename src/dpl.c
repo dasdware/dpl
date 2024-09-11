@@ -36,8 +36,8 @@
 // Forward declarations needed for initialization
 void _dpl_add_handle(DPL_Handles* handles, DPL_Handle handle);
 
-DPL_Handle _dplt_register(DPL* types, DPL_Type type);
-DPL_Handle _dplt_register_by_name(DPL* types, Nob_String_View name);
+DPL_Handle _dplt_register(DPL* dpl, DPL_Type type);
+DPL_Handle _dplt_register_by_name(DPL* dpl, Nob_String_View name);
 void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type);
 
 DPL_Handle _dplf_register(DPL* dpl,
@@ -47,7 +47,7 @@ DPL_Handle _dplf_register(DPL* dpl,
                           void* generator_user_data);
 void _dplf_print(FILE* out, DPL* dpl, DPL_Function* function);
 
-void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals);
+void _dple_register(DPL *dpl, DPL_ExternalFunctions externals);
 
 void _dplg_generate_inst(DPL* dpl, DPL_Program* program, void* instruction)
 {
@@ -55,29 +55,29 @@ void _dplg_generate_inst(DPL* dpl, DPL_Program* program, void* instruction)
     dplp_write(program, (DPL_Instruction_Kind) instruction);
 }
 
-void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
+void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 {
     // CATALOGS
 
     /// TYPES
-    dpl->types.number_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
-    dpl->types.string_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
+    dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
+    dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
 
     /// FUNCTIONS AND GENERATORS
 
     DPL_Signature unary_number = {0};
-    _dpl_add_handle(&unary_number.arguments, dpl->types.number_handle);
-    unary_number.returns = dpl->types.number_handle;
+    _dpl_add_handle(&unary_number.arguments, dpl->number_type_handle);
+    unary_number.returns = dpl->number_type_handle;
 
     DPL_Signature binary_number = {0};
-    _dpl_add_handle(&binary_number.arguments, dpl->types.number_handle);
-    _dpl_add_handle(&binary_number.arguments, dpl->types.number_handle);
-    binary_number.returns = dpl->types.number_handle;
+    _dpl_add_handle(&binary_number.arguments, dpl->number_type_handle);
+    _dpl_add_handle(&binary_number.arguments, dpl->number_type_handle);
+    binary_number.returns = dpl->number_type_handle;
 
     DPL_Signature binary_string = {0};
-    _dpl_add_handle(&binary_string.arguments, dpl->types.string_handle);
-    _dpl_add_handle(&binary_string.arguments, dpl->types.string_handle);
-    binary_string.returns = dpl->types.string_handle;
+    _dpl_add_handle(&binary_string.arguments, dpl->string_type_handle);
+    _dpl_add_handle(&binary_string.arguments, dpl->string_type_handle);
+    binary_string.returns = dpl->string_type_handle;
 
 
     // unary operators
@@ -97,9 +97,9 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     if (dpl->debug)
     {
         printf("Types:\n");
-        for (size_t i = 0; i < dpl->types.count; ++i) {
-            printf("* %u: ", dpl->types.items[i].handle);
-            _dplt_print(stdout, dpl, &dpl->types.items[i]);
+        for (size_t i = 0; i < da_size(dpl->types); ++i) {
+            printf("* %u: ", dpl->types[i].handle);
+            _dplt_print(stdout, dpl, &dpl->types[i]);
             printf("\n");
         }
         printf("\n");
@@ -108,9 +108,9 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
     if (dpl->debug)
     {
         printf("Functions:\n");
-        for (size_t i = 0; i < dpl->functions.count; ++i) {
-            printf("* %u: ", dpl->functions.items[i].handle);
-            _dplf_print(stdout, dpl, &dpl->functions.items[i]);
+        for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+            printf("* %u: ", dpl->functions[i].handle);
+            _dplf_print(stdout, dpl, &dpl->functions[i]);
             printf("\n");
         }
         printf("\n");
@@ -123,14 +123,19 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals)
 void dpl_free(DPL *dpl)
 {
     // catalog freeing
-    nob_da_free(dpl->types);
-    nob_da_free(dpl->functions);
+    da_free(dpl->types);
+    da_free(dpl->functions);
+    da_free(dpl->user_functions);
 
     // parser freeing
     arena_free(&dpl->tree.memory);
 
     // calltree freeing
     arena_free(&dpl->calltree.memory);
+
+    // symbol stack freeing
+    da_free(dpl->symbol_stack.symbols);
+    da_free(dpl->symbol_stack.frames);
 }
 
 // CATALOGS
@@ -176,8 +181,8 @@ bool _dpl_handles_equal(DPL_Handles* first, DPL_Handles* second)
 }
 
 DPL_Handle _dplt_add(DPL* dpl, DPL_Type type) {
-    size_t index = dpl->types.count;
-    nob_da_append(&dpl->types, type);
+    size_t index = da_size(dpl->types);
+    da_add(dpl->types, type);
 
     return index;
 }
@@ -186,7 +191,7 @@ DPL_Handle _dplt_register_by_name(DPL* dpl, Nob_String_View name)
 {
     DPL_Type type = {
         .name = name,
-        .handle = dpl->types.count + 1,
+        .handle = da_size(dpl->types) + 1,
         .hash = _dplt_hash(name),
     };
     _dplt_add(dpl, type);
@@ -195,7 +200,7 @@ DPL_Handle _dplt_register_by_name(DPL* dpl, Nob_String_View name)
 
 DPL_Handle _dplt_register(DPL* dpl, DPL_Type type)
 {
-    type.handle = dpl->types.count + 1;
+    type.handle = da_size(dpl->types) + 1;
     type.hash = _dplt_hash(type.name);
     _dplt_add(dpl, type);
     return type.handle;
@@ -203,9 +208,9 @@ DPL_Handle _dplt_register(DPL* dpl, DPL_Type type)
 
 DPL_Type* _dplt_find_by_handle(DPL *dpl, DPL_Handle handle)
 {
-    for (size_t i = 0;  i < dpl->types.count; ++i) {
-        if (dpl->types.items[i].handle == handle) {
-            return &dpl->types.items[i];
+    for (size_t i = 0;  i < da_size(dpl->types); ++i) {
+        if (dpl->types[i].handle == handle) {
+            return &dpl->types[i];
         }
     }
     return 0;
@@ -213,9 +218,9 @@ DPL_Type* _dplt_find_by_handle(DPL *dpl, DPL_Handle handle)
 
 DPL_Type* _dplt_find_by_name(DPL *dpl, Nob_String_View name)
 {
-    for (size_t i = 0;  i < dpl->types.count; ++i) {
-        if (nob_sv_eq(dpl->types.items[i].name, name)) {
-            return &dpl->types.items[i];
+    for (size_t i = 0;  i < da_size(dpl->types); ++i) {
+        if (nob_sv_eq(dpl->types[i].name, name)) {
+            return &dpl->types[i];
         }
     }
     return 0;
@@ -223,9 +228,9 @@ DPL_Type* _dplt_find_by_name(DPL *dpl, Nob_String_View name)
 
 DPL_Type* _dplt_find_by_signature(DPL* dpl, DPL_Handles* arguments, DPL_Handle returns)
 {
-    for (size_t i = 0;  i < dpl->types.count; ++i)
+    for (size_t i = 0;  i < da_size(dpl->types); ++i)
     {
-        DPL_Type *type = &dpl->types.items[i];
+        DPL_Type *type = &dpl->types[i];
         if (type->kind == TYPE_FUNCTION
                 && _dpl_handles_equal(&type->as.function.arguments, arguments)
                 && type->as.function.returns == returns)
@@ -295,7 +300,7 @@ DPL_Handle _dplf_register(DPL* dpl,
                           void* generator_user_data)
 {
     DPL_Function function = {
-        .handle = dpl->functions.count + 1,
+        .handle = da_size(dpl->functions) + 1,
         .name = name,
         .signature = *signature,
         .generator = {
@@ -303,16 +308,16 @@ DPL_Handle _dplf_register(DPL* dpl,
             .user_data = generator_user_data,
         },
     };
-    nob_da_append(&dpl->functions, function);
+    da_add(dpl->functions, function);
 
     return function.handle;
 }
 
 DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Handle handle)
 {
-    for (size_t i = 0;  i < dpl->functions.count; ++i) {
-        if (dpl->functions.items[i].handle == handle) {
-            return &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        if (dpl->functions[i].handle == handle) {
+            return &dpl->functions[i];
         }
     }
     return 0;
@@ -321,8 +326,8 @@ DPL_Function* _dplf_find_by_handle(DPL *dpl, DPL_Handle handle)
 DPL_Function* _dplf_find_by_signature(DPL *dpl,
                                       Nob_String_View name, DPL_Handles* arguments)
 {
-    for (size_t i = 0; i < dpl->functions.count; ++i) {
-        DPL_Function* function = &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        DPL_Function* function = &dpl->functions[i];
         if (nob_sv_eq(function->name, name)) {
             if (_dpl_handles_equal(&function->signature.arguments, arguments)) {
                 return function;
@@ -335,8 +340,8 @@ DPL_Function* _dplf_find_by_signature(DPL *dpl,
 DPL_Function* _dplf_find_by_signature1(DPL *dpl,
                                        Nob_String_View name, DPL_Handle arg0)
 {
-    for (size_t i = 0; i < dpl->functions.count; ++i) {
-        DPL_Function* function = &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        DPL_Function* function = &dpl->functions[i];
         if (nob_sv_eq(function->name, name)) {
             if (function->signature.arguments.count == 1
                     && function->signature.arguments.items[0] == arg0
@@ -352,8 +357,8 @@ DPL_Function* _dplf_find_by_signature1(DPL *dpl,
 DPL_Function* _dplf_find_by_signature2(DPL *dpl,
                                        Nob_String_View name, DPL_Handle arg0, DPL_Handle arg1)
 {
-    for (size_t i = 0; i < dpl->functions.count; ++i) {
-        DPL_Function* function = &dpl->functions.items[i];
+    for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+        DPL_Function* function = &dpl->functions[i];
         if (nob_sv_eq(function->name, name)) {
             if (function->signature.arguments.count == 2
                     && function->signature.arguments.items[0] == arg0
@@ -385,11 +390,11 @@ void _dplg_call_external_callback(DPL* dpl, DPL_Program* program, void* user_dat
     dplp_write_call_external(program, (size_t)user_data);
 }
 
-void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
+void _dple_register(DPL *dpl, DPL_ExternalFunctions externals)
 {
-    for (size_t i = 0; i < externals->count; ++i)
+    for (size_t i = 0; i < da_size(externals); ++i)
     {
-        DPL_ExternalFunction* external = &externals->items[i];
+        DPL_ExternalFunction* external = &externals[i];
 
         // find the function type
 
@@ -402,11 +407,11 @@ void _dple_register(DPL *dpl, DPL_ExternalFunctions* externals)
         }
         signature.returns = returns->handle;
 
-        for (size_t j = 0; j < external->argument_types.count; ++j) {
-            DPL_Type* argument = _dplt_find_by_name(dpl, nob_sv_from_cstr(external->argument_types.items[j]));
+        for (size_t j = 0; j < da_size(external->argument_types); ++j) {
+            DPL_Type* argument = _dplt_find_by_name(dpl, nob_sv_from_cstr(external->argument_types[j]));
             if (argument == NULL) {
                 DPL_ERROR("Cannot register external function `%s`: argument type `%s` cannot be resolved.",
-                          external->name, external->argument_types.items[j]);
+                          external->name, external->argument_types[j]);
             }
 
             _dpl_add_handle(&signature.arguments, argument->handle);
@@ -931,12 +936,6 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind);
 
-typedef struct {
-    DPL_Ast_FunctionArgument* items;
-    size_t count;
-    size_t capacity;
-} _DPL_Ast_Arguments;
-
 DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     DPL_Token keyword_candidate = _dplp_peek_token(dpl);
     if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT || keyword_candidate.kind == TOKEN_KEYWORD_VAR) {
@@ -965,7 +964,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         DPL_Token keyword = _dplp_next_token(dpl);
         DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
-        _DPL_Ast_Arguments arguments = {0};
+        da_array(DPL_Ast_FunctionArgument) arguments = 0;
         _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
         if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
             while (true) {
@@ -974,7 +973,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
                 _dplp_expect_token(dpl, TOKEN_COLON);
                 argument.type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
-                nob_da_append(&arguments, argument);
+                da_add(arguments, argument);
 
                 if (_dplp_peek_token(dpl).kind != TOKEN_COMMA) {
                     break;
@@ -994,11 +993,11 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         function->as.function.keyword = keyword;
         function->as.function.name = name;
 
-        function->as.function.signature.argument_count = arguments.count;
-        if (arguments.count > 0) {
-            function->as.function.signature.arguments = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
-            memcpy(function->as.function.signature.arguments, arguments.items, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
-            nob_da_free(arguments);
+        function->as.function.signature.argument_count = da_size(arguments);
+        if (da_some(arguments)) {
+            function->as.function.signature.arguments = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
+            memcpy(function->as.function.signature.arguments, arguments, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
+            da_free(arguments);
         }
         function->as.function.signature.type_name = result_type_name;
 
@@ -1010,29 +1009,22 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     return _dplp_parse_expression(dpl);
 }
 
-typedef struct
-{
-    DPL_Ast_Node** items;
-    size_t count;
-    size_t capacity;
-} _DPL_Ast_NodeList;
-
-void _dplp_move_nodelist(DPL* dpl, _DPL_Ast_NodeList list, size_t *target_count, DPL_Ast_Node*** target_items) {
-    *target_count = list.count;
-    if (list.count > 0) {
-        *target_items = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Node*) * list.count);
-        memcpy(*target_items, list.items, sizeof(DPL_Ast_Node*) * list.count);
-        nob_da_free(list);
+void _dplp_move_nodelist(DPL* dpl, da_array(DPL_Ast_Node*) list, size_t *target_count, DPL_Ast_Node*** target_items) {
+    *target_count = da_size(list);
+    if (da_some(list)) {
+        *target_items = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Node*) * da_size(list));
+        memcpy(*target_items, list, sizeof(DPL_Ast_Node*) * da_size(list));
+        da_free(list);
     }
 }
 
-_DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
+da_array(DPL_Ast_Node*) _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
 {
-    _DPL_Ast_NodeList list = {0};
+    da_array(DPL_Ast_Node*) list = 0;
     if (allow_declarations) {
-        nob_da_append(&list, _dplp_parse_declaration(dpl));
+        da_add(list, _dplp_parse_declaration(dpl));
     } else {
-        nob_da_append(&list, _dplp_parse_expression(dpl));
+        da_add(list, _dplp_parse_expression(dpl));
     }
 
     DPL_Token delimiter_candidate = _dplp_peek_token(dpl);
@@ -1043,9 +1035,9 @@ _DPL_Ast_NodeList _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimiter, DPL
         }
 
         if (allow_declarations) {
-            nob_da_append(&list, _dplp_parse_declaration(dpl));
+            da_add(list, _dplp_parse_declaration(dpl));
         } else {
-            nob_da_append(&list, _dplp_parse_expression(dpl));
+            da_add(list, _dplp_parse_expression(dpl));
         }
         delimiter_candidate = _dplp_peek_token(dpl);
     }
@@ -1081,7 +1073,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
             DPL_Token name = token;
             /*DPL_Token open_paren =*/ _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
 
-            _DPL_Ast_NodeList arguments = {0};
+            da_array(DPL_Ast_Node*) arguments = 0;
             if (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_PAREN) {
                 arguments = _dplp_parse_expressions(dpl, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
             }
@@ -1231,9 +1223,9 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind
                         _dpll_token_kind_name(closing_token_kind));
     }
 
-    _DPL_Ast_NodeList expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token_kind, true);
+    da_array(DPL_Ast_Node*) expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token_kind, true);
     if (opening_token.kind == TOKEN_NONE) {
-        opening_token = expressions.items[0]->first;
+        opening_token = expressions[0]->first;
     }
 
     DPL_Token closing_token = _dplp_expect_token(dpl, closing_token_kind);
@@ -1271,20 +1263,20 @@ const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
 
 void _dplc_symbols_begin_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    nob_da_append(&s->frames, s->symbols.count);
+    da_add(s->frames, da_size(s->symbols));
 }
 
 void _dplc_symbols_end_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    s->frames.count--;
-    s->symbols.count = s->frames.items[s->frames.count];
+    da_pop(s->frames);
+    da_set_size(s->symbols, s->frames[da_size(s->frames)]);
 }
 
 DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    for (size_t i = s->symbols.count; i > s->bottom; --i) {
-        if (nob_sv_eq(s->symbols.items[i - 1].name, name)) {
-            return &s->symbols.items[i - 1];
+    for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
+        if (nob_sv_eq(s->symbols[i - 1].name, name)) {
+            return &s->symbols[i - 1];
         }
     }
     return NULL;
@@ -1292,11 +1284,11 @@ DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
 
 DPL_Symbol* _dplc_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Handles* arguments) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
-    for (size_t i = s->symbols.count; i > s->bottom; --i) {
-        DPL_Symbol* sym = &s->symbols.items[i - 1];
+    for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
+        DPL_Symbol* sym = &s->symbols[i - 1];
         if (sym->kind == SYMBOL_FUNCTION && nob_sv_eq(sym->name, name)
                 && _dpl_handles_equal(&sym->as.function.signature.arguments, arguments)) {
-            return &s->symbols.items[i - 1];
+            return &s->symbols[i - 1];
         }
     }
     return NULL;
@@ -1316,26 +1308,26 @@ const char* _dplc_symbols_kind_name(DPL_SymbolKind kind) {
 }
 
 DPL_Scope* _dplc_scopes_current(DPL* dpl) {
-    if (dpl->scope_stack.count == 0) {
+    if (da_empty(dpl->scope_stack)) {
         DPL_ERROR("Cannot get current scope information: no scope pushed onto stack.");
     }
 
-    return &dpl->scope_stack.items[dpl->scope_stack.count - 1];
+    return &dpl->scope_stack[da_size(dpl->scope_stack) - 1];
 }
 
 void _dplc_scopes_begin_scope(DPL* dpl) {
     DPL_Scope scope = {0};
 
-    if (dpl->scope_stack.count > 0) {
+    if (da_some(dpl->scope_stack)) {
         DPL_Scope* current_top = _dplc_scopes_current(dpl);
         scope.offset = current_top->offset + current_top->count;
     }
 
-    nob_da_append(&dpl->scope_stack, scope);
+    da_add(dpl->scope_stack, scope);
 }
 
 void _dplc_scopes_end_scope(DPL* dpl) {
-    dpl->scope_stack.count--;
+    da_pop(dpl->scope_stack);
 }
 
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
@@ -1357,7 +1349,7 @@ DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* fu
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
-        nob_da_append(&calltree_node->as.function_call.arguments, operand);
+        da_add(calltree_node->as.function_call.arguments, operand);
 
         return calltree_node;
     }
@@ -1390,8 +1382,8 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
-        nob_da_append(&calltree_node->as.function_call.arguments, lhs);
-        nob_da_append(&calltree_node->as.function_call.arguments, rhs);
+        da_add(calltree_node->as.function_call.arguments, lhs);
+        da_add(calltree_node->as.function_call.arguments, rhs);
 
         return calltree_node;
     }
@@ -1405,7 +1397,7 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
 
 void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data)
 {
-    DPL_UserFunction* uf = &dpl->user_functions.items[(size_t) data];
+    DPL_UserFunction* uf = &dpl->user_functions[(size_t) data];
     dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
@@ -1422,7 +1414,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
         if (!arg_ctn) {
             DPL_AST_ERROR(dpl, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
-        nob_da_append(&result_ctn->as.function_call.arguments, arg_ctn);
+        da_add(result_ctn->as.function_call.arguments, arg_ctn);
         _dpl_add_handle(&argument_types, arg_ctn->type_handle);
     }
 
@@ -1431,7 +1423,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
         DPL_CallTree_Function* f = &function_symbol->as.function;
         if (!f->used) {
             f->used = true;
-            f->user_handle = dpl->user_functions.count;
+            f->user_handle = da_size(dpl->user_functions);
 
             Nob_String_View name = nob_sv_from_cstr(
                                        nob_temp_sprintf("$%zu_"SV_Fmt,
@@ -1448,7 +1440,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
                 .begin_ip = 0,
                 .body = f->body,
             };
-            nob_da_append(&dpl->user_functions, user_function);
+            da_add(dpl->user_functions, user_function);
         }
 
         result_ctn->as.function_call.function_handle = f->function_handle;
@@ -1468,12 +1460,12 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
         nob_sb_append_sv(&signature_builder, fc.name.text);
         nob_sb_append_cstr(&signature_builder, "(");
         DPL_CallTree_Nodes arguments = result_ctn->as.function_call.arguments;
-        for (size_t i = 0; i < arguments.count; ++i) {
+        for (size_t i = 0; i < da_size(arguments); ++i) {
             if (i > 0) {
                 nob_sb_append_cstr(&signature_builder, ", ");
             }
 
-            DPL_Type *argument_type = _dplt_find_by_handle(dpl, arguments.items[i]->type_handle);
+            DPL_Type *argument_type = _dplt_find_by_handle(dpl, arguments[i]->type_handle);
             nob_sb_append_sv(&signature_builder, argument_type->name);
         }
         nob_sb_append_cstr(&signature_builder, ")");
@@ -1497,7 +1489,7 @@ DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
             continue;
         }
 
-        nob_da_append(&result_ctn->as.scope.expressions, expr_ctn);
+        da_add(result_ctn->as.scope.expressions, expr_ctn);
         result_ctn->type_handle = expr_ctn->type_handle;
     }
 
@@ -1548,12 +1540,12 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         switch (value.kind) {
         case TOKEN_NUMBER:
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = atof(nob_temp_sv_to_cstr(value.text)),
             };
         case TOKEN_STRING:
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.string_handle,
+                .type_handle = dpl->string_type_handle,
                 .as.string = _dplc_unescape_string(dpl, value.text),
             };
         default:
@@ -1568,15 +1560,15 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
 
         switch (operator.kind) {
         case TOKEN_PLUS: {
-            if (lhs_value.type_handle == dpl->types.number_handle && rhs_value.type_handle == dpl->types.number_handle) {
+            if (lhs_value.type_handle == dpl->number_type_handle && rhs_value.type_handle == dpl->number_type_handle) {
                 return (DPL_CallTree_Value) {
-                    .type_handle = dpl->types.number_handle,
+                    .type_handle = dpl->number_type_handle,
                     .as.number = lhs_value.as.number + rhs_value.as.number,
                 };
             }
-            if (lhs_value.type_handle == dpl->types.string_handle && rhs_value.type_handle == dpl->types.string_handle) {
+            if (lhs_value.type_handle == dpl->string_type_handle && rhs_value.type_handle == dpl->string_type_handle) {
                 return (DPL_CallTree_Value) {
-                    .type_handle = dpl->types.string_handle,
+                    .type_handle = dpl->string_type_handle,
                     .as.string = nob_sv_from_cstr(nob_temp_sprintf(SV_Fmt SV_Fmt, SV_Arg(lhs_value.as.string), SV_Arg(rhs_value.as.string))),
                 };
             }
@@ -1586,49 +1578,49 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
 
         }
         case TOKEN_MINUS: {
-            if (lhs_value.type_handle != dpl->types.number_handle) {
+            if (lhs_value.type_handle != dpl->number_type_handle) {
                 DPL_AST_ERROR(dpl, node->as.binary.left, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
                               _dpll_token_kind_name(operator.kind));
             }
-            if (rhs_value.type_handle != dpl->types.number_handle) {
+            if (rhs_value.type_handle != dpl->number_type_handle) {
                 DPL_AST_ERROR(dpl, node->as.binary.right, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
                               _dpll_token_kind_name(operator.kind));
             }
 
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number - rhs_value.as.number,
             };
         }
         break;
         case TOKEN_STAR: {
-            if (lhs_value.type_handle != dpl->types.number_handle) {
+            if (lhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
-            if (rhs_value.type_handle != dpl->types.number_handle) {
+            if (rhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
 
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number * rhs_value.as.number,
             };
         }
         break;
         case TOKEN_SLASH: {
-            if (lhs_value.type_handle != dpl->types.number_handle) {
+            if (lhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
-            if (rhs_value.type_handle != dpl->types.number_handle) {
+            if (rhs_value.type_handle != dpl->number_type_handle) {
                 DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
 
             return (DPL_CallTree_Value) {
-                .type_handle = dpl->types.number_handle,
+                .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number / rhs_value.as.number,
             };
         }
@@ -1667,14 +1659,14 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         case TOKEN_NUMBER: {
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->types.number_handle;
+            calltree_node->type_handle = dpl->number_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->types.string_handle;
+            calltree_node->type_handle = dpl->string_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
@@ -1744,7 +1736,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 }
             }
 
-            nob_da_append(&dpl->symbol_stack.symbols, s);
+            da_add(dpl->symbol_stack.symbols, s);
 
             return NULL;
         } else {
@@ -1773,7 +1765,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             };
             current_scope->count++;
 
-            nob_da_append(&dpl->symbol_stack.symbols, s);
+            da_add(dpl->symbol_stack.symbols, s);
 
             expression->persistent = true;
             return expression;
@@ -1871,7 +1863,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         _dplc_scopes_begin_scope(dpl);
 
         size_t current_bottom = dpl->symbol_stack.bottom;
-        dpl->symbol_stack.bottom = dpl->symbol_stack.symbols.count;
+        dpl->symbol_stack.bottom = da_size(dpl->symbol_stack.symbols);
 
         for (size_t i = 0; i < function->signature.argument_count; ++i) {
             DPL_Symbol arg_symbol = {
@@ -1883,7 +1875,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 }
             };
 
-            nob_da_append(&dpl->symbol_stack.symbols, arg_symbol);
+            da_add(dpl->symbol_stack.symbols, arg_symbol);
         }
 
         DPL_Symbol s = {
@@ -1902,7 +1894,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         _dplc_scopes_end_scope(dpl);
         _dplc_symbols_end_scope(dpl);
 
-        nob_da_append(&dpl->symbol_stack.symbols, s);
+        da_add(dpl->symbol_stack.symbols, s);
         return NULL;
     }
     default:
@@ -1943,8 +1935,8 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
         DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function_call.function_handle);
         printf(SV_Fmt"(\n", SV_Arg(function->name));
 
-        for (size_t i = 0; i < node->as.function_call.arguments.count; ++i) {
-            _dplc_print(dpl, node->as.function_call.arguments.items[i], level + 1);
+        for (size_t i = 0; i < da_size(node->as.function_call.arguments); ++i) {
+            _dplc_print(dpl, node->as.function_call.arguments[i], level + 1);
         }
 
         for (size_t i = 0; i < level; ++i) {
@@ -1956,9 +1948,9 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     break;
     case CALLTREE_NODE_VALUE: {
         printf("Value `");
-        if (node->as.value.type_handle == dpl->types.number_handle) {
+        if (node->as.value.type_handle == dpl->number_type_handle) {
             printf("%f", node->as.value.as.number);
-        } else if (node->as.value.type_handle == dpl->types.string_handle) {
+        } else if (node->as.value.type_handle == dpl->string_type_handle) {
             Nob_String_View value = node->as.value.as.string;
             dplp_print_escaped_string(value.data, value.count);
         }
@@ -1968,8 +1960,8 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     case CALLTREE_NODE_SCOPE: {
         printf("$scope(\n");
 
-        for (size_t i = 0; i < node->as.scope.expressions.count; ++i) {
-            _dplc_print(dpl, node->as.scope.expressions.items[i], level + 1);
+        for (size_t i = 0; i < da_size(node->as.scope.expressions); ++i) {
+            _dplc_print(dpl, node->as.scope.expressions[i], level + 1);
         }
 
         for (size_t i = 0; i < level; ++i) {
@@ -2013,9 +2005,9 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
-        if (node->type_handle == dpl->types.number_handle) {
+        if (node->type_handle == dpl->number_type_handle) {
             dplp_write_push_number(program, node->as.value.as.number);
-        } else if (node->type_handle == dpl->types.string_handle) {
+        } else if (node->type_handle == dpl->string_type_handle) {
             dplp_write_push_string(program, node->as.value.as.string.data);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
@@ -2026,8 +2018,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     break;
     case CALLTREE_NODE_FUNCTIONCALL: {
         DPL_CallTree_FunctionCall f = node->as.function_call;
-        for (size_t i = 0; i < f.arguments.count; ++i) {
-            _dplg_generate(dpl, f.arguments.items[i], program);
+        for (size_t i = 0; i < da_size(f.arguments); ++i) {
+            _dplg_generate(dpl, f.arguments[i], program);
         }
 
         DPL_Function* function = _dplf_find_by_handle(dpl, f.function_handle);
@@ -2038,7 +2030,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         DPL_CallTree_Scope s = node->as.scope;
         bool prev_was_persistent = false;
         size_t persistent_count = 0;
-        for (size_t i = 0; i < s.expressions.count; ++i) {
+        for (size_t i = 0; i < da_size(s.expressions); ++i) {
             if (i > 0) {
                 if (!prev_was_persistent) {
 
@@ -2047,8 +2039,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
                     persistent_count++;
                 }
             }
-            _dplg_generate(dpl, s.expressions.items[i], program);
-            prev_was_persistent = s.expressions.items[i]->persistent;
+            _dplg_generate(dpl, s.expressions[i], program);
+            prev_was_persistent = s.expressions[i]->persistent;
         }
 
         if (persistent_count > 0) {
@@ -2085,8 +2077,8 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
     _dplc_bind(dpl);
     if (dpl->debug)
     {
-        for (size_t i = 0; i < dpl->user_functions.count; ++i) {
-            DPL_UserFunction* uf = &dpl->user_functions.items[i];
+        for (size_t i = 0; i < da_size(dpl->user_functions); ++i) {
+            DPL_UserFunction* uf = &dpl->user_functions[i];
             DPL_Function* f = _dplf_find_by_handle(dpl, uf->function_handle);
             printf("### "SV_Fmt" (arity: %zu) ###\n", SV_Arg(f->name), uf->arity);
             _dplc_print(dpl, uf->body, 0);
@@ -2098,14 +2090,14 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
         printf("\n");
     }
 
-    for (size_t i = 0; i < dpl->user_functions.count; ++i) {
-        DPL_UserFunction* uf = &dpl->user_functions.items[i];
-        uf->begin_ip = program->code.count;
+    for (size_t i = 0; i < da_size(dpl->user_functions); ++i) {
+        DPL_UserFunction* uf = &dpl->user_functions[i];
+        uf->begin_ip = da_size(program->code);
         _dplg_generate(dpl, uf->body, program);
         dplp_write_return(program);
     }
 
-    program->entry = program->code.count;
+    program->entry = da_size(program->code);
     _dplg_generate(dpl, dpl->calltree.root, program);
     if (dpl->debug)
     {

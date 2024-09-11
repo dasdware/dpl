@@ -4,14 +4,17 @@
 #define ARENA_IMPLEMENTATION
 #include "arena.h"
 
-#define NOB_IMPLEMENTATION
-#include "nob.h"
+#define DW_ARRAY_IMPLEMENTATION
+#include <dw_array.h>
 
 #define DW_STRING_TABLE_IMPLEMENTATION
 #include <string_table.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
-#include <byte_buffer.h>
+#include <dw_byte_buffer.h>
+
+#define NOB_IMPLEMENTATION
+#include "nob.h"
 
 void usage(const char* program)
 {
@@ -57,7 +60,7 @@ int main(int argc, char** argv) {
 
     dpl.file_name = nob_sv_from_cstr(source_filename);
     dpl.source = nob_sv_from_parts(source.items, source.count);
-    dpl_init(&dpl, &externals);
+    dpl_init(&dpl, externals);
 
     DPL_Program compiled_program = {0};
     dplp_init(&compiled_program);

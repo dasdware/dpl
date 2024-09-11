@@ -2,6 +2,7 @@
 #define __DPL_H
 
 #include "arena.h"
+#include "dw_array.h"
 #include "nob.h"
 
 #include "externals.h"
@@ -53,16 +54,7 @@ typedef struct
     DPL_Type_As as;
 } DPL_Type;
 
-typedef struct
-{
-    DPL_Type *items;
-    size_t count;
-    size_t capacity;
-
-    // Common datatypes
-    DPL_Handle number_handle;
-    DPL_Handle string_handle;
-} DPL_Types;
+typedef da_array(DPL_Type) DPL_Types;
 
 /// FUNCTIONS
 
@@ -82,12 +74,7 @@ typedef struct
     DPL_Generator generator;
 } DPL_Function;
 
-typedef struct
-{
-    DPL_Function *items;
-    size_t count;
-    size_t capacity;
-} DPL_Functions;
+typedef da_array(DPL_Function) DPL_Functions;
 
 // LOCATION
 
@@ -302,17 +289,9 @@ typedef struct {
     DPL_Symbol_As as;
 } DPL_Symbol;
 
-typedef struct {
-    DPL_Symbol *items;
-    size_t count;
-    size_t capacity;
-} DPL_Symbols;
+typedef da_array(DPL_Symbol) DPL_Symbols;
 
-typedef struct {
-    size_t *items;
-    size_t count;
-    size_t capacity;
-} DPL_Frames;
+typedef da_array(size_t) DPL_Frames;
 
 typedef struct {
     DPL_Symbols symbols;
@@ -325,11 +304,7 @@ typedef struct {
     size_t count;
 } DPL_Scope;
 
-typedef struct {
-    DPL_Scope *items;
-    size_t count;
-    size_t capacity;
-} DPL_ScopeStack;
+typedef da_array(DPL_Scope) DPL_ScopeStack;
 
 typedef enum
 {
@@ -341,12 +316,7 @@ typedef enum
     CALLTREE_NODE_ASSIGNMENT,
 } DPL_CallTreeNodeKind;
 
-typedef struct
-{
-    DPL_CallTree_Node **items;
-    size_t count;
-    size_t capacity;
-} DPL_CallTree_Nodes;
+typedef da_array(DPL_CallTree_Node*)  DPL_CallTree_Nodes;
 
 typedef struct
 {
@@ -395,11 +365,7 @@ typedef struct {
     DPL_CallTree_Node* body;
 } DPL_UserFunction;
 
-typedef struct {
-    DPL_UserFunction* items;
-    size_t count;
-    size_t capacity;
-} DPL_UserFunctions;
+typedef da_array(DPL_UserFunction) DPL_UserFunctions;
 
 // COMPILATION CONTEXT
 
@@ -410,6 +376,9 @@ struct _DPL
 
     // Catalogs
     DPL_Types types;
+    DPL_Handle number_type_handle;
+    DPL_Handle string_type_handle;
+
     DPL_Functions functions;
 
     // Common
@@ -438,7 +407,7 @@ struct _DPL
     DPL_UserFunctions user_functions;
 };
 
-void dpl_init(DPL *dpl, DPL_ExternalFunctions* externals);
+void dpl_init(DPL *dpl, DPL_ExternalFunctions externals);
 void dpl_free(DPL *dpl);
 
 void dpl_compile(DPL *dpl, DPL_Program *program);
