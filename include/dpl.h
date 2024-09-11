@@ -98,6 +98,7 @@ typedef enum
     TOKEN_NONE = 0,
     TOKEN_EOF,
     TOKEN_WHITESPACE,
+    TOKEN_COMMENT,
 
     TOKEN_PLUS,
     TOKEN_MINUS,
