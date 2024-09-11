@@ -26,6 +26,9 @@ void _dple_print_callback(DPL_VirtualMachine* vm)
     case VALUE_STRING:
         printf(SV_Fmt, SV_Arg(value.as.string));
         break;
+    case VALUE_BOOLEAN:
+        printf("%s", dpl_value_format_boolean(value.as.boolean));
+        break;
     default:
         DW_ERROR("ERROR: `print` function callback cannot print values of kind `%s`.", dpl_value_kind_name(value.kind));
     }
@@ -42,6 +45,12 @@ void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
                        st_allocate_cstr(&vm->strings, dpl_value_format_number(value.as.number)));
 }
 
+void _dple_to_string_boolean_callback(DPL_VirtualMachine* vm) {
+    DPL_Value value = dplv_peek(vm);
+    dplv_return_string(vm, 1,
+                       st_allocate_cstr(&vm->strings, dpl_value_format_boolean(value.as.boolean)));
+    DW_UNUSED(vm);
+}
 
 void dple_init(DPL_ExternalFunctions* externals)
 {
@@ -55,6 +64,11 @@ void dple_init(DPL_ExternalFunctions* externals)
     print_string->return_type = "string";
     print_string->callback = _dple_print_callback;
 
+    DPL_ExternalFunction* print_boolean = dple_add_by_name(externals, "print");
+    da_add(print_boolean->argument_types, "boolean");
+    print_boolean->return_type = "boolean";
+    print_boolean->callback = _dple_print_callback;
+
     DPL_ExternalFunction* length_string = dple_add_by_name(externals, "length");
     da_add(length_string->argument_types, "string");
     length_string->return_type = "number";
@@ -64,6 +78,12 @@ void dple_init(DPL_ExternalFunctions* externals)
     da_add(to_string_number->argument_types, "number");
     to_string_number->return_type = "string";
     to_string_number->callback = _dple_to_string_number_callback;
+
+    DPL_ExternalFunction* to_string_boolean = dple_add_by_name(externals, "to_string");
+    da_add(to_string_boolean->argument_types, "boolean");
+    to_string_boolean->return_type = "string";
+    to_string_boolean->callback = _dple_to_string_boolean_callback;
+
 }
 
 void dple_free(DPL_ExternalFunctions *externals)

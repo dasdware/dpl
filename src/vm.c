@@ -152,6 +152,18 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = dpl_value_make_string(st_allocate_sv(&vm->strings, value));
         }
         break;
+        case INST_PUSH_BOOLEAN: {
+            if (vm->stack_top >= vm->stack_capacity)
+            {
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
+            }
+
+            size_t value = bs_read_u8(&program);
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_boolean(value == 1);
+        }
+        break;
         case INST_NEGATE:
             dplv_return_number(vm, 1, -TOP0.as.number);
             break;

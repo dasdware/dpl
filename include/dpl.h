@@ -119,6 +119,8 @@ typedef enum
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
     TOKEN_STRING,
+    TOKEN_TRUE,
+    TOKEN_FALSE,
 
     TOKEN_KEYWORD_CONSTANT,
     TOKEN_KEYWORD_FUNCTION,
@@ -250,6 +252,7 @@ typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
 typedef union {
     double number;
     Nob_String_View string;
+    bool boolean;
 } DPL_CallTree_Value_As;
 
 typedef struct {
@@ -379,6 +382,7 @@ struct _DPL
     DPL_Types types;
     DPL_Handle number_type_handle;
     DPL_Handle string_type_handle;
+    DPL_Handle boolean_type_handle;
 
     DPL_Functions functions;
 

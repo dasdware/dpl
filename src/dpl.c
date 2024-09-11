@@ -62,6 +62,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     /// TYPES
     dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
     dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
+    dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("boolean"));
 
     /// FUNCTIONS AND GENERATORS
 
@@ -685,6 +686,10 @@ DPL_Token _dpll_next_token(DPL* dpl)
             t.kind = TOKEN_KEYWORD_FUNCTION;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
             t.kind = TOKEN_KEYWORD_VAR;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("true"))) {
+            t.kind = TOKEN_TRUE;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("false"))) {
+            t.kind = TOKEN_FALSE;
         }
 
         return t;
@@ -740,6 +745,9 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "NUMBER";
     case TOKEN_STRING:
         return "STRING";
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
+        return "BOOLEAN";
     case TOKEN_IDENTIFIER:
         return "IDENTIFIER";
     case TOKEN_KEYWORD_CONSTANT:
@@ -1066,6 +1074,8 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     switch (token.kind) {
     case TOKEN_NUMBER:
     case TOKEN_STRING:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
     {
         DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
         node->as.literal.value = token;
@@ -1563,6 +1573,16 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                 .type_handle = dpl->string_type_handle,
                 .as.string = _dplc_unescape_string(dpl, value.text),
             };
+        case TOKEN_TRUE:
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->boolean_type_handle,
+                .as.boolean = true,
+            };
+        case TOKEN_FALSE:
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->boolean_type_handle,
+                .as.boolean = false,
+            };
         default:
             DPL_TOKEN_ERROR(dpl, value, "Cannot fold literal constant of type `%s`.", _dpll_token_kind_name(value.kind));
         }
@@ -1682,6 +1702,15 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->string_type_handle;
+            calltree_node->as.value = _dplc_fold_constant(dpl, node);
+            return calltree_node;
+        }
+        break;
+        case TOKEN_TRUE:
+        case TOKEN_FALSE: {
+            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->type_handle = dpl->boolean_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
@@ -1968,6 +1997,8 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
         } else if (node->as.value.type_handle == dpl->string_type_handle) {
             Nob_String_View value = node->as.value.as.string;
             dplp_print_escaped_string(value.data, value.count);
+        } else if (node->as.value.type_handle == dpl->boolean_type_handle) {
+            printf("%s", node->as.value.as.boolean ? "true" : "false");
         }
         printf("`\n");
     }
@@ -2024,6 +2055,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
             dplp_write_push_number(program, node->as.value.as.number);
         } else if (node->type_handle == dpl->string_type_handle) {
             dplp_write_push_string(program, node->as.value.as.string.data);
+        } else if (node->type_handle == dpl->boolean_type_handle) {
+            dplp_write_push_boolean(program, node->as.value.as.boolean);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             DPL_ERROR("Cannot generate program for value node of type "SV_Fmt".",

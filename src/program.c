@@ -89,6 +89,11 @@ void dplp_write_push_string(DPL_Program *program, const char* value) {
     bb_write_u64(&program->code, _dplp_add_string_constant(program, value));
 }
 
+void dplp_write_push_boolean(DPL_Program *program, bool value) {
+    bb_write_u8(&program->code, INST_PUSH_BOOLEAN);
+    bb_write_u8(&program->code, value ? 1 : 0);
+}
+
 void dplp_write_push_local(DPL_Program *program, size_t scope_index) {
     bb_write_u8(&program->code, INST_PUSH_LOCAL);
     bb_write_u64(&program->code, scope_index);
@@ -151,6 +156,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "PUSH_NUMBER";
     case INST_PUSH_STRING:
         return "PUSH_STRING";
+    case INST_PUSH_BOOLEAN:
+        return "PUSH_BOOLEAN";
     case INST_POP:
         return "POP";
     case INST_NEGATE:
@@ -210,6 +217,9 @@ void _dplp_print_constant(DPL_Program* program, size_t i) {
     case VALUE_STRING:
         dpl_value_print_string(bb_read_sv(program->constants, constant.offset));
         break;
+    case VALUE_BOOLEAN:
+        // booleans will never occur in constant dictionary
+        break;
     }
     printf(" (offset: %zu)\n", constant.offset);
 }
@@ -256,6 +266,14 @@ void dplp_print(DPL_Program *program) {
             printf("\")");
 
             ip += sizeof(offset);
+        }
+        break;
+        case INST_PUSH_BOOLEAN: {
+            uint8_t value = *(program->code + ip);
+
+            printf(" %s", (value == 1) ? "true" : "false");
+
+            ip += sizeof(value);
         }
         break;
         case INST_PUSH_LOCAL: {
