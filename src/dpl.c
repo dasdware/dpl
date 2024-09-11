@@ -637,6 +637,19 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case ';':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_SEMICOLON);
+    case '#':
+        _dpll_advance(dpl);
+        while (!_dpll_is_eof(dpl)) {
+            if (_dpll_current(dpl) == '\n') {
+                dpl->position++;
+                dpl->line++;
+                dpl->column = 0;
+                dpl->current_line = dpl->source.data + dpl->position;
+                return _dpll_build_token(dpl, TOKEN_COMMENT);
+            }
+            _dpll_advance(dpl);
+        }
+        return _dpll_build_token(dpl, TOKEN_COMMENT);
     }
 
     if (isdigit(_dpll_current(dpl)))
@@ -738,6 +751,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
 
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
+    case TOKEN_COMMENT:
+        return "COMMENT";
 
     case TOKEN_PLUS:
         return "PLUS";
@@ -909,7 +924,7 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
 // PARSER
 
 void _dplp_skip_whitespace(DPL *dpl) {
-    while (_dpll_peek_token(dpl).kind == TOKEN_WHITESPACE) {
+    while (_dpll_peek_token(dpl).kind == TOKEN_WHITESPACE || _dpll_peek_token(dpl).kind == TOKEN_COMMENT) {
         _dpll_next_token(dpl);
     }
 }
