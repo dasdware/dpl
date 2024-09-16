@@ -170,6 +170,18 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "MULTIPLY";
     case INST_DIVIDE:
         return "DIVIDE";
+    case INST_LESS:
+        return "LESS";
+    case INST_LESS_EQUAL:
+        return "LESS_EQUAL";
+    case INST_GREATER:
+        return "GREATER";
+    case INST_GREATER_EQUAL:
+        return "GREATER_EQUAL";
+    case INST_EQUAL:
+        return "EQUAL";
+    case INST_NOT_EQUAL:
+        return "NOT_EQUAL";
     case INST_CALL_EXTERNAL:
         return "CALL_EXTERNAL";
     case INST_CALL_USER:
@@ -290,6 +302,12 @@ void dplp_print(DPL_Program *program) {
         case INST_SUBTRACT:
         case INST_MULTIPLY:
         case INST_DIVIDE:
+        case INST_LESS:
+        case INST_LESS_EQUAL:
+        case INST_GREATER:
+        case INST_GREATER_EQUAL:
+        case INST_EQUAL:
+        case INST_NOT_EQUAL:
         case INST_RETURN:
             break;
         case INST_CALL_EXTERNAL: {

@@ -22,7 +22,6 @@
         exit(1);                                                                      \
     } while(false)
 
-
 #define DPL_AST_ERROR(dpl, node, format, ...)                                         \
     do {                                                                              \
         DW_ERROR_MSG(LOC_Fmt": ERROR: ", LOC_Arg((node)->first.location));            \
@@ -80,6 +79,12 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dpl_add_handle(&binary_string.arguments, dpl->string_type_handle);
     binary_string.returns = dpl->string_type_handle;
 
+    DPL_Signature comparison_number = {0};
+    _dpl_add_handle(&comparison_number.arguments, dpl->number_type_handle);
+    _dpl_add_handle(&comparison_number.arguments, dpl->number_type_handle);
+    comparison_number.returns = dpl->boolean_type_handle;
+
+
 
     // unary operators
     _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary_number, _dplg_generate_inst, (void*) INST_NEGATE);
@@ -90,6 +95,14 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary_number, _dplg_generate_inst, (void*) INST_SUBTRACT);
     _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary_number, _dplg_generate_inst, (void*) INST_MULTIPLY);
     _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary_number, _dplg_generate_inst, (void*) INST_DIVIDE);
+
+    // comparison operators
+    _dplf_register(dpl, nob_sv_from_cstr("less"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS);
+    _dplf_register(dpl, nob_sv_from_cstr("less_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("greater"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER);
+    _dplf_register(dpl, nob_sv_from_cstr("greater_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_number, _dplg_generate_inst, (void*) INST_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);
@@ -519,6 +532,14 @@ char _dpll_current(DPL* dpl)
     return *(dpl->source.data + dpl->position);
 }
 
+bool _dpll_match(DPL* dpl, char c) {
+    if (_dpll_current(dpl) == c) {
+        _dpll_advance(dpl);
+        return true;
+    }
+    return false;
+}
+
 DPL_Location _dpll_current_location(DPL* dpl)
 {
     return (DPL_Location) {
@@ -615,11 +636,35 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_DOT);
     case ':':
         _dpll_advance(dpl);
-        if (_dpll_current(dpl) == '=') {
-            _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
             return _dpll_build_token(dpl, TOKEN_COLON_EQUAL);
         }
         return _dpll_build_token(dpl, TOKEN_COLON);
+    case '<':
+        _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
+            return _dpll_build_token(dpl, TOKEN_LESS_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_LESS);
+    case '>':
+        _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
+            return _dpll_build_token(dpl, TOKEN_GREATER_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_GREATER);
+    case '=':
+        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '=')) {
+            _dpll_advance(dpl);
+            _dpll_advance(dpl);
+            return _dpll_build_token(dpl, TOKEN_EQUAL_EQUAL);
+        }
+        break;
+    case '!':
+        _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
+            return _dpll_build_token(dpl, TOKEN_BANG_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_BANG);
     case '(':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_OPEN_PAREN);
@@ -770,6 +815,21 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "STAR";
     case TOKEN_SLASH:
         return "SLASH";
+
+    case TOKEN_LESS:
+        return "LESS";
+    case TOKEN_LESS_EQUAL:
+        return "LESS_EQUAL";
+    case TOKEN_GREATER:
+        return "GREATER";
+    case TOKEN_GREATER_EQUAL:
+        return "GREATER_EQUAL";
+    case TOKEN_EQUAL_EQUAL:
+        return "EQUAL_EQUAL";
+    case TOKEN_BANG:
+        return "BANG";
+    case TOKEN_BANG_EQUAL:
+        return "BANG_EQUAL";
 
     case TOKEN_DOT:
         return "DOT";
@@ -1211,9 +1271,52 @@ DPL_Ast_Node* _dplp_parse_additive(DPL* dpl)
     return expression;
 }
 
+DPL_Ast_Node* _dplp_parse_comparison(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_additive(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_LESS || operator_candidate.kind == TOKEN_LESS_EQUAL
+            || operator_candidate.kind == TOKEN_GREATER || operator_candidate.kind == TOKEN_GREATER_EQUAL)  {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_additive(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator = operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
+DPL_Ast_Node* _dplp_parse_equality(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_comparison(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_EQUAL_EQUAL || operator_candidate.kind == TOKEN_BANG_EQUAL)  {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_comparison(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator = operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
 DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
 {
-    DPL_Ast_Node* target = _dplp_parse_additive(dpl);
+    DPL_Ast_Node* target = _dplp_parse_equality(dpl);
 
     if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
         if (target->kind != AST_NODE_SYMBOL) {
@@ -1744,6 +1847,18 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             return _dplc_bind_binary(dpl, node, "multiply");
         case TOKEN_SLASH:
             return _dplc_bind_binary(dpl, node, "divide");
+        case TOKEN_LESS:
+            return _dplc_bind_binary(dpl, node, "less");
+        case TOKEN_LESS_EQUAL:
+            return _dplc_bind_binary(dpl, node, "less_equal");
+        case TOKEN_GREATER:
+            return _dplc_bind_binary(dpl, node, "greater");
+        case TOKEN_GREATER_EQUAL:
+            return _dplc_bind_binary(dpl, node, "greater_equal");
+        case TOKEN_EQUAL_EQUAL:
+            return _dplc_bind_binary(dpl, node, "equal");
+        case TOKEN_BANG_EQUAL:
+            return _dplc_bind_binary(dpl, node, "not_equal");
         default:
             break;
         }
