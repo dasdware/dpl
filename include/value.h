@@ -26,6 +26,7 @@ typedef struct
 const char* dpl_value_kind_name(DPL_ValueKind kind);
 
 DPL_Value dpl_value_make_number(double value);
+int dpl_value_compare_numbers(double a, double b);
 const char *dpl_value_format_number(double value);
 
 DPL_Value dpl_value_make_string(Nob_String_View value);

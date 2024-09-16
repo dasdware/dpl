@@ -100,6 +100,10 @@ void dplv_return_string(DPL_VirtualMachine* vm, size_t arity, Nob_String_View va
     dplv_return(vm, arity, dpl_value_make_string(value));
 }
 
+void dplv_return_boolean(DPL_VirtualMachine* vm, size_t arity, bool value) {
+    dplv_return(vm, arity, dpl_value_make_boolean(value));
+}
+
 void dplv_run(DPL_VirtualMachine *vm)
 {
 #define TOP0 (vm->stack[vm->stack_top - 1])
@@ -182,6 +186,24 @@ void dplv_run(DPL_VirtualMachine *vm)
             break;
         case INST_DIVIDE:
             dplv_return_number(vm, 2, TOP1.as.number / TOP0.as.number);
+            break;
+        case INST_LESS:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) < 0);
+            break;
+        case INST_LESS_EQUAL:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) <= 0);
+            break;
+        case INST_GREATER:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) > 0);
+            break;
+        case INST_GREATER_EQUAL:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) >= 0);
+            break;
+        case INST_EQUAL:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) == 0);
+            break;
+        case INST_NOT_EQUAL:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) != 0);
             break;
         case INST_POP:
             dplv_release(vm, TOP0);

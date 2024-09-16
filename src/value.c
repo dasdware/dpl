@@ -45,6 +45,16 @@ DPL_Value dpl_value_make_boolean(bool value) {
 
 #define EPSILON 0.00001
 
+int dpl_value_compare_numbers(double a, double b) {
+    if (fabs(a - b) < EPSILON) {
+        return 0;
+    }
+    if (a < b) {
+        return -1;
+    }
+    return 1;
+}
+
 const char* dpl_value_format_number(double value) {
     static char buffer[16];
     double abs_value = fabs(value);
