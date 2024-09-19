@@ -9,6 +9,8 @@ const char* dpl_value_kind_name(DPL_ValueKind kind) {
         return "number";
     case VALUE_STRING:
         return "string";
+    case VALUE_BOOLEAN:
+        return "boolean";
     }
 
     DW_ERROR("ERROR: Invalid value kind `%02X`.", kind);
@@ -32,7 +34,26 @@ DPL_Value dpl_value_make_string(Nob_String_View value) {
     };
 }
 
+DPL_Value dpl_value_make_boolean(bool value) {
+    return (DPL_Value) {
+        .kind = VALUE_BOOLEAN,
+        .as = {
+            .boolean = value
+        }
+    };
+}
+
 #define EPSILON 0.00001
+
+int dpl_value_compare_numbers(double a, double b) {
+    if (fabs(a - b) < EPSILON) {
+        return 0;
+    }
+    if (a < b) {
+        return -1;
+    }
+    return 1;
+}
 
 const char* dpl_value_format_number(double value) {
     static char buffer[16];
@@ -70,7 +91,14 @@ void dpl_value_print_string(Nob_String_View value) {
         ++pos;
     }
     printf("\"]");
+}
 
+const char* dpl_value_format_boolean(bool value) {
+    return value ? "true" : "false";
+}
+
+void dpl_value_print_boolean(bool value) {
+    printf("[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), dpl_value_format_boolean(value));
 }
 
 void dpl_value_print(DPL_Value value) {
@@ -80,6 +108,9 @@ void dpl_value_print(DPL_Value value) {
         break;
     case VALUE_STRING:
         dpl_value_print_string(value.as.string);
+        break;
+    case VALUE_BOOLEAN:
+        dpl_value_print_boolean(value.as.boolean);
         break;
     default:
         DW_ERROR("Cannot debug print value of kind `%s`.",

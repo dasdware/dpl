@@ -47,5 +47,6 @@ void dplv_release(DPL_VirtualMachine* vm, DPL_Value value);
 void dplv_return(DPL_VirtualMachine* vm, size_t arity, DPL_Value value);
 void dplv_return_number(DPL_VirtualMachine* vm, size_t arity, double value);
 void dplv_return_string(DPL_VirtualMachine* vm, size_t arity, Nob_String_View value);
+void dplv_return_boolean(DPL_VirtualMachine* vm, size_t arity, bool value);
 
 #endif // __DPL_VM_H

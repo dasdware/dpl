@@ -14,12 +14,19 @@ typedef enum
     INST_NOOP,
     INST_PUSH_NUMBER,
     INST_PUSH_STRING,
+    INST_PUSH_BOOLEAN,
     INST_POP,
     INST_NEGATE,
     INST_ADD,
     INST_SUBTRACT,
     INST_MULTIPLY,
     INST_DIVIDE,
+    INST_LESS,
+    INST_LESS_EQUAL,
+    INST_GREATER,
+    INST_GREATER_EQUAL,
+    INST_EQUAL,
+    INST_NOT_EQUAL,
     INST_CALL_EXTERNAL,
     INST_CALL_USER,
     INST_PUSH_LOCAL,
@@ -55,6 +62,7 @@ void dplp_write_noop(DPL_Program *program);
 
 void dplp_write_push_number(DPL_Program *program, double value);
 void dplp_write_push_string(DPL_Program *program, const char* value);
+void dplp_write_push_boolean(DPL_Program *program, bool value);
 void dplp_write_push_local(DPL_Program *program, size_t scope_index);
 void dplp_write_pop(DPL_Program* program);
 void dplp_write_pop_scope(DPL_Program* program, size_t n);

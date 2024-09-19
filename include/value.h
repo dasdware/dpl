@@ -7,12 +7,14 @@ typedef enum
 {
     VALUE_NUMBER,
     VALUE_STRING,
+    VALUE_BOOLEAN,
 } DPL_ValueKind;
 
 typedef union
 {
     double number;
     Nob_String_View string;
+    bool boolean;
 } DPL_Value_As;
 
 typedef struct
@@ -24,12 +26,17 @@ typedef struct
 const char* dpl_value_kind_name(DPL_ValueKind kind);
 
 DPL_Value dpl_value_make_number(double value);
+int dpl_value_compare_numbers(double a, double b);
 const char *dpl_value_format_number(double value);
 
 DPL_Value dpl_value_make_string(Nob_String_View value);
 
+DPL_Value dpl_value_make_boolean(bool value);
+const char *dpl_value_format_boolean(bool value);
+
 void dpl_value_print_number(double value);
 void dpl_value_print_string(Nob_String_View value);
+void dpl_value_print_boolean(bool value);
 void dpl_value_print(DPL_Value value);
 
 bool dpl_value_number_equals(double number1, double number2);

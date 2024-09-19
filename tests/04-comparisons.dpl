@@ -1,0 +1,39 @@
+# Comparison of numbers
+
+print(1 >= 0); print("\n"); # true
+print(0 >= 1); print("\n"); # false
+print(1 >= 1); print("\n"); # true
+
+print(1 <= 0); print("\n"); # false
+print(0 <= 1); print("\n"); # true
+print(1 <= 1); print("\n"); # true
+
+print(1 > 0); print("\n"); # true
+print(0 > 1); print("\n"); # false
+print(1 > 1); print("\n"); # false
+
+print(1 < 0); print("\n"); # false
+print(0 < 1); print("\n"); # true
+print(1 < 1); print("\n"); # false
+
+print(1 == 0); print("\n"); # false
+print(0 == 1); print("\n"); # false
+print(1 == 1); print("\n"); # true
+
+print(1 != 0); print("\n"); # true
+print(0 != 1); print("\n"); # true
+print(1 != 1); print("\n"); # false
+
+# Comparison of strings
+print("foo" == "foo"); print("\n"); # true
+print("foo" != "foo"); print("\n"); # false
+
+print("foo" == "bar"); print("\n"); # false
+print("foo" != "bar"); print("\n"); # true
+
+# Comparison of booleans
+print(true == true); print("\n"); # true
+print(true != true); print("\n"); # false
+
+print(true == false); print("\n"); # false
+print(true != false); print("\n"); # true

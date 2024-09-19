@@ -100,6 +100,10 @@ void dplv_return_string(DPL_VirtualMachine* vm, size_t arity, Nob_String_View va
     dplv_return(vm, arity, dpl_value_make_string(value));
 }
 
+void dplv_return_boolean(DPL_VirtualMachine* vm, size_t arity, bool value) {
+    dplv_return(vm, arity, dpl_value_make_boolean(value));
+}
+
 void dplv_run(DPL_VirtualMachine *vm)
 {
 #define TOP0 (vm->stack[vm->stack_top - 1])
@@ -152,6 +156,18 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = dpl_value_make_string(st_allocate_sv(&vm->strings, value));
         }
         break;
+        case INST_PUSH_BOOLEAN: {
+            if (vm->stack_top >= vm->stack_capacity)
+            {
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
+            }
+
+            size_t value = bs_read_u8(&program);
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_boolean(value == 1);
+        }
+        break;
         case INST_NEGATE:
             dplv_return_number(vm, 1, -TOP0.as.number);
             break;
@@ -170,6 +186,36 @@ void dplv_run(DPL_VirtualMachine *vm)
             break;
         case INST_DIVIDE:
             dplv_return_number(vm, 2, TOP1.as.number / TOP0.as.number);
+            break;
+        case INST_LESS:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) < 0);
+            break;
+        case INST_LESS_EQUAL:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) <= 0);
+            break;
+        case INST_GREATER:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) > 0);
+            break;
+        case INST_GREATER_EQUAL:
+            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) >= 0);
+            break;
+        case INST_EQUAL:
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+                dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) == 0);
+            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+                dplv_return_boolean(vm, 2, dpl_value_string_equals(TOP0.as.string, TOP1.as.string));
+            } else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN) {
+                dplv_return_boolean(vm, 2, TOP0.as.boolean == TOP1.as.boolean);
+            }
+            break;
+        case INST_NOT_EQUAL:
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+                dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) != 0);
+            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+                dplv_return_boolean(vm, 2, !dpl_value_string_equals(TOP0.as.string, TOP1.as.string));
+            } else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN) {
+                dplv_return_boolean(vm, 2, TOP0.as.boolean != TOP1.as.boolean);
+            }
             break;
         case INST_POP:
             dplv_release(vm, TOP0);

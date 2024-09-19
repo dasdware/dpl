@@ -22,7 +22,6 @@
         exit(1);                                                                      \
     } while(false)
 
-
 #define DPL_AST_ERROR(dpl, node, format, ...)                                         \
     do {                                                                              \
         DW_ERROR_MSG(LOC_Fmt": ERROR: ", LOC_Arg((node)->first.location));            \
@@ -62,6 +61,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     /// TYPES
     dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
     dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
+    dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("boolean"));
 
     /// FUNCTIONS AND GENERATORS
 
@@ -79,6 +79,20 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dpl_add_handle(&binary_string.arguments, dpl->string_type_handle);
     binary_string.returns = dpl->string_type_handle;
 
+    DPL_Signature comparison_number = {0};
+    _dpl_add_handle(&comparison_number.arguments, dpl->number_type_handle);
+    _dpl_add_handle(&comparison_number.arguments, dpl->number_type_handle);
+    comparison_number.returns = dpl->boolean_type_handle;
+
+    DPL_Signature comparison_string = {0};
+    _dpl_add_handle(&comparison_string.arguments, dpl->string_type_handle);
+    _dpl_add_handle(&comparison_string.arguments, dpl->string_type_handle);
+    comparison_string.returns = dpl->boolean_type_handle;
+
+    DPL_Signature comparison_boolean = {0};
+    _dpl_add_handle(&comparison_boolean.arguments, dpl->boolean_type_handle);
+    _dpl_add_handle(&comparison_boolean.arguments, dpl->boolean_type_handle);
+    comparison_boolean.returns = dpl->boolean_type_handle;
 
     // unary operators
     _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary_number, _dplg_generate_inst, (void*) INST_NEGATE);
@@ -89,6 +103,18 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dplf_register(dpl, nob_sv_from_cstr("subtract"), &binary_number, _dplg_generate_inst, (void*) INST_SUBTRACT);
     _dplf_register(dpl, nob_sv_from_cstr("multiply"), &binary_number, _dplg_generate_inst, (void*) INST_MULTIPLY);
     _dplf_register(dpl, nob_sv_from_cstr("divide"), &binary_number, _dplg_generate_inst, (void*) INST_DIVIDE);
+
+    // comparison operators
+    _dplf_register(dpl, nob_sv_from_cstr("less"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS);
+    _dplf_register(dpl, nob_sv_from_cstr("less_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("greater"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER);
+    _dplf_register(dpl, nob_sv_from_cstr("greater_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_number, _dplg_generate_inst, (void*) INST_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_string, _dplg_generate_inst, (void*) INST_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_string, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);
@@ -518,6 +544,14 @@ char _dpll_current(DPL* dpl)
     return *(dpl->source.data + dpl->position);
 }
 
+bool _dpll_match(DPL* dpl, char c) {
+    if (_dpll_current(dpl) == c) {
+        _dpll_advance(dpl);
+        return true;
+    }
+    return false;
+}
+
 DPL_Location _dpll_current_location(DPL* dpl)
 {
     return (DPL_Location) {
@@ -614,11 +648,35 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_DOT);
     case ':':
         _dpll_advance(dpl);
-        if (_dpll_current(dpl) == '=') {
-            _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
             return _dpll_build_token(dpl, TOKEN_COLON_EQUAL);
         }
         return _dpll_build_token(dpl, TOKEN_COLON);
+    case '<':
+        _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
+            return _dpll_build_token(dpl, TOKEN_LESS_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_LESS);
+    case '>':
+        _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
+            return _dpll_build_token(dpl, TOKEN_GREATER_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_GREATER);
+    case '=':
+        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '=')) {
+            _dpll_advance(dpl);
+            _dpll_advance(dpl);
+            return _dpll_build_token(dpl, TOKEN_EQUAL_EQUAL);
+        }
+        break;
+    case '!':
+        _dpll_advance(dpl);
+        if (_dpll_match(dpl, '=')) {
+            return _dpll_build_token(dpl, TOKEN_BANG_EQUAL);
+        }
+        return _dpll_build_token(dpl, TOKEN_BANG);
     case '(':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_OPEN_PAREN);
@@ -685,6 +743,10 @@ DPL_Token _dpll_next_token(DPL* dpl)
             t.kind = TOKEN_KEYWORD_FUNCTION;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
             t.kind = TOKEN_KEYWORD_VAR;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("true"))) {
+            t.kind = TOKEN_TRUE;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("false"))) {
+            t.kind = TOKEN_FALSE;
         }
 
         return t;
@@ -740,6 +802,9 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "NUMBER";
     case TOKEN_STRING:
         return "STRING";
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
+        return "BOOLEAN";
     case TOKEN_IDENTIFIER:
         return "IDENTIFIER";
     case TOKEN_KEYWORD_CONSTANT:
@@ -762,6 +827,21 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "STAR";
     case TOKEN_SLASH:
         return "SLASH";
+
+    case TOKEN_LESS:
+        return "LESS";
+    case TOKEN_LESS_EQUAL:
+        return "LESS_EQUAL";
+    case TOKEN_GREATER:
+        return "GREATER";
+    case TOKEN_GREATER_EQUAL:
+        return "GREATER_EQUAL";
+    case TOKEN_EQUAL_EQUAL:
+        return "EQUAL_EQUAL";
+    case TOKEN_BANG:
+        return "BANG";
+    case TOKEN_BANG_EQUAL:
+        return "BANG_EQUAL";
 
     case TOKEN_DOT:
         return "DOT";
@@ -1066,6 +1146,8 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     switch (token.kind) {
     case TOKEN_NUMBER:
     case TOKEN_STRING:
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
     {
         DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
         node->as.literal.value = token;
@@ -1201,9 +1283,52 @@ DPL_Ast_Node* _dplp_parse_additive(DPL* dpl)
     return expression;
 }
 
+DPL_Ast_Node* _dplp_parse_comparison(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_additive(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_LESS || operator_candidate.kind == TOKEN_LESS_EQUAL
+            || operator_candidate.kind == TOKEN_GREATER || operator_candidate.kind == TOKEN_GREATER_EQUAL)  {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_additive(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator = operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
+DPL_Ast_Node* _dplp_parse_equality(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_comparison(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_EQUAL_EQUAL || operator_candidate.kind == TOKEN_BANG_EQUAL)  {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_comparison(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator = operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
 DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
 {
-    DPL_Ast_Node* target = _dplp_parse_additive(dpl);
+    DPL_Ast_Node* target = _dplp_parse_equality(dpl);
 
     if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
         if (target->kind != AST_NODE_SYMBOL) {
@@ -1563,6 +1688,16 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                 .type_handle = dpl->string_type_handle,
                 .as.string = _dplc_unescape_string(dpl, value.text),
             };
+        case TOKEN_TRUE:
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->boolean_type_handle,
+                .as.boolean = true,
+            };
+        case TOKEN_FALSE:
+            return (DPL_CallTree_Value) {
+                .type_handle = dpl->boolean_type_handle,
+                .as.boolean = false,
+            };
         default:
             DPL_TOKEN_ERROR(dpl, value, "Cannot fold literal constant of type `%s`.", _dpll_token_kind_name(value.kind));
         }
@@ -1686,6 +1821,15 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             return calltree_node;
         }
         break;
+        case TOKEN_TRUE:
+        case TOKEN_FALSE: {
+            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->type_handle = dpl->boolean_type_handle;
+            calltree_node->as.value = _dplc_fold_constant(dpl, node);
+            return calltree_node;
+        }
+        break;
         default:
             DPL_AST_ERROR(dpl, node, "Cannot resolve literal type for token of kind \"%s\".",
                           _dpll_token_kind_name(node->as.literal.value.kind));
@@ -1715,6 +1859,18 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             return _dplc_bind_binary(dpl, node, "multiply");
         case TOKEN_SLASH:
             return _dplc_bind_binary(dpl, node, "divide");
+        case TOKEN_LESS:
+            return _dplc_bind_binary(dpl, node, "less");
+        case TOKEN_LESS_EQUAL:
+            return _dplc_bind_binary(dpl, node, "less_equal");
+        case TOKEN_GREATER:
+            return _dplc_bind_binary(dpl, node, "greater");
+        case TOKEN_GREATER_EQUAL:
+            return _dplc_bind_binary(dpl, node, "greater_equal");
+        case TOKEN_EQUAL_EQUAL:
+            return _dplc_bind_binary(dpl, node, "equal");
+        case TOKEN_BANG_EQUAL:
+            return _dplc_bind_binary(dpl, node, "not_equal");
         default:
             break;
         }
@@ -1968,6 +2124,8 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
         } else if (node->as.value.type_handle == dpl->string_type_handle) {
             Nob_String_View value = node->as.value.as.string;
             dplp_print_escaped_string(value.data, value.count);
+        } else if (node->as.value.type_handle == dpl->boolean_type_handle) {
+            printf("%s", node->as.value.as.boolean ? "true" : "false");
         }
         printf("`\n");
     }
@@ -2024,6 +2182,8 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
             dplp_write_push_number(program, node->as.value.as.number);
         } else if (node->type_handle == dpl->string_type_handle) {
             dplp_write_push_string(program, node->as.value.as.string.data);
+        } else if (node->type_handle == dpl->boolean_type_handle) {
+            dplp_write_push_boolean(program, node->as.value.as.boolean);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
             DPL_ERROR("Cannot generate program for value node of type "SV_Fmt".",

@@ -1,0 +1,20 @@
+# Printing booleans yields the words `true` or `false`.
+print(true); print("\n");
+print(false); print("\n");
+
+# Converting booleans to strings
+print(true.to_string() + "\n");
+print(false.to_string() + "\n");
+
+# Assigning to variables
+var x: boolean := true;
+print(x); print("\n");
+print(x.to_string() + "\n");
+var y: boolean := false;
+print(y); print("\n");
+print(y.to_string() + "\n");
+
+# Assigning to constants
+constant z := true;
+print(z); print("\n");
+print(z.to_string() + "\n");
