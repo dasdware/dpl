@@ -84,7 +84,15 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dpl_add_handle(&comparison_number.arguments, dpl->number_type_handle);
     comparison_number.returns = dpl->boolean_type_handle;
 
+    DPL_Signature comparison_string = {0};
+    _dpl_add_handle(&comparison_string.arguments, dpl->string_type_handle);
+    _dpl_add_handle(&comparison_string.arguments, dpl->string_type_handle);
+    comparison_string.returns = dpl->boolean_type_handle;
 
+    DPL_Signature comparison_boolean = {0};
+    _dpl_add_handle(&comparison_boolean.arguments, dpl->boolean_type_handle);
+    _dpl_add_handle(&comparison_boolean.arguments, dpl->boolean_type_handle);
+    comparison_boolean.returns = dpl->boolean_type_handle;
 
     // unary operators
     _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary_number, _dplg_generate_inst, (void*) INST_NEGATE);
@@ -103,6 +111,10 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dplf_register(dpl, nob_sv_from_cstr("greater_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_number, _dplg_generate_inst, (void*) INST_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_string, _dplg_generate_inst, (void*) INST_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_string, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);

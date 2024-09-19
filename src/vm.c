@@ -200,10 +200,22 @@ void dplv_run(DPL_VirtualMachine *vm)
             dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) >= 0);
             break;
         case INST_EQUAL:
-            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) == 0);
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+                dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) == 0);
+            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+                dplv_return_boolean(vm, 2, dpl_value_string_equals(TOP0.as.string, TOP1.as.string));
+            } else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN) {
+                dplv_return_boolean(vm, 2, TOP0.as.boolean == TOP1.as.boolean);
+            }
             break;
         case INST_NOT_EQUAL:
-            dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) != 0);
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+                dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) != 0);
+            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+                dplv_return_boolean(vm, 2, !dpl_value_string_equals(TOP0.as.string, TOP1.as.string));
+            } else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN) {
+                dplv_return_boolean(vm, 2, TOP0.as.boolean != TOP1.as.boolean);
+            }
             break;
         case INST_POP:
             dplv_release(vm, TOP0);
