@@ -49,12 +49,15 @@ void check_command_end(Nob_String_View program, int *argc, char ***argv, const c
     }
 }
 
-void build_dplc(void) {
+void build_dplc(bool debug_build) {
     Nob_Cmd cmd = {0};
     cmd.count = 0;
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
+    if (debug_build) {
+        nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
+    }
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
                    "./src/externals.c",
@@ -73,13 +76,16 @@ void build_dplc(void) {
     }
 }
 
-void build_dpl(void)
+void build_dpl(bool debug_build)
 {
     Nob_Cmd cmd = {0};
     cmd.count = 0;
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
+    if (debug_build) {
+        nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
+    }
     nob_cmd_append(&cmd,
                    "./src/program.c",
                    "./src/externals.c",
@@ -103,17 +109,28 @@ void build(Nob_String_View program, int *argc, char ***argv)
     nob_mkdir_if_not_exists(BUILD_DIR);
 
     bool have_built = false;
+    bool debug_build = false;
     while (*argc > 0) {
         Nob_String_View target = nob_sv_shift_args(argc, argv);
         if (nob_sv_eq(target, COMMAND_DELIM)) {
             break;
         }
 
+        if (nob_sv_eq(target, nob_sv_from_cstr("--debug"))) {
+            if (have_built) {
+                nob_log(NOB_ERROR, "Flag --debug cannot be set after a target has already been built.\n", target);
+                usage(program, true);
+                exit(1);
+            }
+            debug_build = true;
+            continue;
+        }
+
         if (nob_sv_eq(target, TARGET_DPLC)) {
-            build_dplc();
+            build_dplc(debug_build);
             have_built = true;
         } else if (nob_sv_eq(target, TARGET_DPL)) {
-            build_dpl();
+            build_dpl(debug_build);
             have_built = true;
         } else {
             nob_log(NOB_ERROR, "Unknown build target \""SV_Fmt"\".\n", target);
@@ -123,8 +140,8 @@ void build(Nob_String_View program, int *argc, char ***argv)
     }
 
     if (!have_built) {
-        build_dplc();
-        build_dpl();
+        build_dplc(debug_build);
+        build_dpl(debug_build);
     }
 }
 
