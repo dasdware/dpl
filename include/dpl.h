@@ -333,7 +333,8 @@ typedef da_array(DPL_CallTree_Node*)  DPL_CallTree_Nodes;
 typedef struct
 {
     DPL_Handle function_handle;
-    DPL_CallTree_Nodes arguments;
+    DPL_CallTree_Node** arguments;
+    size_t arguments_count;
 } DPL_CallTree_FunctionCall;
 
 typedef struct

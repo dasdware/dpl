@@ -1474,6 +1474,15 @@ void _dplc_scopes_end_scope(DPL* dpl) {
     da_pop(dpl->scope_stack);
 }
 
+void _dplc_move_nodelist(DPL* dpl, da_array(DPL_CallTree_Node*) list, size_t *target_count, DPL_CallTree_Node*** target_items) {
+    *target_count = da_size(list);
+    if (da_some(list)) {
+        *target_items = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node*) * da_size(list));
+        memcpy(*target_items, list, sizeof(DPL_CallTree_Node*) * da_size(list));
+        da_free(list);
+    }
+}
+
 DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
 DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
@@ -1493,7 +1502,10 @@ DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* fu
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
-        da_add(calltree_node->as.function_call.arguments, operand);
+
+        da_array(DPL_CallTree_Node*) temp_arguments = 0;
+        da_add(temp_arguments, operand);
+        _dplc_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
 
         return calltree_node;
     }
@@ -1526,8 +1538,11 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
-        da_add(calltree_node->as.function_call.arguments, lhs);
-        da_add(calltree_node->as.function_call.arguments, rhs);
+
+        da_array(DPL_CallTree_Node*) temp_arguments = 0;
+        da_add(temp_arguments, lhs);
+        da_add(temp_arguments, rhs);
+        _dplc_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
 
         return calltree_node;
     }
@@ -1553,14 +1568,17 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     DPL_Handles argument_types = {0};
 
     DPL_Ast_FunctionCall fc = node->as.function_call;
+    da_array(DPL_CallTree_Node*) temp_arguments = 0;
     for (size_t i = 0; i < fc.argument_count; ++i) {
         DPL_CallTree_Node* arg_ctn = _dplc_bind_node(dpl, fc.arguments[i]);
         if (!arg_ctn) {
             DPL_AST_ERROR(dpl, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
-        da_add(result_ctn->as.function_call.arguments, arg_ctn);
+        da_add(temp_arguments, arg_ctn);
         _dpl_add_handle(&argument_types, arg_ctn->type_handle);
     }
+    _dplc_move_nodelist(dpl, temp_arguments, &result_ctn->as.function_call.arguments_count,
+                        &result_ctn->as.function_call.arguments);
 
     DPL_Symbol* function_symbol = _dplc_symbols_lookup_function(dpl, fc.name.text, &argument_types);
     if (function_symbol) {
@@ -1604,7 +1622,8 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
         nob_sb_append_sv(&signature_builder, fc.name.text);
         nob_sb_append_cstr(&signature_builder, "(");
         DPL_CallTree_Nodes arguments = result_ctn->as.function_call.arguments;
-        for (size_t i = 0; i < da_size(arguments); ++i) {
+        size_t arguments_count =  result_ctn->as.function_call.arguments_count;
+        for (size_t i = 0; i < arguments_count; ++i) {
             if (i > 0) {
                 nob_sb_append_cstr(&signature_builder, ", ");
             }
@@ -2110,7 +2129,7 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
         DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function_call.function_handle);
         printf(SV_Fmt"(\n", SV_Arg(function->name));
 
-        for (size_t i = 0; i < da_size(node->as.function_call.arguments); ++i) {
+        for (size_t i = 0; i < node->as.function_call.arguments_count; ++i) {
             _dplc_print(dpl, node->as.function_call.arguments[i], level + 1);
         }
 
@@ -2197,7 +2216,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     break;
     case CALLTREE_NODE_FUNCTIONCALL: {
         DPL_CallTree_FunctionCall f = node->as.function_call;
-        for (size_t i = 0; i < da_size(f.arguments); ++i) {
+        for (size_t i = 0; i < f.arguments_count; ++i) {
             _dplg_generate(dpl, f.arguments[i], program);
         }
 
