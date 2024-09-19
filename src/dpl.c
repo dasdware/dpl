@@ -1621,7 +1621,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     {
         nob_sb_append_sv(&signature_builder, fc.name.text);
         nob_sb_append_cstr(&signature_builder, "(");
-        DPL_CallTree_Nodes arguments = result_ctn->as.function_call.arguments;
+        DPL_CallTree_Node** arguments = result_ctn->as.function_call.arguments;
         size_t arguments_count =  result_ctn->as.function_call.arguments_count;
         for (size_t i = 0; i < arguments_count; ++i) {
             if (i > 0) {
@@ -1646,15 +1646,17 @@ DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
     result_ctn->kind = CALLTREE_NODE_SCOPE;
 
     DPL_Ast_Scope scope = node->as.scope;
+    da_array(DPL_CallTree_Node*) temp_expressions = 0;
     for (size_t i = 0; i < scope.expression_count; ++i) {
         DPL_CallTree_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
         if (!expr_ctn) {
             continue;
         }
 
-        da_add(result_ctn->as.scope.expressions, expr_ctn);
+        da_add(temp_expressions, expr_ctn);
         result_ctn->type_handle = expr_ctn->type_handle;
     }
+    _dplc_move_nodelist(dpl, temp_expressions, &result_ctn->as.scope.expressions_count, &result_ctn->as.scope.expressions);
 
     _dplc_scopes_end_scope(dpl);
     _dplc_symbols_end_scope(dpl);
@@ -2156,7 +2158,7 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
     case CALLTREE_NODE_SCOPE: {
         printf("$scope(\n");
 
-        for (size_t i = 0; i < da_size(node->as.scope.expressions); ++i) {
+        for (size_t i = 0; i < node->as.scope.expressions_count; ++i) {
             _dplc_print(dpl, node->as.scope.expressions[i], level + 1);
         }
 
@@ -2228,7 +2230,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
         DPL_CallTree_Scope s = node->as.scope;
         bool prev_was_persistent = false;
         size_t persistent_count = 0;
-        for (size_t i = 0; i < da_size(s.expressions); ++i) {
+        for (size_t i = 0; i < s.expressions_count; ++i) {
             if (i > 0) {
                 if (!prev_was_persistent) {
 
