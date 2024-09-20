@@ -74,6 +74,7 @@ int main(int argc, char** argv) {
 
     dplv_free(&vm);
     dplp_free(&program);
+    dple_free(&externals);
 
 #ifdef DPL_LEAKCHECK
     stb_leakcheck_dumpmem();

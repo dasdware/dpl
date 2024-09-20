@@ -92,5 +92,8 @@ void dple_init(DPL_ExternalFunctions* externals)
 
 void dple_free(DPL_ExternalFunctions *externals)
 {
+    for (size_t i = 0; i < da_size(*externals); ++i) {
+        da_free((*externals)[i].argument_types);
+    }
     da_free(*externals);
 }

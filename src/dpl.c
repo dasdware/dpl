@@ -166,6 +166,9 @@ void dpl_free(DPL *dpl)
     // symbol stack freeing
     da_free(dpl->symbol_stack.symbols);
     da_free(dpl->symbol_stack.frames);
+
+    // scope stack freeing
+    da_free(dpl->scope_stack);
 }
 
 // CATALOGS
