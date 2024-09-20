@@ -33,30 +33,51 @@ void da_set_size(void *array, size_t new_size);
 void da_pop(void *array);
 #define da_clear(array) da_set_size(array,  0)
 
-#define da_check_size(array, size)                                     \
-    do {                                                               \
-        (array) = _da_check_capacity((array), sizeof(*(array)), size); \
-        da_set_size((array), size);                                    \
+#define da_check_size(array, size)                           \
+    do {                                                     \
+        _da_check_capacity((array), sizeof(*(array)), size); \
+        da_set_size((array), size);                          \
     } while(false)
 
 size_t da_capacity(void *array);
 
 void da_free(void* array);
 
-void* _da_check_capacity(void *array, size_t element_size, size_t n);
+#define _da_check_capacity(array, element_size, n)                                                           \
+    do {                                                                                                     \
+        bool old_exists = ((array) != NULL);                                                                 \
+        size_t old_capacity = da_capacity(array);                                                            \
+                                                                                                             \
+        size_t new_size = da_size(array) + n;                                                                \
+        size_t new_capacity = (old_exists) ? old_capacity : DA_INITIAL_CAPACITY;                             \
+        while (new_size > new_capacity) {                                                                    \
+            new_capacity *= 2;                                                                               \
+        }                                                                                                    \
+                                                                                                             \
+        if (new_capacity > old_capacity) {                                                                   \
+            DA_Header* old_header = (old_exists) ? ((DA_Header*) (array)) - 1 : NULL;                        \
+            DA_Header* new_header = DA_REALLOC(old_header, sizeof(DA_Header) + new_capacity * element_size); \
+            if (!old_exists) {                                                                               \
+                new_header->size = 0;                                                                        \
+            }                                                                                                \
+            new_header->capacity = new_capacity;                                                             \
+            (array) = (void*) &(new_header[1]);                                                              \
+        }                                                                                                    \
+    } while (false)
 
-#define da_add(array, element)                                              \
-    do {                                                                    \
-        size_t array_size = da_size((array));                               \
-        (array) = _da_check_capacity((array), sizeof(*(array)), 1);         \
-        (array)[array_size] = element;                                      \
-        ((DA_Header*) array)[-1].size++;                                    \
+
+#define da_add(array, element)                                    \
+    do {                                                          \
+        size_t array_size = da_size((array));                     \
+        _da_check_capacity((array), sizeof(*(array)), 1);         \
+        (array)[array_size] = element;                            \
+        ((DA_Header*) array)[-1].size++;                          \
     } while(false)
 
 #define da_addn(array, elements, count)                                     \
     do {                                                                    \
         size_t array_size = da_size((array));                               \
-        (array) = _da_check_capacity((array), sizeof(*(array)), count);     \
+        _da_check_capacity((array), sizeof(*(array)), count);               \
         memcpy((array) + array_size, (elements), count * sizeof(*(array))); \
         ((DA_Header*) array)[-1].size += count;                             \
     } while(false)
@@ -66,14 +87,14 @@ typedef da_array(char) str_t;
 
 #define str_length(str) da_size(str)
 
-#define str_append(string, text)                                               \
-    do {                                                                    \
-        size_t len = str_length((string));                               \
-        size_t count = strlen(text); \
-        (string) = _da_check_capacity((string), sizeof(*(string)), count + 1);     \
-        memcpy((string) + len, (text), count * sizeof(*(string))); \
-        (string)[len + count] = '\0'; \
-        ((DA_Header*) string)[-1].size += count;                             \
+#define str_append(string, text)                                    \
+    do {                                                            \
+        size_t len = str_length((string));                          \
+        size_t count = strlen(text);                                \
+        _da_check_capacity((string), sizeof(*(string)), count + 1); \
+        memcpy((string) + len, (text), count * sizeof(*(string)));  \
+        (string)[len + count] = '\0';                               \
+        ((DA_Header*) string)[-1].size += count;                    \
     } while(false)
 
 str_t str_new(const char* text);
@@ -113,35 +134,11 @@ size_t da_capacity(void *array) {
     return ((DA_Header*) array)[-1].capacity;
 }
 
-void* _da_check_capacity(void *array, size_t element_size, size_t n) {
-    bool old_exists = (array != NULL);
-    size_t old_capacity = da_capacity(array);
-
-    size_t new_size = da_size(array) + n;
-    size_t new_capacity = (old_exists) ? old_capacity : DA_INITIAL_CAPACITY;
-    while (new_size > new_capacity) {
-        new_capacity *= 2;
-    }
-
-    if (new_capacity > old_capacity) {
-        DA_Header* old_header = (old_exists) ? ((DA_Header*) (array)) - 1 : NULL;
-        DA_Header* new_header = DA_REALLOC(old_header, sizeof(DA_Header) + new_capacity * element_size);
-        if (!old_exists) {
-            new_header->size = 0;
-        }
-        new_header->capacity = new_capacity;
-        return &(new_header[1]);
-    }
-
-    return array;
-}
-
 void da_free(void* array) {
     if (array) {
         DA_FREE(((DA_Header*) array) - 1);
     }
 }
-
 
 str_t str_new(const char* text) {
     str_t result = 0;

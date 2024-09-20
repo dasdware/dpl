@@ -1,3 +1,7 @@
+#ifdef DPL_LEAKCHECK
+#   include "stb_leakcheck.h"
+#endif
+
 #include "program.h"
 #include "error.h"
 
@@ -8,6 +12,7 @@ void dplp_init(DPL_Program* program) {
 void dplp_free(DPL_Program* program) {
     da_free(program->constants);
     da_free(program->code);
+    da_free(program->constants_dictionary);
 }
 
 bool _dplp_find_number_constant(DPL_Program* program, double value, size_t* output) {
@@ -363,10 +368,11 @@ bool dplp_save(DPL_Program* program, const char* file_name)
 {
     FILE *out = fopen(file_name, "wb");
 
-    DW_ByteBuffer header = {0};
+    DW_ByteBuffer header = 0;
     bb_write_u8(&header, program->version);
     bb_write_u64(&header, program->entry);
     _dplp_save_chunk(out, "HEAD", header);
+    da_free(header);
 
     _dplp_save_chunk(out, "CONS", program->constants);
     _dplp_save_chunk(out, "CODE", program->code);

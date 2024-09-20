@@ -1,3 +1,7 @@
+#ifdef DPL_LEAKCHECK
+#   include "stb_leakcheck.h"
+#endif
+
 #include "vm.h"
 
 #include "error.h"
@@ -27,7 +31,7 @@ void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctio
 
 void dplv_free(DPL_VirtualMachine *vm)
 {
-    st_free(&vm->strings);
+    //st_free(&vm->strings);
     arena_free(&vm->memory);
 }
 

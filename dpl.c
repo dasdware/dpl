@@ -1,3 +1,8 @@
+#ifdef DPL_LEAKCHECK
+#   define STB_LEAKCHECK_IMPLEMENTATION
+#   include "stb_leakcheck.h"
+#endif
+
 #include "error.h"
 #include "externals.h"
 #include "value.h"
@@ -69,6 +74,11 @@ int main(int argc, char** argv) {
 
     dplv_free(&vm);
     dplp_free(&program);
+    dple_free(&externals);
+
+#ifdef DPL_LEAKCHECK
+    stb_leakcheck_dumpmem();
+#endif
 
     return 0;
 }

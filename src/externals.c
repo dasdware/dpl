@@ -1,3 +1,7 @@
+#ifdef DPL_LEAKCHECK
+#   include "stb_leakcheck.h"
+#endif
+
 #include "error.h"
 #include "externals.h"
 #include "vm.h"
@@ -88,5 +92,8 @@ void dple_init(DPL_ExternalFunctions* externals)
 
 void dple_free(DPL_ExternalFunctions *externals)
 {
+    for (size_t i = 0; i < da_size(*externals); ++i) {
+        da_free((*externals)[i].argument_types);
+    }
     da_free(*externals);
 }

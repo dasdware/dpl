@@ -328,17 +328,17 @@ typedef enum
     CALLTREE_NODE_ASSIGNMENT,
 } DPL_CallTreeNodeKind;
 
-typedef da_array(DPL_CallTree_Node*)  DPL_CallTree_Nodes;
-
 typedef struct
 {
     DPL_Handle function_handle;
-    DPL_CallTree_Nodes arguments;
+    DPL_CallTree_Node** arguments;
+    size_t arguments_count;
 } DPL_CallTree_FunctionCall;
 
 typedef struct
 {
-    DPL_CallTree_Nodes expressions;
+    DPL_CallTree_Node** expressions;
+    size_t expressions_count;
 } DPL_CallTree_Scope;
 
 typedef struct {

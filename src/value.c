@@ -1,3 +1,7 @@
+#ifdef DPL_LEAKCHECK
+#   include "stb_leakcheck.h"
+#endif
+
 #include <math.h>
 
 #include "error.h"
