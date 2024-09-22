@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
             dpl_value_print(vm.stack[i]);
             printf("\n");
         }
-        printf("Entries remaining in string table: %zu\n", ST_CAPACITY - vm.strings.free_items.count);
+        printf("Entries remaining in string table: %llu\n", ST_CAPACITY - vm.strings.free_items.count);
         printf("==[ /DEBUG ]============================\n");
     }
 

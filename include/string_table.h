@@ -87,7 +87,7 @@ Nob_String_View st_allocate(DW_StringTable *table, size_t length)
 {
     if (length >= ST_MAX_LENGTH)
     {
-        DW_ERROR("ERROR: Cannot allocate new string from table: Requested size (%zu) is longer than accepted maximum (%zu).", length, ST_MAX_LENGTH);
+        DW_ERROR("ERROR: Cannot allocate new string from table: Requested size (%zu) is longer than accepted maximum (%llu).", length, ST_MAX_LENGTH);
     }
     if (table->free_items.count == 0)
     {
@@ -142,7 +142,7 @@ size_t _st_check_handle_value(DW_StringTable *table, Nob_String_View sv, const c
 
     if (handle >= ST_CAPACITY)
     {
-        DW_ERROR("ERROR: Cannot %s: Handle out of range (%zu >= %zu).", operation, handle, ST_CAPACITY);
+        DW_ERROR("ERROR: Cannot %s: Handle out of range (%zu >= %llu).", operation, handle, ST_CAPACITY);
     }
     if (table->items[handle].is_free)
     {
