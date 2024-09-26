@@ -175,6 +175,9 @@ void dplv_run(DPL_VirtualMachine *vm)
         case INST_NEGATE:
             dplv_return_number(vm, 1, -TOP0.as.number);
             break;
+        case INST_NOT:
+            dplv_return_boolean(vm, 1, !TOP0.as.boolean);
+            break;
         case INST_ADD:
             if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
                 dplv_return_number(vm, 2, TOP1.as.number + TOP0.as.number);
