@@ -1,0 +1,2 @@
+print(!true); print("\n");
+print(!false); print("\n");
