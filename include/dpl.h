@@ -32,12 +32,6 @@ typedef struct {
 
 /// TYPES
 
-typedef union
-{
-    void* base;
-    DPL_Signature function;
-} DPL_Type_As;
-
 typedef enum
 {
     TYPE_BASE,
@@ -51,7 +45,10 @@ typedef struct
     size_t hash;
 
     DPL_Type_Kind kind;
-    DPL_Type_As as;
+    union {
+        void* base;
+        DPL_Signature function;
+    } as;
 } DPL_Type;
 
 typedef da_array(DPL_Type) DPL_Types;
@@ -225,25 +222,22 @@ typedef struct {
     DPL_Ast_Node* body;
 } DPL_Ast_Function;
 
-union DPL_Ast_Node_As
-{
-    DPL_Ast_Literal literal;
-    DPL_Ast_Unary unary;
-    DPL_Ast_Binary binary;
-    DPL_Ast_FunctionCall function_call;
-    DPL_Ast_Scope scope;
-    DPL_Ast_Declaration declaration;
-    DPL_Token symbol;
-    DPL_Ast_Assignment assignment;
-    DPL_Ast_Function function;
-};
-
 struct _DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
     DPL_Token first;
     DPL_Token last;
-    union DPL_Ast_Node_As as;
+    union {
+        DPL_Ast_Literal literal;
+        DPL_Ast_Unary unary;
+        DPL_Ast_Binary binary;
+        DPL_Ast_FunctionCall function_call;
+        DPL_Ast_Scope scope;
+        DPL_Ast_Declaration declaration;
+        DPL_Token symbol;
+        DPL_Ast_Assignment assignment;
+        DPL_Ast_Function function;
+    } as;
 };
 
 typedef struct
@@ -253,20 +247,72 @@ typedef struct
 } DPL_Ast_Tree;
 
 
-// CALLTREE
+// BOUND TREE
 
-typedef struct _DPL_CallTree_Node DPL_CallTree_Node;
+typedef enum
+{
+    CALLTREE_NODE_VALUE = 0,
+    CALLTREE_NODE_FUNCTIONCALL,
+    CALLTREE_NODE_SCOPE,
+    CALLTREE_NODE_VARREF,
+    CALLTREE_NODE_ARGREF,
+    CALLTREE_NODE_ASSIGNMENT,
+} DPL_CallTreeNodeKind;
 
-typedef union {
-    double number;
-    Nob_String_View string;
-    bool boolean;
-} DPL_CallTree_Value_As;
+typedef struct _DPL_Bound_Node DPL_Bound_Node;
 
 typedef struct {
     DPL_Handle type_handle;
-    DPL_CallTree_Value_As as;
-} DPL_CallTree_Value;
+    union {
+        double number;
+        Nob_String_View string;
+        bool boolean;
+    } as;
+} DPL_Bound_Value;
+
+typedef struct
+{
+    DPL_Handle function_handle;
+    DPL_Bound_Node** arguments;
+    size_t arguments_count;
+} DPL_Bound_FunctionCall;
+
+typedef struct
+{
+    DPL_Bound_Node** expressions;
+    size_t expressions_count;
+} DPL_Bound_Scope;
+
+typedef struct {
+    size_t scope_index;
+    DPL_Bound_Node* expression;
+} DPL_Bound_Assignment;
+
+struct _DPL_Bound_Node
+{
+    DPL_CallTreeNodeKind kind;
+    DPL_Handle type_handle;
+    bool persistent;
+    union {
+        DPL_Bound_Value value;
+        DPL_Bound_FunctionCall function_call;
+        DPL_Bound_Scope scope;
+        size_t varref;
+        size_t argref;
+        DPL_Bound_Assignment assignment;
+    } as;
+};
+
+typedef struct
+{
+    Arena memory;
+    DPL_Bound_Node *root;
+} DPL_BoundTree;
+
+
+// SYMBOL STACK
+
+typedef DPL_Bound_Value DPL_Symbol_Constant;
 
 typedef enum {
     SYMBOL_CONSTANT,
@@ -278,27 +324,25 @@ typedef enum {
 typedef struct {
     DPL_Handle type_handle;
     size_t scope_index;
-} DPL_CallTree_Var;
+} DPL_Symbol_Var;
 
 typedef struct {
     DPL_Signature signature;
-    DPL_CallTree_Node* body;
+    DPL_Bound_Node* body;
     bool used;
     DPL_Handle user_handle;
     DPL_Handle function_handle;
-} DPL_CallTree_Function;
-
-typedef union {
-    DPL_CallTree_Value constant;
-    DPL_CallTree_Var var;
-    DPL_CallTree_Var argument;
-    DPL_CallTree_Function function;
-} DPL_Symbol_As;
+} DPL_Symbol_Function;
 
 typedef struct {
     DPL_SymbolKind kind;
     Nob_String_View name;
-    DPL_Symbol_As as;
+    union {
+        DPL_Symbol_Constant constant;
+        DPL_Symbol_Var var;
+        DPL_Symbol_Var argument;
+        DPL_Symbol_Function function;
+    } as;
 } DPL_Symbol;
 
 typedef da_array(DPL_Symbol) DPL_Symbols;
@@ -311,6 +355,9 @@ typedef struct {
     size_t bottom;
 } DPL_SymbolStack;
 
+
+// SCOPE STACK
+
 typedef struct {
     size_t offset;
     size_t count;
@@ -318,63 +365,14 @@ typedef struct {
 
 typedef da_array(DPL_Scope) DPL_ScopeStack;
 
-typedef enum
-{
-    CALLTREE_NODE_VALUE = 0,
-    CALLTREE_NODE_FUNCTIONCALL,
-    CALLTREE_NODE_SCOPE,
-    CALLTREE_NODE_VARREF,
-    CALLTREE_NODE_ARGREF,
-    CALLTREE_NODE_ASSIGNMENT,
-} DPL_CallTreeNodeKind;
 
-typedef struct
-{
-    DPL_Handle function_handle;
-    DPL_CallTree_Node** arguments;
-    size_t arguments_count;
-} DPL_CallTree_FunctionCall;
-
-typedef struct
-{
-    DPL_CallTree_Node** expressions;
-    size_t expressions_count;
-} DPL_CallTree_Scope;
-
-typedef struct {
-    size_t scope_index;
-    DPL_CallTree_Node* expression;
-} DPL_CallTree_Assignment;
-
-typedef union
-{
-    DPL_CallTree_Value value;
-    DPL_CallTree_FunctionCall function_call;
-    DPL_CallTree_Scope scope;
-    size_t varref;
-    size_t argref;
-    DPL_CallTree_Assignment assignment;
-} DPL_CallTree_Node_As;
-
-struct _DPL_CallTree_Node
-{
-    DPL_CallTreeNodeKind kind;
-    DPL_Handle type_handle;
-    bool persistent;
-    DPL_CallTree_Node_As as;
-};
-
-typedef struct
-{
-    Arena memory;
-    DPL_CallTree_Node *root;
-} DPL_CallTree;
+// USER FUNCTIONS
 
 typedef struct {
     DPL_Handle function_handle;
     size_t begin_ip;
     size_t arity;
-    DPL_CallTree_Node* body;
+    DPL_Bound_Node* body;
 } DPL_UserFunction;
 
 typedef da_array(DPL_UserFunction) DPL_UserFunctions;
@@ -414,7 +412,7 @@ struct _DPL
     // Binder
     DPL_SymbolStack symbol_stack;
     DPL_ScopeStack scope_stack;
-    DPL_CallTree calltree;
+    DPL_BoundTree bound_tree;
 
     // Generator
     DPL_UserFunctions user_functions;
