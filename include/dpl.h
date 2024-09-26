@@ -32,12 +32,6 @@ typedef struct {
 
 /// TYPES
 
-typedef union
-{
-    void* base;
-    DPL_Signature function;
-} DPL_Type_As;
-
 typedef enum
 {
     TYPE_BASE,
@@ -51,7 +45,10 @@ typedef struct
     size_t hash;
 
     DPL_Type_Kind kind;
-    DPL_Type_As as;
+    union {
+        void* base;
+        DPL_Signature function;
+    } as;
 } DPL_Type;
 
 typedef da_array(DPL_Type) DPL_Types;
@@ -225,25 +222,22 @@ typedef struct {
     DPL_Ast_Node* body;
 } DPL_Ast_Function;
 
-union DPL_Ast_Node_As
-{
-    DPL_Ast_Literal literal;
-    DPL_Ast_Unary unary;
-    DPL_Ast_Binary binary;
-    DPL_Ast_FunctionCall function_call;
-    DPL_Ast_Scope scope;
-    DPL_Ast_Declaration declaration;
-    DPL_Token symbol;
-    DPL_Ast_Assignment assignment;
-    DPL_Ast_Function function;
-};
-
 struct _DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
     DPL_Token first;
     DPL_Token last;
-    union DPL_Ast_Node_As as;
+    union {
+        DPL_Ast_Literal literal;
+        DPL_Ast_Unary unary;
+        DPL_Ast_Binary binary;
+        DPL_Ast_FunctionCall function_call;
+        DPL_Ast_Scope scope;
+        DPL_Ast_Declaration declaration;
+        DPL_Token symbol;
+        DPL_Ast_Assignment assignment;
+        DPL_Ast_Function function;
+    } as;
 };
 
 typedef struct

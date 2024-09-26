@@ -10,17 +10,14 @@ typedef enum
     VALUE_BOOLEAN,
 } DPL_ValueKind;
 
-typedef union
-{
-    double number;
-    Nob_String_View string;
-    bool boolean;
-} DPL_Value_As;
-
 typedef struct
 {
     DPL_ValueKind kind;
-    DPL_Value_As as;
+    union {
+        double number;
+        Nob_String_View string;
+        bool boolean;
+    } as;
 } DPL_Value;
 
 const char* dpl_value_kind_name(DPL_ValueKind kind);
