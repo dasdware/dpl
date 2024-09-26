@@ -1389,7 +1389,7 @@ void _dplp_parse(DPL* dpl)
 
 // CALLTREE
 
-const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
+const char* _dplb_nodekind_name(DPL_CallTreeNodeKind kind) {
     switch (kind) {
     case CALLTREE_NODE_VALUE:
         return "CALLTREE_NODE_VALUE";
@@ -1408,18 +1408,18 @@ const char* _dplc_nodekind_name(DPL_CallTreeNodeKind kind) {
     }
 }
 
-void _dplc_symbols_begin_scope(DPL* dpl) {
+void _dplb_symbols_begin_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     da_add(s->frames, da_size(s->symbols));
 }
 
-void _dplc_symbols_end_scope(DPL* dpl) {
+void _dplb_symbols_end_scope(DPL* dpl) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     da_pop(s->frames);
     da_set_size(s->symbols, s->frames[da_size(s->frames)]);
 }
 
-DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
+DPL_Symbol* _dplb_symbols_lookup(DPL* dpl, Nob_String_View name) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
         if (nob_sv_eq(s->symbols[i - 1].name, name)) {
@@ -1429,7 +1429,7 @@ DPL_Symbol* _dplc_symbols_lookup(DPL* dpl, Nob_String_View name) {
     return NULL;
 }
 
-DPL_Symbol* _dplc_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Handles* arguments) {
+DPL_Symbol* _dplb_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Handles* arguments) {
     DPL_SymbolStack* s = &dpl->symbol_stack;
     for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
         DPL_Symbol* sym = &s->symbols[i - 1];
@@ -1441,7 +1441,7 @@ DPL_Symbol* _dplc_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Ha
     return NULL;
 }
 
-const char* _dplc_symbols_kind_name(DPL_SymbolKind kind) {
+const char* _dplb_symbols_kind_name(DPL_SymbolKind kind) {
     switch (kind) {
     case SYMBOL_CONSTANT:
         return "constant";
@@ -1454,7 +1454,7 @@ const char* _dplc_symbols_kind_name(DPL_SymbolKind kind) {
     }
 }
 
-DPL_Scope* _dplc_scopes_current(DPL* dpl) {
+DPL_Scope* _dplb_scopes_current(DPL* dpl) {
     if (da_empty(dpl->scope_stack)) {
         DPL_ERROR("Cannot get current scope information: no scope pushed onto stack.");
     }
@@ -1462,22 +1462,22 @@ DPL_Scope* _dplc_scopes_current(DPL* dpl) {
     return &dpl->scope_stack[da_size(dpl->scope_stack) - 1];
 }
 
-void _dplc_scopes_begin_scope(DPL* dpl) {
+void _dplb_scopes_begin_scope(DPL* dpl) {
     DPL_Scope scope = {0};
 
     if (da_some(dpl->scope_stack)) {
-        DPL_Scope* current_top = _dplc_scopes_current(dpl);
+        DPL_Scope* current_top = _dplb_scopes_current(dpl);
         scope.offset = current_top->offset + current_top->count;
     }
 
     da_add(dpl->scope_stack, scope);
 }
 
-void _dplc_scopes_end_scope(DPL* dpl) {
+void _dplb_scopes_end_scope(DPL* dpl) {
     da_pop(dpl->scope_stack);
 }
 
-void _dplc_move_nodelist(DPL* dpl, da_array(DPL_Bound_Node*) list, size_t *target_count, DPL_Bound_Node*** target_items) {
+void _dplb_move_nodelist(DPL* dpl, da_array(DPL_Bound_Node*) list, size_t *target_count, DPL_Bound_Node*** target_items) {
     *target_count = da_size(list);
     if (da_some(list)) {
         *target_items = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node*) * da_size(list));
@@ -1486,11 +1486,11 @@ void _dplc_move_nodelist(DPL* dpl, da_array(DPL_Bound_Node*) list, size_t *targe
     }
 }
 
-DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
+DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
-DPL_Bound_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
+DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
 {
-    DPL_Bound_Node* operand = _dplc_bind_node(dpl, node->as.unary.operand);
+    DPL_Bound_Node* operand = _dplb_bind_node(dpl, node->as.unary.operand);
     if (!operand) {
         DPL_AST_ERROR(dpl, node, "Cannot bind operand of unary expression.");
     }
@@ -1508,7 +1508,7 @@ DPL_Bound_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
 
         da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, operand);
-        _dplc_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
+        _dplb_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
 
         return calltree_node;
     }
@@ -1520,13 +1520,13 @@ DPL_Bound_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
 }
 
 
-DPL_Bound_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
+DPL_Bound_Node* _dplb_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
 {
-    DPL_Bound_Node* lhs = _dplc_bind_node(dpl, node->as.binary.left);
+    DPL_Bound_Node* lhs = _dplb_bind_node(dpl, node->as.binary.left);
     if (!lhs) {
         DPL_AST_ERROR(dpl, node, "Cannot bind left-hand side of binary expression.");
     }
-    DPL_Bound_Node* rhs = _dplc_bind_node(dpl, node->as.binary.right);
+    DPL_Bound_Node* rhs = _dplb_bind_node(dpl, node->as.binary.right);
     if (!rhs) {
         DPL_AST_ERROR(dpl, node, "Cannot bind right-hand side of binary expression.");
     }
@@ -1545,7 +1545,7 @@ DPL_Bound_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* func
         da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, lhs);
         da_add(temp_arguments, rhs);
-        _dplc_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
+        _dplb_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
 
         return calltree_node;
     }
@@ -1563,7 +1563,7 @@ void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data
     dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
-DPL_Bound_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
+DPL_Bound_Node* _dplb_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 {
     DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
     result_ctn->kind = CALLTREE_NODE_FUNCTIONCALL;
@@ -1573,17 +1573,17 @@ DPL_Bound_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     DPL_Ast_FunctionCall fc = node->as.function_call;
     da_array(DPL_Bound_Node*) temp_arguments = 0;
     for (size_t i = 0; i < fc.argument_count; ++i) {
-        DPL_Bound_Node* arg_ctn = _dplc_bind_node(dpl, fc.arguments[i]);
+        DPL_Bound_Node* arg_ctn = _dplb_bind_node(dpl, fc.arguments[i]);
         if (!arg_ctn) {
             DPL_AST_ERROR(dpl, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
         da_add(temp_arguments, arg_ctn);
         _dpl_add_handle(&argument_types, arg_ctn->type_handle);
     }
-    _dplc_move_nodelist(dpl, temp_arguments, &result_ctn->as.function_call.arguments_count,
+    _dplb_move_nodelist(dpl, temp_arguments, &result_ctn->as.function_call.arguments_count,
                         &result_ctn->as.function_call.arguments);
 
-    DPL_Symbol* function_symbol = _dplc_symbols_lookup_function(dpl, fc.name.text, &argument_types);
+    DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, fc.name.text, &argument_types);
     if (function_symbol) {
         DPL_Symbol_Function* f = &function_symbol->as.function;
         if (!f->used) {
@@ -1640,10 +1640,10 @@ DPL_Bound_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     DPL_AST_ERROR(dpl, node, "Cannot resolve function `%s`.", signature_builder.items);
 }
 
-DPL_Bound_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
+DPL_Bound_Node* _dplb_bind_scope(DPL* dpl, DPL_Ast_Node* node)
 {
-    _dplc_symbols_begin_scope(dpl);
-    _dplc_scopes_begin_scope(dpl);
+    _dplb_symbols_begin_scope(dpl);
+    _dplb_scopes_begin_scope(dpl);
 
     DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
     result_ctn->kind = CALLTREE_NODE_SCOPE;
@@ -1651,7 +1651,7 @@ DPL_Bound_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
     DPL_Ast_Scope scope = node->as.scope;
     da_array(DPL_Bound_Node*) temp_expressions = 0;
     for (size_t i = 0; i < scope.expression_count; ++i) {
-        DPL_Bound_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
+        DPL_Bound_Node* expr_ctn = _dplb_bind_node(dpl, scope.expressions[i]);
         if (!expr_ctn) {
             continue;
         }
@@ -1659,14 +1659,14 @@ DPL_Bound_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
         da_add(temp_expressions, expr_ctn);
         result_ctn->type_handle = expr_ctn->type_handle;
     }
-    _dplc_move_nodelist(dpl, temp_expressions, &result_ctn->as.scope.expressions_count, &result_ctn->as.scope.expressions);
+    _dplb_move_nodelist(dpl, temp_expressions, &result_ctn->as.scope.expressions_count, &result_ctn->as.scope.expressions);
 
-    _dplc_scopes_end_scope(dpl);
-    _dplc_symbols_end_scope(dpl);
+    _dplb_scopes_end_scope(dpl);
+    _dplb_symbols_end_scope(dpl);
     return result_ctn;
 }
 
-Nob_String_View _dplc_unescape_string(DPL* dpl, Nob_String_View escaped_string) {
+Nob_String_View _dplb_unescape_string(DPL* dpl, Nob_String_View escaped_string) {
     // unescape source string literal
     char* unescaped_string = arena_alloc(&dpl->bound_tree.memory, sizeof(char) * (escaped_string.count - 2 + 1));
     // -2 for quotes; +1 for terminating null byte
@@ -1701,7 +1701,7 @@ Nob_String_View _dplc_unescape_string(DPL* dpl, Nob_String_View escaped_string) 
     return nob_sv_from_cstr(unescaped_string);
 }
 
-DPL_Bound_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
+DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     switch (node->kind) {
     case AST_NODE_LITERAL: {
         DPL_Token value = node->as.literal.value;
@@ -1714,7 +1714,7 @@ DPL_Bound_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         case TOKEN_STRING:
             return (DPL_Bound_Value) {
                 .type_handle = dpl->string_type_handle,
-                .as.string = _dplc_unescape_string(dpl, value.text),
+                .as.string = _dplb_unescape_string(dpl, value.text),
             };
         case TOKEN_TRUE:
             return (DPL_Bound_Value) {
@@ -1733,8 +1733,8 @@ DPL_Bound_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     break;
     case AST_NODE_BINARY: {
         DPL_Token operator = node->as.binary.operator;
-        DPL_Bound_Value lhs_value = _dplc_fold_constant(dpl, node->as.binary.left);
-        DPL_Bound_Value rhs_value = _dplc_fold_constant(dpl, node->as.binary.right);
+        DPL_Bound_Value lhs_value = _dplb_fold_constant(dpl, node->as.binary.left);
+        DPL_Bound_Value rhs_value = _dplb_fold_constant(dpl, node->as.binary.right);
 
         switch (operator.kind) {
         case TOKEN_PLUS: {
@@ -1810,7 +1810,7 @@ DPL_Bound_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     break;
     case AST_NODE_SYMBOL: {
         Nob_String_View symbol_name = node->as.symbol.text;
-        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, symbol_name);
+        DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, symbol_name);
         if (!symbol) {
             DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: unknown symbol `"SV_Fmt"`.", SV_Arg(symbol_name));
         }
@@ -1827,7 +1827,7 @@ DPL_Bound_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     }
 }
 
-DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
+DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
     {
@@ -1838,14 +1838,14 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->number_type_handle;
-            calltree_node->as.value = _dplc_fold_constant(dpl, node);
+            calltree_node->as.value = _dplb_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
             DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->string_type_handle;
-            calltree_node->as.value = _dplc_fold_constant(dpl, node);
+            calltree_node->as.value = _dplb_fold_constant(dpl, node);
             return calltree_node;
         }
         break;
@@ -1854,7 +1854,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->boolean_type_handle;
-            calltree_node->as.value = _dplc_fold_constant(dpl, node);
+            calltree_node->as.value = _dplb_fold_constant(dpl, node);
             return calltree_node;
         }
         break;
@@ -1868,7 +1868,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         DPL_Token operator = node->as.unary.operator;
         switch(operator.kind) {
         case TOKEN_MINUS:
-            return _dplc_bind_unary(dpl, node, "negate");
+            return _dplb_bind_unary(dpl, node, "negate");
         default:
             break;
         }
@@ -1880,25 +1880,25 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         DPL_Token operator = node->as.binary.operator;
         switch(operator.kind) {
         case TOKEN_PLUS:
-            return _dplc_bind_binary(dpl, node, "add");
+            return _dplb_bind_binary(dpl, node, "add");
         case TOKEN_MINUS:
-            return _dplc_bind_binary(dpl, node, "subtract");
+            return _dplb_bind_binary(dpl, node, "subtract");
         case TOKEN_STAR:
-            return _dplc_bind_binary(dpl, node, "multiply");
+            return _dplb_bind_binary(dpl, node, "multiply");
         case TOKEN_SLASH:
-            return _dplc_bind_binary(dpl, node, "divide");
+            return _dplb_bind_binary(dpl, node, "divide");
         case TOKEN_LESS:
-            return _dplc_bind_binary(dpl, node, "less");
+            return _dplb_bind_binary(dpl, node, "less");
         case TOKEN_LESS_EQUAL:
-            return _dplc_bind_binary(dpl, node, "less_equal");
+            return _dplb_bind_binary(dpl, node, "less_equal");
         case TOKEN_GREATER:
-            return _dplc_bind_binary(dpl, node, "greater");
+            return _dplb_bind_binary(dpl, node, "greater");
         case TOKEN_GREATER_EQUAL:
-            return _dplc_bind_binary(dpl, node, "greater_equal");
+            return _dplb_bind_binary(dpl, node, "greater_equal");
         case TOKEN_EQUAL_EQUAL:
-            return _dplc_bind_binary(dpl, node, "equal");
+            return _dplb_bind_binary(dpl, node, "equal");
         case TOKEN_BANG_EQUAL:
-            return _dplc_bind_binary(dpl, node, "not_equal");
+            return _dplb_bind_binary(dpl, node, "not_equal");
         default:
             break;
         }
@@ -1908,9 +1908,9 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
     }
     break;
     case AST_NODE_FUNCTIONCALL:
-        return _dplc_bind_function_call(dpl, node);
+        return _dplb_bind_function_call(dpl, node);
     case AST_NODE_SCOPE:
-        return _dplc_bind_scope(dpl, node);
+        return _dplb_bind_scope(dpl, node);
     case AST_NODE_DECLARATION: {
         DPL_Ast_Declaration* decl = &node->as.declaration;
 
@@ -1918,7 +1918,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_Symbol s = {
                 .kind = SYMBOL_CONSTANT,
                 .name = decl->name.text,
-                .as.constant =  _dplc_fold_constant(dpl, decl->initialization),
+                .as.constant =  _dplb_fold_constant(dpl, decl->initialization),
             };
 
             if (decl->type.kind != TOKEN_NONE) {
@@ -1939,7 +1939,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
             return NULL;
         } else {
-            DPL_Bound_Node* expression = _dplc_bind_node(dpl, decl->initialization);
+            DPL_Bound_Node* expression = _dplb_bind_node(dpl, decl->initialization);
 
             DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
             if (!declared_type) {
@@ -1953,7 +1953,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                               SV_Arg(declared_type->name), SV_Arg(expression_type->name), SV_Arg(decl->name.text));
             }
 
-            DPL_Scope* current_scope = _dplc_scopes_current(dpl);
+            DPL_Scope* current_scope = _dplb_scopes_current(dpl);
             DPL_Symbol s = {
                 .kind = SYMBOL_VAR,
                 .name = decl->name.text,
@@ -1972,7 +1972,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
     }
     break;
     case AST_NODE_SYMBOL: {
-        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, node->as.symbol.text);
+        DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, node->as.symbol.text);
         if (!symbol) {
             DPL_AST_ERROR(dpl, node, "Cannot resolve symbol `"SV_Fmt"` in current scope.",
                           SV_Arg(node->as.symbol.text));
@@ -2005,7 +2005,7 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         break;
         default:
             DPL_AST_ERROR(dpl, node, "Cannot resolve symbols of type `%s`.",
-                          _dplc_symbols_kind_name(symbol->kind));
+                          _dplb_symbols_kind_name(symbol->kind));
 
         }
     }
@@ -2016,21 +2016,21 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
 
         Nob_String_View symbol_name = node->as.assignment.target->as.symbol.text;
-        DPL_Symbol* symbol = _dplc_symbols_lookup(dpl, symbol_name);
+        DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, symbol_name);
         if (!symbol) {
             DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot resolve symbol `"SV_Fmt"` in current scope.",
                           SV_Arg(symbol_name));
         }
         if (symbol->kind != SYMBOL_VAR) {
             DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot assign to %s `"SV_Fmt"` in current scope.",
-                          _dplc_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
+                          _dplb_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
         }
 
         DPL_Bound_Node* ct_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         ct_node->kind = CALLTREE_NODE_ASSIGNMENT;
         ct_node->type_handle = symbol->as.var.type_handle;
         ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
-        ct_node->as.assignment.expression = _dplc_bind_node(dpl, node->as.assignment.expression);
+        ct_node->as.assignment.expression = _dplb_bind_node(dpl, node->as.assignment.expression);
 
         return ct_node;
     }
@@ -2058,8 +2058,8 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
         signature.returns = return_type->handle;
 
-        _dplc_symbols_begin_scope(dpl);
-        _dplc_scopes_begin_scope(dpl);
+        _dplb_symbols_begin_scope(dpl);
+        _dplb_scopes_begin_scope(dpl);
 
         size_t current_bottom = dpl->symbol_stack.bottom;
         dpl->symbol_stack.bottom = da_size(dpl->symbol_stack.symbols);
@@ -2084,14 +2084,14 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 .signature = signature,
                 .used = false,
                 .user_handle = 0,
-                .body = _dplc_bind_node(dpl, function->body),
+                .body = _dplb_bind_node(dpl, function->body),
             },
         };
 
         dpl->symbol_stack.bottom = current_bottom;
 
-        _dplc_scopes_end_scope(dpl);
-        _dplc_symbols_end_scope(dpl);
+        _dplb_scopes_end_scope(dpl);
+        _dplb_symbols_end_scope(dpl);
 
         da_add(dpl->symbol_stack.symbols, s);
         return NULL;
@@ -2103,12 +2103,12 @@ DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
 }
 
-void _dplc_bind(DPL* dpl)
+void _dplb_bind(DPL* dpl)
 {
-    dpl->bound_tree.root = _dplc_bind_node(dpl, dpl->tree.root);
+    dpl->bound_tree.root = _dplb_bind_node(dpl, dpl->tree.root);
 }
 
-void _dplc_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
+void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
     for (size_t i = 0; i < level; ++i) {
         printf("  ");
     }
@@ -2135,7 +2135,7 @@ void _dplc_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf(SV_Fmt"(\n", SV_Arg(function->name));
 
         for (size_t i = 0; i < node->as.function_call.arguments_count; ++i) {
-            _dplc_print(dpl, node->as.function_call.arguments[i], level + 1);
+            _dplb_print(dpl, node->as.function_call.arguments[i], level + 1);
         }
 
         for (size_t i = 0; i < level; ++i) {
@@ -2162,7 +2162,7 @@ void _dplc_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf("$scope(\n");
 
         for (size_t i = 0; i < node->as.scope.expressions_count; ++i) {
-            _dplc_print(dpl, node->as.scope.expressions[i], level + 1);
+            _dplb_print(dpl, node->as.scope.expressions[i], level + 1);
         }
 
         for (size_t i = 0; i < level; ++i) {
@@ -2187,7 +2187,7 @@ void _dplc_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         }
         printf("scope_index %zu\n", node->as.assignment.scope_index);
 
-        _dplc_print(dpl, node->as.assignment.expression, level + 1);
+        _dplb_print(dpl, node->as.assignment.expression, level + 1);
 
         for (size_t i = 0; i < level; ++i) {
             printf("  ");
@@ -2196,7 +2196,7 @@ void _dplc_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
     }
     break;
     default:
-        DW_UNIMPLEMENTED_MSG("%s", _dplc_nodekind_name(node->kind));
+        DW_UNIMPLEMENTED_MSG("%s", _dplb_nodekind_name(node->kind));
     }
 }
 
@@ -2262,7 +2262,7 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
     }
     break;
     default:
-        DW_UNIMPLEMENTED_MSG("`%s`", _dplc_nodekind_name(node->kind));
+        DW_UNIMPLEMENTED_MSG("`%s`", _dplb_nodekind_name(node->kind));
     }
 }
 
@@ -2277,19 +2277,19 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
         printf("\n");
     }
 
-    _dplc_bind(dpl);
+    _dplb_bind(dpl);
     if (dpl->debug)
     {
         for (size_t i = 0; i < da_size(dpl->user_functions); ++i) {
             DPL_UserFunction* uf = &dpl->user_functions[i];
             DPL_Function* f = _dplf_find_by_handle(dpl, uf->function_handle);
             printf("### "SV_Fmt" (arity: %zu) ###\n", SV_Arg(f->name), uf->arity);
-            _dplc_print(dpl, uf->body, 0);
+            _dplb_print(dpl, uf->body, 0);
             printf("\n");
         }
 
         printf("### program ###\n");
-        _dplc_print(dpl, dpl->bound_tree.root, 0);
+        _dplb_print(dpl, dpl->bound_tree.root, 0);
         printf("\n");
     }
 
