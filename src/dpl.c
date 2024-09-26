@@ -160,8 +160,8 @@ void dpl_free(DPL *dpl)
     // parser freeing
     arena_free(&dpl->tree.memory);
 
-    // calltree freeing
-    arena_free(&dpl->calltree.memory);
+    // bound tree freeing
+    arena_free(&dpl->bound_tree.memory);
 
     // symbol stack freeing
     da_free(dpl->symbol_stack.symbols);
@@ -1477,20 +1477,20 @@ void _dplc_scopes_end_scope(DPL* dpl) {
     da_pop(dpl->scope_stack);
 }
 
-void _dplc_move_nodelist(DPL* dpl, da_array(DPL_CallTree_Node*) list, size_t *target_count, DPL_CallTree_Node*** target_items) {
+void _dplc_move_nodelist(DPL* dpl, da_array(DPL_Bound_Node*) list, size_t *target_count, DPL_Bound_Node*** target_items) {
     *target_count = da_size(list);
     if (da_some(list)) {
-        *target_items = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node*) * da_size(list));
-        memcpy(*target_items, list, sizeof(DPL_CallTree_Node*) * da_size(list));
+        *target_items = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node*) * da_size(list));
+        memcpy(*target_items, list, sizeof(DPL_Bound_Node*) * da_size(list));
         da_free(list);
     }
 }
 
-DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
+DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
-DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
+DPL_Bound_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
 {
-    DPL_CallTree_Node* operand = _dplc_bind_node(dpl, node->as.unary.operand);
+    DPL_Bound_Node* operand = _dplc_bind_node(dpl, node->as.unary.operand);
     if (!operand) {
         DPL_AST_ERROR(dpl, node, "Cannot bind operand of unary expression.");
     }
@@ -1500,13 +1500,13 @@ DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* fu
                                  nob_sv_from_cstr(function_name),
                                  operand->type_handle);
     if (function) {
-        DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+        DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
 
-        da_array(DPL_CallTree_Node*) temp_arguments = 0;
+        da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, operand);
         _dplc_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
 
@@ -1520,13 +1520,13 @@ DPL_CallTree_Node* _dplc_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* fu
 }
 
 
-DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
+DPL_Bound_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
 {
-    DPL_CallTree_Node* lhs = _dplc_bind_node(dpl, node->as.binary.left);
+    DPL_Bound_Node* lhs = _dplc_bind_node(dpl, node->as.binary.left);
     if (!lhs) {
         DPL_AST_ERROR(dpl, node, "Cannot bind left-hand side of binary expression.");
     }
-    DPL_CallTree_Node* rhs = _dplc_bind_node(dpl, node->as.binary.right);
+    DPL_Bound_Node* rhs = _dplc_bind_node(dpl, node->as.binary.right);
     if (!rhs) {
         DPL_AST_ERROR(dpl, node, "Cannot bind right-hand side of binary expression.");
     }
@@ -1536,13 +1536,13 @@ DPL_CallTree_Node* _dplc_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* f
                                  nob_sv_from_cstr(function_name),
                                  lhs->type_handle, rhs->type_handle);
     if (function) {
-        DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+        DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
 
-        da_array(DPL_CallTree_Node*) temp_arguments = 0;
+        da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, lhs);
         da_add(temp_arguments, rhs);
         _dplc_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
@@ -1563,17 +1563,17 @@ void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data
     dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
-DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
+DPL_Bound_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 {
-    DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+    DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
     result_ctn->kind = CALLTREE_NODE_FUNCTIONCALL;
 
     DPL_Handles argument_types = {0};
 
     DPL_Ast_FunctionCall fc = node->as.function_call;
-    da_array(DPL_CallTree_Node*) temp_arguments = 0;
+    da_array(DPL_Bound_Node*) temp_arguments = 0;
     for (size_t i = 0; i < fc.argument_count; ++i) {
-        DPL_CallTree_Node* arg_ctn = _dplc_bind_node(dpl, fc.arguments[i]);
+        DPL_Bound_Node* arg_ctn = _dplc_bind_node(dpl, fc.arguments[i]);
         if (!arg_ctn) {
             DPL_AST_ERROR(dpl, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
@@ -1585,7 +1585,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 
     DPL_Symbol* function_symbol = _dplc_symbols_lookup_function(dpl, fc.name.text, &argument_types);
     if (function_symbol) {
-        DPL_CallTree_Function* f = &function_symbol->as.function;
+        DPL_Symbol_Function* f = &function_symbol->as.function;
         if (!f->used) {
             f->used = true;
             f->user_handle = da_size(dpl->user_functions);
@@ -1624,7 +1624,7 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     {
         nob_sb_append_sv(&signature_builder, fc.name.text);
         nob_sb_append_cstr(&signature_builder, "(");
-        DPL_CallTree_Node** arguments = result_ctn->as.function_call.arguments;
+        DPL_Bound_Node** arguments = result_ctn->as.function_call.arguments;
         size_t arguments_count =  result_ctn->as.function_call.arguments_count;
         for (size_t i = 0; i < arguments_count; ++i) {
             if (i > 0) {
@@ -1640,18 +1640,18 @@ DPL_CallTree_Node* _dplc_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     DPL_AST_ERROR(dpl, node, "Cannot resolve function `%s`.", signature_builder.items);
 }
 
-DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
+DPL_Bound_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
 {
     _dplc_symbols_begin_scope(dpl);
     _dplc_scopes_begin_scope(dpl);
 
-    DPL_CallTree_Node* result_ctn = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+    DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
     result_ctn->kind = CALLTREE_NODE_SCOPE;
 
     DPL_Ast_Scope scope = node->as.scope;
-    da_array(DPL_CallTree_Node*) temp_expressions = 0;
+    da_array(DPL_Bound_Node*) temp_expressions = 0;
     for (size_t i = 0; i < scope.expression_count; ++i) {
-        DPL_CallTree_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
+        DPL_Bound_Node* expr_ctn = _dplc_bind_node(dpl, scope.expressions[i]);
         if (!expr_ctn) {
             continue;
         }
@@ -1668,7 +1668,7 @@ DPL_CallTree_Node* _dplc_bind_scope(DPL* dpl, DPL_Ast_Node* node)
 
 Nob_String_View _dplc_unescape_string(DPL* dpl, Nob_String_View escaped_string) {
     // unescape source string literal
-    char* unescaped_string = arena_alloc(&dpl->calltree.memory, sizeof(char) * (escaped_string.count - 2 + 1));
+    char* unescaped_string = arena_alloc(&dpl->bound_tree.memory, sizeof(char) * (escaped_string.count - 2 + 1));
     // -2 for quotes; +1 for terminating null byte
 
     const char *source_pos = escaped_string.data + 1;
@@ -1701,28 +1701,28 @@ Nob_String_View _dplc_unescape_string(DPL* dpl, Nob_String_View escaped_string) 
     return nob_sv_from_cstr(unescaped_string);
 }
 
-DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
+DPL_Bound_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     switch (node->kind) {
     case AST_NODE_LITERAL: {
         DPL_Token value = node->as.literal.value;
         switch (value.kind) {
         case TOKEN_NUMBER:
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->number_type_handle,
                 .as.number = atof(nob_temp_sv_to_cstr(value.text)),
             };
         case TOKEN_STRING:
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->string_type_handle,
                 .as.string = _dplc_unescape_string(dpl, value.text),
             };
         case TOKEN_TRUE:
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->boolean_type_handle,
                 .as.boolean = true,
             };
         case TOKEN_FALSE:
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->boolean_type_handle,
                 .as.boolean = false,
             };
@@ -1733,19 +1733,19 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     break;
     case AST_NODE_BINARY: {
         DPL_Token operator = node->as.binary.operator;
-        DPL_CallTree_Value lhs_value = _dplc_fold_constant(dpl, node->as.binary.left);
-        DPL_CallTree_Value rhs_value = _dplc_fold_constant(dpl, node->as.binary.right);
+        DPL_Bound_Value lhs_value = _dplc_fold_constant(dpl, node->as.binary.left);
+        DPL_Bound_Value rhs_value = _dplc_fold_constant(dpl, node->as.binary.right);
 
         switch (operator.kind) {
         case TOKEN_PLUS: {
             if (lhs_value.type_handle == dpl->number_type_handle && rhs_value.type_handle == dpl->number_type_handle) {
-                return (DPL_CallTree_Value) {
+                return (DPL_Bound_Value) {
                     .type_handle = dpl->number_type_handle,
                     .as.number = lhs_value.as.number + rhs_value.as.number,
                 };
             }
             if (lhs_value.type_handle == dpl->string_type_handle && rhs_value.type_handle == dpl->string_type_handle) {
-                return (DPL_CallTree_Value) {
+                return (DPL_Bound_Value) {
                     .type_handle = dpl->string_type_handle,
                     .as.string = nob_sv_from_cstr(nob_temp_sprintf(SV_Fmt SV_Fmt, SV_Arg(lhs_value.as.string), SV_Arg(rhs_value.as.string))),
                 };
@@ -1765,7 +1765,7 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                               _dpll_token_kind_name(operator.kind));
             }
 
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number - rhs_value.as.number,
             };
@@ -1781,7 +1781,7 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                                 _dpll_token_kind_name(operator.kind));
             }
 
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number * rhs_value.as.number,
             };
@@ -1797,7 +1797,7 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                                 _dpll_token_kind_name(operator.kind));
             }
 
-            return (DPL_CallTree_Value) {
+            return (DPL_Bound_Value) {
                 .type_handle = dpl->number_type_handle,
                 .as.number = lhs_value.as.number / rhs_value.as.number,
             };
@@ -1827,7 +1827,7 @@ DPL_CallTree_Value _dplc_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     }
 }
 
-DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
+DPL_Bound_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
     {
@@ -1835,14 +1835,14 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         switch (node->as.literal.value.kind)
         {
         case TOKEN_NUMBER: {
-            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->number_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
-            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->string_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
@@ -1851,7 +1851,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         break;
         case TOKEN_TRUE:
         case TOKEN_FALSE: {
-            DPL_CallTree_Node* calltree_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             calltree_node->kind = CALLTREE_NODE_VALUE;
             calltree_node->type_handle = dpl->boolean_type_handle;
             calltree_node->as.value = _dplc_fold_constant(dpl, node);
@@ -1939,7 +1939,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
             return NULL;
         } else {
-            DPL_CallTree_Node* expression = _dplc_bind_node(dpl, decl->initialization);
+            DPL_Bound_Node* expression = _dplc_bind_node(dpl, decl->initialization);
 
             DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
             if (!declared_type) {
@@ -1980,7 +1980,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         switch (symbol->kind) {
         case SYMBOL_CONSTANT: {
-            DPL_CallTree_Node* node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             node->kind = CALLTREE_NODE_VALUE;
             node->type_handle = symbol->as.constant.type_handle;
             node->as.value = symbol->as.constant;
@@ -1988,7 +1988,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
         break;
         case SYMBOL_VAR: {
-            DPL_CallTree_Node* node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             node->kind = CALLTREE_NODE_VARREF;
             node->type_handle = symbol->as.var.type_handle;
             node->as.varref = symbol->as.var.scope_index;
@@ -1996,7 +1996,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
         break;
         case SYMBOL_ARGUMENT: {
-            DPL_CallTree_Node* node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+            DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             node->kind = CALLTREE_NODE_ARGREF;
             node->type_handle = symbol->as.argument.type_handle;
             node->as.argref = symbol->as.argument.scope_index;
@@ -2026,7 +2026,7 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
                           _dplc_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
         }
 
-        DPL_CallTree_Node* ct_node = arena_alloc(&dpl->calltree.memory, sizeof(DPL_CallTree_Node));
+        DPL_Bound_Node* ct_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         ct_node->kind = CALLTREE_NODE_ASSIGNMENT;
         ct_node->type_handle = symbol->as.var.type_handle;
         ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
@@ -2105,10 +2105,10 @@ DPL_CallTree_Node* _dplc_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
 void _dplc_bind(DPL* dpl)
 {
-    dpl->calltree.root = _dplc_bind_node(dpl, dpl->tree.root);
+    dpl->bound_tree.root = _dplc_bind_node(dpl, dpl->tree.root);
 }
 
-void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
+void _dplc_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
     for (size_t i = 0; i < level; ++i) {
         printf("  ");
     }
@@ -2202,7 +2202,7 @@ void _dplc_print(DPL* dpl, DPL_CallTree_Node* node, size_t level) {
 
 // PROGRAM GENERATION
 
-void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
+void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
     case CALLTREE_NODE_VALUE: {
@@ -2220,7 +2220,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     }
     break;
     case CALLTREE_NODE_FUNCTIONCALL: {
-        DPL_CallTree_FunctionCall f = node->as.function_call;
+        DPL_Bound_FunctionCall f = node->as.function_call;
         for (size_t i = 0; i < f.arguments_count; ++i) {
             _dplg_generate(dpl, f.arguments[i], program);
         }
@@ -2230,7 +2230,7 @@ void _dplg_generate(DPL* dpl, DPL_CallTree_Node* node, DPL_Program* program) {
     }
     break;
     case CALLTREE_NODE_SCOPE: {
-        DPL_CallTree_Scope s = node->as.scope;
+        DPL_Bound_Scope s = node->as.scope;
         bool prev_was_persistent = false;
         size_t persistent_count = 0;
         for (size_t i = 0; i < s.expressions_count; ++i) {
@@ -2289,7 +2289,7 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
         }
 
         printf("### program ###\n");
-        _dplc_print(dpl, dpl->calltree.root, 0);
+        _dplc_print(dpl, dpl->bound_tree.root, 0);
         printf("\n");
     }
 
@@ -2301,7 +2301,7 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
     }
 
     program->entry = da_size(program->code);
-    _dplg_generate(dpl, dpl->calltree.root, program);
+    _dplg_generate(dpl, dpl->bound_tree.root, program);
     if (dpl->debug)
     {
         dplp_print(program);
