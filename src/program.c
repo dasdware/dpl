@@ -167,6 +167,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "POP";
     case INST_NEGATE:
         return "NEGATE";
+    case INST_NOT:
+        return "NOT";
     case INST_ADD:
         return "ADD";
     case INST_SUBTRACT:
@@ -303,6 +305,7 @@ void dplp_print(DPL_Program *program) {
         case INST_NOOP:
         case INST_POP:
         case INST_NEGATE:
+        case INST_NOT:
         case INST_ADD:
         case INST_SUBTRACT:
         case INST_MULTIPLY:

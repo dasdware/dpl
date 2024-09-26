@@ -17,6 +17,7 @@ typedef enum
     INST_PUSH_BOOLEAN,
     INST_POP,
     INST_NEGATE,
+    INST_NOT,
     INST_ADD,
     INST_SUBTRACT,
     INST_MULTIPLY,

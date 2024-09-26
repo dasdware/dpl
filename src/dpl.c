@@ -93,6 +93,10 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     _dpl_add_handle(&comparison_string.arguments, dpl->string_type_handle);
     comparison_string.returns = dpl->boolean_type_handle;
 
+    DPL_Signature unary_boolean = {0};
+    _dpl_add_handle(&unary_boolean.arguments, dpl->boolean_type_handle);
+    unary_boolean.returns = dpl->boolean_type_handle;
+
     DPL_Signature comparison_boolean = {0};
     _dpl_add_handle(&comparison_boolean.arguments, dpl->boolean_type_handle);
     _dpl_add_handle(&comparison_boolean.arguments, dpl->boolean_type_handle);
@@ -100,6 +104,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 
     // unary operators
     _dplf_register(dpl, nob_sv_from_cstr("negate"), &unary_number, _dplg_generate_inst, (void*) INST_NEGATE);
+    _dplf_register(dpl, nob_sv_from_cstr("not"), &unary_boolean, _dplg_generate_inst, (void*) INST_NOT);
 
     // binary operators
     _dplf_register(dpl, nob_sv_from_cstr("add"), &binary_number, _dplg_generate_inst, (void*) INST_ADD);
@@ -1869,6 +1874,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         switch(operator.kind) {
         case TOKEN_MINUS:
             return _dplb_bind_unary(dpl, node, "negate");
+        case TOKEN_BANG:
+            return _dplb_bind_unary(dpl, node, "not");
         default:
             break;
         }
