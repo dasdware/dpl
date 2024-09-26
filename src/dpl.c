@@ -1235,7 +1235,7 @@ DPL_Ast_Node *_dplp_parser_dot(DPL* dpl)
 DPL_Ast_Node* _dplp_parser_unary(DPL* dpl)
 {
     DPL_Token operator_candidate = _dplp_peek_token(dpl);
-    if (operator_candidate.kind == TOKEN_MINUS) {
+    if (operator_candidate.kind == TOKEN_MINUS || operator_candidate.kind == TOKEN_BANG) {
         DPL_Token operator = _dplp_next_token(dpl);
         DPL_Ast_Node* operand = _dplp_parser_unary(dpl);
 
