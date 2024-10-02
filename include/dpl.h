@@ -130,6 +130,8 @@ typedef enum
     TOKEN_KEYWORD_CONSTANT,
     TOKEN_KEYWORD_FUNCTION,
     TOKEN_KEYWORD_VAR,
+    TOKEN_KEYWORD_IF,
+    TOKEN_KEYWORD_ELSE,
 } DPL_TokenKind;
 
 typedef struct
@@ -152,6 +154,7 @@ typedef enum
     AST_NODE_SYMBOL,
     AST_NODE_ASSIGNMENT,
     AST_NODE_FUNCTION,
+    AST_NODE_CONDITIONAL,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -173,6 +176,13 @@ typedef struct
     DPL_Ast_Node *left;
     DPL_Ast_Node *right;
 } DPL_Ast_Binary;
+
+typedef struct
+{
+    DPL_Ast_Node *condition;
+    DPL_Ast_Node *then_clause;
+    DPL_Ast_Node *else_clause;
+} DPL_Ast_Conditional;
 
 typedef struct
 {
@@ -237,6 +247,7 @@ struct _DPL_Ast_Node
         DPL_Token symbol;
         DPL_Ast_Assignment assignment;
         DPL_Ast_Function function;
+        DPL_Ast_Conditional conditional;
     } as;
 };
 
@@ -251,13 +262,14 @@ typedef struct
 
 typedef enum
 {
-    CALLTREE_NODE_VALUE = 0,
-    CALLTREE_NODE_FUNCTIONCALL,
-    CALLTREE_NODE_SCOPE,
-    CALLTREE_NODE_VARREF,
-    CALLTREE_NODE_ARGREF,
-    CALLTREE_NODE_ASSIGNMENT,
-} DPL_CallTreeNodeKind;
+    BOUND_NODE_VALUE = 0,
+    BOUND_NODE_FUNCTIONCALL,
+    BOUND_NODE_SCOPE,
+    BOUND_NODE_VARREF,
+    BOUND_NODE_ARGREF,
+    BOUND_NODE_ASSIGNMENT,
+    BOUND_NODE_CONDITIONAL,
+} DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
 
@@ -288,9 +300,15 @@ typedef struct {
     DPL_Bound_Node* expression;
 } DPL_Bound_Assignment;
 
+typedef struct {
+    DPL_Bound_Node* condition;
+    DPL_Bound_Node* then_clause;
+    DPL_Bound_Node* else_clause;
+} DPL_Bound_Conditional;
+
 struct _DPL_Bound_Node
 {
-    DPL_CallTreeNodeKind kind;
+    DPL_BoundNodeKind kind;
     DPL_Handle type_handle;
     bool persistent;
     union {
@@ -300,6 +318,7 @@ struct _DPL_Bound_Node
         size_t varref;
         size_t argref;
         DPL_Bound_Assignment assignment;
+        DPL_Bound_Conditional conditional;
     } as;
 };
 

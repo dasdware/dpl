@@ -286,6 +286,25 @@ void dplv_run(DPL_VirtualMachine *vm)
             _dplv_pop_callframe(vm);
         };
         break;
+        case INST_JUMP: {
+            uint16_t jump = bs_read_u16(&program);
+            program.position += jump;
+        }
+        break;
+        case INST_JUMP_IF_FALSE: {
+            uint16_t jump = bs_read_u16(&program);
+            if (!TOP0.as.boolean) {
+                program.position += jump;
+            }
+        }
+        break;
+        case INST_JUMP_IF_TRUE: {
+            uint16_t jump = bs_read_u16(&program);
+            if (TOP0.as.boolean) {
+                program.position += jump;
+            }
+        }
+        break;
         default:
             printf("\n=======================================\n");
             _dplv_trace_stack(vm);

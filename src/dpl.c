@@ -755,6 +755,10 @@ DPL_Token _dpll_next_token(DPL* dpl)
             t.kind = TOKEN_KEYWORD_FUNCTION;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
             t.kind = TOKEN_KEYWORD_VAR;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("if"))) {
+            t.kind = TOKEN_KEYWORD_IF;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("else"))) {
+            t.kind = TOKEN_KEYWORD_ELSE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("true"))) {
             t.kind = TOKEN_TRUE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("false"))) {
@@ -825,6 +829,10 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "FUNCTION";
     case TOKEN_KEYWORD_VAR:
         return "VAR";
+    case TOKEN_KEYWORD_IF:
+        return "IF";
+    case TOKEN_KEYWORD_ELSE:
+        return "ELSE";
 
     case TOKEN_WHITESPACE:
         return "WHITESPACE";
@@ -911,6 +919,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_ASSIGNMENT";
     case AST_NODE_FUNCTION:
         return "AST_NODE_FUNCTION";
+    case AST_NODE_CONDITIONAL:
+        return "AST_NODE_CONDITIONAL";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1004,6 +1014,23 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print_indent(level + 1);
         printf("<body>\n");
         _dpla_print(function.body, level + 2);
+    }
+    break;
+    case AST_NODE_CONDITIONAL: {
+        DPL_Ast_Conditional conditional = node->as.conditional;
+        printf("\n");
+
+        _dpla_print_indent(level + 1);
+        printf("<condition>\n");
+        _dpla_print(conditional.condition, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<then_clause>\n");
+        _dpla_print(conditional.then_clause, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<else_clause>\n");
+        _dpla_print(conditional.else_clause, level + 2);
     }
     break;
     default: {
@@ -1338,9 +1365,33 @@ DPL_Ast_Node* _dplp_parse_equality(DPL* dpl)
     return expression;
 }
 
+DPL_Ast_Node* _dplp_parse_conditional(DPL* dpl)
+{
+    DPL_Token if_keyword_candidate = _dplp_peek_token(dpl);
+
+    if (if_keyword_candidate.kind == TOKEN_KEYWORD_IF) {
+        _dplp_next_token(dpl);
+
+        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+        DPL_Ast_Node* condition = _dplp_parse_expression(dpl);
+        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+        DPL_Ast_Node* then_clause = _dplp_parse_expression(dpl);
+        _dplp_expect_token(dpl, TOKEN_KEYWORD_ELSE);
+        DPL_Ast_Node* else_clause = _dplp_parse_expression(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_CONDITIONAL, if_keyword_candidate, else_clause->last);
+        new_expression->as.conditional.condition = condition;
+        new_expression->as.conditional.then_clause = then_clause;
+        new_expression->as.conditional.else_clause = else_clause;
+        return new_expression;
+    }
+
+    return _dplp_parse_equality(dpl);
+}
+
 DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
 {
-    DPL_Ast_Node* target = _dplp_parse_equality(dpl);
+    DPL_Ast_Node* target = _dplp_parse_conditional(dpl);
 
     if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
         if (target->kind != AST_NODE_SYMBOL) {
@@ -1394,20 +1445,22 @@ void _dplp_parse(DPL* dpl)
 
 // CALLTREE
 
-const char* _dplb_nodekind_name(DPL_CallTreeNodeKind kind) {
+const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
     switch (kind) {
-    case CALLTREE_NODE_VALUE:
-        return "CALLTREE_NODE_VALUE";
-    case CALLTREE_NODE_FUNCTIONCALL:
-        return "CALLTREE_NODE_FUNCTIONCALL";
-    case CALLTREE_NODE_SCOPE:
-        return "CALLTREE_NODE_SCOPE";
-    case CALLTREE_NODE_VARREF:
-        return "CALLTREE_NODE_VARREF";
-    case CALLTREE_NODE_ARGREF:
-        return "CALLTREE_NODE_ARGREF";
-    case CALLTREE_NODE_ASSIGNMENT:
-        return "CALLTREE_NODE_ASSIGNMENT";
+    case BOUND_NODE_VALUE:
+        return "BOUND_NODE_VALUE";
+    case BOUND_NODE_FUNCTIONCALL:
+        return "BOUND_NODE_FUNCTIONCALL";
+    case BOUND_NODE_SCOPE:
+        return "BOUND_NODE_SCOPE";
+    case BOUND_NODE_VARREF:
+        return "BOUND_NODE_VARREF";
+    case BOUND_NODE_ARGREF:
+        return "BOUND_NODE_ARGREF";
+    case BOUND_NODE_ASSIGNMENT:
+        return "BOUND_NODE_ASSIGNMENT";
+    case BOUND_NODE_CONDITIONAL:
+        return "BOUND_NODE_CONDITIONAL";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1506,7 +1559,7 @@ DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
                                  operand->type_handle);
     if (function) {
         DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
+        calltree_node->kind = BOUND_NODE_FUNCTIONCALL;
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
@@ -1542,7 +1595,7 @@ DPL_Bound_Node* _dplb_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* func
                                  lhs->type_handle, rhs->type_handle);
     if (function) {
         DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
+        calltree_node->kind = BOUND_NODE_FUNCTIONCALL;
         calltree_node->type_handle = function->signature.returns;
 
         calltree_node->as.function_call.function_handle = function->handle;
@@ -1571,7 +1624,7 @@ void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data
 DPL_Bound_Node* _dplb_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 {
     DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-    result_ctn->kind = CALLTREE_NODE_FUNCTIONCALL;
+    result_ctn->kind = BOUND_NODE_FUNCTIONCALL;
 
     DPL_Handles argument_types = {0};
 
@@ -1651,7 +1704,7 @@ DPL_Bound_Node* _dplb_bind_scope(DPL* dpl, DPL_Ast_Node* node)
     _dplb_scopes_begin_scope(dpl);
 
     DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-    result_ctn->kind = CALLTREE_NODE_SCOPE;
+    result_ctn->kind = BOUND_NODE_SCOPE;
 
     DPL_Ast_Scope scope = node->as.scope;
     da_array(DPL_Bound_Node*) temp_expressions = 0;
@@ -1841,14 +1894,14 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         {
         case TOKEN_NUMBER: {
             DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->kind = BOUND_NODE_VALUE;
             calltree_node->type_handle = dpl->number_type_handle;
             calltree_node->as.value = _dplb_fold_constant(dpl, node);
             return calltree_node;
         }
         case TOKEN_STRING: {
             DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->kind = BOUND_NODE_VALUE;
             calltree_node->type_handle = dpl->string_type_handle;
             calltree_node->as.value = _dplb_fold_constant(dpl, node);
             return calltree_node;
@@ -1857,7 +1910,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         case TOKEN_TRUE:
         case TOKEN_FALSE: {
             DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            calltree_node->kind = CALLTREE_NODE_VALUE;
+            calltree_node->kind = BOUND_NODE_VALUE;
             calltree_node->type_handle = dpl->boolean_type_handle;
             calltree_node->as.value = _dplb_fold_constant(dpl, node);
             return calltree_node;
@@ -1988,7 +2041,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         switch (symbol->kind) {
         case SYMBOL_CONSTANT: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            node->kind = CALLTREE_NODE_VALUE;
+            node->kind = BOUND_NODE_VALUE;
             node->type_handle = symbol->as.constant.type_handle;
             node->as.value = symbol->as.constant;
             return node;
@@ -1996,7 +2049,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         break;
         case SYMBOL_VAR: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            node->kind = CALLTREE_NODE_VARREF;
+            node->kind = BOUND_NODE_VARREF;
             node->type_handle = symbol->as.var.type_handle;
             node->as.varref = symbol->as.var.scope_index;
             return node;
@@ -2004,7 +2057,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         break;
         case SYMBOL_ARGUMENT: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            node->kind = CALLTREE_NODE_ARGREF;
+            node->kind = BOUND_NODE_ARGREF;
             node->type_handle = symbol->as.argument.type_handle;
             node->as.argref = symbol->as.argument.scope_index;
             return node;
@@ -2034,7 +2087,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
 
         DPL_Bound_Node* ct_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        ct_node->kind = CALLTREE_NODE_ASSIGNMENT;
+        ct_node->kind = BOUND_NODE_ASSIGNMENT;
         ct_node->type_handle = symbol->as.var.type_handle;
         ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
         ct_node->as.assignment.expression = _dplb_bind_node(dpl, node->as.assignment.expression);
@@ -2103,8 +2156,36 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         da_add(dpl->symbol_stack.symbols, s);
         return NULL;
     }
+    case AST_NODE_CONDITIONAL: {
+        DPL_Ast_Conditional conditional =  node->as.conditional;
+
+        DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, conditional.condition);
+        if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_AST_ERROR(dpl, conditional.condition,
+                          "Condition operand of a conditional must be of type `boolean`.");
+        }
+
+        DPL_Bound_Node* bound_then_clause = _dplb_bind_node(dpl, conditional.then_clause);
+        DPL_Bound_Node* bound_else_clause = _dplb_bind_node(dpl, conditional.else_clause);
+        if (bound_then_clause->type_handle != bound_else_clause->type_handle) {
+            DPL_Type* then_clause_type = _dplt_find_by_handle(dpl, bound_then_clause->type_handle);
+            DPL_Type* else_clause_type = _dplt_find_by_handle(dpl, bound_else_clause->type_handle);
+
+            DPL_AST_ERROR(dpl, node, "Types of then and else clause operands of a conditional must match. Then clause type is `"SV_Fmt"`, else clause type is `"SV_Fmt"`.",
+                          SV_Arg(then_clause_type->name), SV_Arg(else_clause_type->name));
+        }
+
+        DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        node->kind = BOUND_NODE_CONDITIONAL;
+        node->type_handle = bound_then_clause->type_handle;
+        node->as.conditional.condition = bound_condition;
+        node->as.conditional.then_clause = bound_then_clause;
+        node->as.conditional.else_clause = bound_else_clause;
+        return node;
+    }
+    break;
     default:
-        DPL_AST_ERROR(dpl, node, "Cannot resolve function call tree for AST node of kind \"%s\".",
+        DPL_AST_ERROR(dpl, node, "Cannot bind AST node of kind \"%s\".",
                       _dpla_node_kind_name(node->kind));
     }
 
@@ -2137,7 +2218,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
     }
 
     switch(node->kind) {
-    case CALLTREE_NODE_FUNCTIONCALL: {
+    case BOUND_NODE_FUNCTIONCALL: {
         DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function_call.function_handle);
         printf(SV_Fmt"(\n", SV_Arg(function->name));
 
@@ -2152,7 +2233,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
 
     }
     break;
-    case CALLTREE_NODE_VALUE: {
+    case BOUND_NODE_VALUE: {
         printf("Value `");
         if (node->as.value.type_handle == dpl->number_type_handle) {
             printf("%f", node->as.value.as.number);
@@ -2165,7 +2246,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf("`\n");
     }
     break;
-    case CALLTREE_NODE_SCOPE: {
+    case BOUND_NODE_SCOPE: {
         printf("$scope(\n");
 
         for (size_t i = 0; i < node->as.scope.expressions_count; ++i) {
@@ -2178,15 +2259,15 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf(")\n");
     }
     break;
-    case CALLTREE_NODE_VARREF: {
+    case BOUND_NODE_VARREF: {
         printf("$varref(scope_index = %zu)\n", node->as.varref);
     }
     break;
-    case CALLTREE_NODE_ARGREF: {
+    case BOUND_NODE_ARGREF: {
         printf("$argref(scope_index = %zu)\n", node->as.argref);
     }
     break;
-    case CALLTREE_NODE_ASSIGNMENT: {
+    case BOUND_NODE_ASSIGNMENT: {
         printf("$assignment(\n");
 
         for (size_t i = 0; i < level + 1; ++i) {
@@ -2195,6 +2276,18 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf("scope_index %zu\n", node->as.assignment.scope_index);
 
         _dplb_print(dpl, node->as.assignment.expression, level + 1);
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_CONDITIONAL: {
+        printf("$conditional(\n");
+        _dplb_print(dpl, node->as.conditional.condition, level + 1);
+        _dplb_print(dpl, node->as.conditional.then_clause, level + 1);
+        _dplb_print(dpl, node->as.conditional.else_clause, level + 1);
 
         for (size_t i = 0; i < level; ++i) {
             printf("  ");
@@ -2212,7 +2305,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
 void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
-    case CALLTREE_NODE_VALUE: {
+    case BOUND_NODE_VALUE: {
         if (node->type_handle == dpl->number_type_handle) {
             dplp_write_push_number(program, node->as.value.as.number);
         } else if (node->type_handle == dpl->string_type_handle) {
@@ -2226,7 +2319,7 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         }
     }
     break;
-    case CALLTREE_NODE_FUNCTIONCALL: {
+    case BOUND_NODE_FUNCTIONCALL: {
         DPL_Bound_FunctionCall f = node->as.function_call;
         for (size_t i = 0; i < f.arguments_count; ++i) {
             _dplg_generate(dpl, f.arguments[i], program);
@@ -2236,7 +2329,7 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         function->generator.callback(dpl, program, function->generator.user_data);
     }
     break;
-    case CALLTREE_NODE_SCOPE: {
+    case BOUND_NODE_SCOPE: {
         DPL_Bound_Scope s = node->as.scope;
         bool prev_was_persistent = false;
         size_t persistent_count = 0;
@@ -2258,14 +2351,34 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         }
     }
     break;
-    case CALLTREE_NODE_ARGREF:
-    case CALLTREE_NODE_VARREF: {
+    case BOUND_NODE_ARGREF:
+    case BOUND_NODE_VARREF: {
         dplp_write_push_local(program, node->as.varref);
     }
     break;
-    case CALLTREE_NODE_ASSIGNMENT: {
+    case BOUND_NODE_ASSIGNMENT: {
         _dplg_generate(dpl, node->as.assignment.expression, program);
         dplp_write_store_local(program, node->as.assignment.scope_index);
+    }
+    break;
+    case BOUND_NODE_CONDITIONAL: {
+        _dplg_generate(dpl, node->as.conditional.condition, program);
+
+        // jump over then clause if condition is false
+        size_t then_jump = dplp_write_jump(program, INST_JUMP_IF_FALSE);
+
+        dplp_write_pop(program);
+        _dplg_generate(dpl, node->as.conditional.then_clause, program);
+
+        // jump over else clause if condition is true
+        size_t else_jump = dplp_write_jump(program, INST_JUMP);
+        dplp_patch_jump(program, then_jump);
+
+        // else clause
+        dplp_write_pop(program);
+        _dplg_generate(dpl, node->as.conditional.else_clause, program);
+
+        dplp_patch_jump(program, else_jump);
     }
     break;
     default:
