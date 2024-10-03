@@ -683,6 +683,20 @@ DPL_Token _dpll_next_token(DPL* dpl)
             return _dpll_build_token(dpl, TOKEN_EQUAL_EQUAL);
         }
         break;
+    case '&':
+        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '&')) {
+            _dpll_advance(dpl);
+            _dpll_advance(dpl);
+            return _dpll_build_token(dpl, TOKEN_AND_AND);
+        }
+        break;
+    case '|':
+        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '|')) {
+            _dpll_advance(dpl);
+            _dpll_advance(dpl);
+            return _dpll_build_token(dpl, TOKEN_PIPE_PIPE);
+        }
+        break;
     case '!':
         _dpll_advance(dpl);
         if (_dpll_match(dpl, '=')) {
@@ -755,6 +769,10 @@ DPL_Token _dpll_next_token(DPL* dpl)
             t.kind = TOKEN_KEYWORD_FUNCTION;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("var"))) {
             t.kind = TOKEN_KEYWORD_VAR;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("if"))) {
+            t.kind = TOKEN_KEYWORD_IF;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("else"))) {
+            t.kind = TOKEN_KEYWORD_ELSE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("true"))) {
             t.kind = TOKEN_TRUE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("false"))) {
@@ -807,73 +825,81 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
     switch (kind)
     {
     case TOKEN_NONE:
-        return "NONE";
+        return "<none>";
     case TOKEN_EOF:
-        return "EOF";
+        return "<end of file>";
     case TOKEN_NUMBER:
-        return "NUMBER";
+        return "number literal";
     case TOKEN_STRING:
-        return "STRING";
+        return "string literal";
     case TOKEN_TRUE:
     case TOKEN_FALSE:
-        return "BOOLEAN";
+        return "boolean literal";
     case TOKEN_IDENTIFIER:
-        return "IDENTIFIER";
+        return "<identifier>";
     case TOKEN_KEYWORD_CONSTANT:
-        return "CONSTANT";
+        return "keyword `constant`";
     case TOKEN_KEYWORD_FUNCTION:
-        return "FUNCTION";
+        return "keyword `function`";
     case TOKEN_KEYWORD_VAR:
-        return "VAR";
+        return "keyword `var`";
+    case TOKEN_KEYWORD_IF:
+        return "keyword `if`";
+    case TOKEN_KEYWORD_ELSE:
+        return "keyword `else`";
 
     case TOKEN_WHITESPACE:
-        return "WHITESPACE";
+        return "<whitespace>";
     case TOKEN_COMMENT:
-        return "COMMENT";
+        return "<comment>";
 
     case TOKEN_PLUS:
-        return "PLUS";
+        return "token `+`";
     case TOKEN_MINUS:
-        return "MINUS";
+        return "token `-`";
     case TOKEN_STAR:
-        return "STAR";
+        return "token `*`";
     case TOKEN_SLASH:
-        return "SLASH";
+        return "token `/`";
 
     case TOKEN_LESS:
-        return "LESS";
+        return "token `<`";
     case TOKEN_LESS_EQUAL:
-        return "LESS_EQUAL";
+        return "token `<=`";
     case TOKEN_GREATER:
-        return "GREATER";
+        return "token `>`";
     case TOKEN_GREATER_EQUAL:
-        return "GREATER_EQUAL";
+        return "token `>=`";
     case TOKEN_EQUAL_EQUAL:
-        return "EQUAL_EQUAL";
+        return "token `==`";
     case TOKEN_BANG:
-        return "BANG";
+        return "token `!`";
     case TOKEN_BANG_EQUAL:
-        return "BANG_EQUAL";
+        return "token `!=`";
+    case TOKEN_AND_AND:
+        return "token `&&`";
+    case TOKEN_PIPE_PIPE:
+        return "token `||`";
 
     case TOKEN_DOT:
-        return "DOT";
+        return "token `.`";
     case TOKEN_COLON:
-        return "COLON";
+        return "token `:`";
     case TOKEN_COLON_EQUAL:
-        return "COLON_EQUAL";
+        return "token `:=`";
 
     case TOKEN_OPEN_PAREN:
-        return "OPEN_PAREN";
+        return "token `(`";
     case TOKEN_CLOSE_PAREN:
-        return "CLOSE_PAREN";
+        return "token `)`";
     case TOKEN_OPEN_BRACE:
-        return "OPEN_BRACE";
+        return "token `{`";
     case TOKEN_CLOSE_BRACE:
-        return "CLOSE_BRACE";
+        return "token `}`";
     case TOKEN_COMMA:
-        return "COMMA";
+        return "token `,`";
     case TOKEN_SEMICOLON:
-        return "SEMICOLON";
+        return "token `;`";
 
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
@@ -911,6 +937,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_ASSIGNMENT";
     case AST_NODE_FUNCTION:
         return "AST_NODE_FUNCTION";
+    case AST_NODE_CONDITIONAL:
+        return "AST_NODE_CONDITIONAL";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1006,6 +1034,23 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(function.body, level + 2);
     }
     break;
+    case AST_NODE_CONDITIONAL: {
+        DPL_Ast_Conditional conditional = node->as.conditional;
+        printf("\n");
+
+        _dpla_print_indent(level + 1);
+        printf("<condition>\n");
+        _dpla_print(conditional.condition, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<then_clause>\n");
+        _dpla_print(conditional.then_clause, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<else_clause>\n");
+        _dpla_print(conditional.else_clause, level + 2);
+    }
+    break;
     default: {
         printf("\n");
         break;
@@ -1034,7 +1079,7 @@ DPL_Token _dplp_peek_token(DPL *dpl) {
 DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
     DPL_Token next_token = _dplp_next_token(dpl);
     if (next_token.kind != kind) {
-        DPL_TOKEN_ERROR(dpl, next_token, "Unexpected token `%s`, expected `%s`",
+        DPL_TOKEN_ERROR(dpl, next_token, "Unexpected %s, expected %s.",
                         _dpll_token_kind_name(next_token.kind), _dpll_token_kind_name(kind));
     }
     return next_token;
@@ -1200,12 +1245,12 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         return node;
     }
     default: {
-        DPL_TOKEN_ERROR(dpl, token, "Unexpected token `%s`.", _dpll_token_kind_name(token.kind));
+        DPL_TOKEN_ERROR(dpl, token, "Unexpected %s.", _dpll_token_kind_name(token.kind));
     }
     }
 }
 
-DPL_Ast_Node *_dplp_parser_dot(DPL* dpl)
+DPL_Ast_Node *_dplp_parse_dot(DPL* dpl)
 {
     DPL_Ast_Node* expression = _dplp_parse_primary(dpl);
 
@@ -1237,12 +1282,12 @@ DPL_Ast_Node *_dplp_parser_dot(DPL* dpl)
     return expression;
 }
 
-DPL_Ast_Node* _dplp_parser_unary(DPL* dpl)
+DPL_Ast_Node* _dplp_parse_unary(DPL* dpl)
 {
     DPL_Token operator_candidate = _dplp_peek_token(dpl);
     if (operator_candidate.kind == TOKEN_MINUS || operator_candidate.kind == TOKEN_BANG) {
         DPL_Token operator = _dplp_next_token(dpl);
-        DPL_Ast_Node* operand = _dplp_parser_unary(dpl);
+        DPL_Ast_Node* operand = _dplp_parse_unary(dpl);
 
         DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_UNARY, operator, operand->last);
         new_expression->as.unary.operator = operator;
@@ -1250,17 +1295,17 @@ DPL_Ast_Node* _dplp_parser_unary(DPL* dpl)
         return new_expression;
     }
 
-    return _dplp_parser_dot(dpl);
+    return _dplp_parse_dot(dpl);
 }
 
 DPL_Ast_Node* _dplp_parse_multiplicative(DPL* dpl)
 {
-    DPL_Ast_Node* expression = _dplp_parser_unary(dpl);
+    DPL_Ast_Node* expression = _dplp_parse_unary(dpl);
 
     DPL_Token operator_candidate = _dplp_peek_token(dpl);
     while (operator_candidate.kind == TOKEN_STAR || operator_candidate.kind == TOKEN_SLASH) {
         _dplp_next_token(dpl);
-        DPL_Ast_Node* rhs = _dplp_parser_unary(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_unary(dpl);
 
         DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
@@ -1338,9 +1383,75 @@ DPL_Ast_Node* _dplp_parse_equality(DPL* dpl)
     return expression;
 }
 
+DPL_Ast_Node* _dplp_parse_and(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_equality(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_AND_AND)  {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_equality(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator = operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
+DPL_Ast_Node* _dplp_parse_or(DPL* dpl)
+{
+    DPL_Ast_Node* expression = _dplp_parse_and(dpl);
+
+    DPL_Token operator_candidate = _dplp_peek_token(dpl);
+    while (operator_candidate.kind == TOKEN_PIPE_PIPE)  {
+        _dplp_next_token(dpl);
+        DPL_Ast_Node* rhs = _dplp_parse_and(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator = operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+
+        operator_candidate = _dplp_peek_token(dpl);
+    }
+
+    return expression;
+}
+
+DPL_Ast_Node* _dplp_parse_conditional(DPL* dpl)
+{
+    DPL_Token if_keyword_candidate = _dplp_peek_token(dpl);
+
+    if (if_keyword_candidate.kind == TOKEN_KEYWORD_IF) {
+        _dplp_next_token(dpl);
+
+        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+        DPL_Ast_Node* condition = _dplp_parse_expression(dpl);
+        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+        DPL_Ast_Node* then_clause = _dplp_parse_expression(dpl);
+        _dplp_expect_token(dpl, TOKEN_KEYWORD_ELSE);
+        DPL_Ast_Node* else_clause = _dplp_parse_expression(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_CONDITIONAL, if_keyword_candidate, else_clause->last);
+        new_expression->as.conditional.condition = condition;
+        new_expression->as.conditional.then_clause = then_clause;
+        new_expression->as.conditional.else_clause = else_clause;
+        return new_expression;
+    }
+
+    return _dplp_parse_or(dpl);
+}
+
 DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
 {
-    DPL_Ast_Node* target = _dplp_parse_equality(dpl);
+    DPL_Ast_Node* target = _dplp_parse_conditional(dpl);
 
     if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
         if (target->kind != AST_NODE_SYMBOL) {
@@ -1371,7 +1482,7 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind
     DPL_Token closing_token_candidate = _dplp_peek_token(dpl);
     if (closing_token_candidate.kind == closing_token_kind) {
         DPL_TOKEN_ERROR(dpl, closing_token_candidate,
-                        "Unexpected token `%s`. Expected at least one expression in scope.",
+                        "Unexpected %s. Expected at least one expression in scope.",
                         _dpll_token_kind_name(closing_token_kind));
     }
 
@@ -1394,20 +1505,24 @@ void _dplp_parse(DPL* dpl)
 
 // CALLTREE
 
-const char* _dplb_nodekind_name(DPL_CallTreeNodeKind kind) {
+const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
     switch (kind) {
-    case CALLTREE_NODE_VALUE:
-        return "CALLTREE_NODE_VALUE";
-    case CALLTREE_NODE_FUNCTIONCALL:
-        return "CALLTREE_NODE_FUNCTIONCALL";
-    case CALLTREE_NODE_SCOPE:
-        return "CALLTREE_NODE_SCOPE";
-    case CALLTREE_NODE_VARREF:
-        return "CALLTREE_NODE_VARREF";
-    case CALLTREE_NODE_ARGREF:
-        return "CALLTREE_NODE_ARGREF";
-    case CALLTREE_NODE_ASSIGNMENT:
-        return "CALLTREE_NODE_ASSIGNMENT";
+    case BOUND_NODE_VALUE:
+        return "BOUND_NODE_VALUE";
+    case BOUND_NODE_FUNCTIONCALL:
+        return "BOUND_NODE_FUNCTIONCALL";
+    case BOUND_NODE_SCOPE:
+        return "BOUND_NODE_SCOPE";
+    case BOUND_NODE_VARREF:
+        return "BOUND_NODE_VARREF";
+    case BOUND_NODE_ARGREF:
+        return "BOUND_NODE_ARGREF";
+    case BOUND_NODE_ASSIGNMENT:
+        return "BOUND_NODE_ASSIGNMENT";
+    case BOUND_NODE_CONDITIONAL:
+        return "BOUND_NODE_CONDITIONAL";
+    case BOUND_NODE_LOGICAL_OPERATOR:
+        return "BOUND_NODE_LOGICAL_OPERATOR";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1505,17 +1620,17 @@ DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
                                  nob_sv_from_cstr(function_name),
                                  operand->type_handle);
     if (function) {
-        DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
-        calltree_node->type_handle = function->signature.returns;
+        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        bound_node->kind = BOUND_NODE_FUNCTIONCALL;
+        bound_node->type_handle = function->signature.returns;
 
-        calltree_node->as.function_call.function_handle = function->handle;
+        bound_node->as.function_call.function_handle = function->handle;
 
         da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, operand);
-        _dplb_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
+        _dplb_move_nodelist(dpl, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
 
-        return calltree_node;
+        return bound_node;
     }
 
     DPL_Type* operand_type = _dplt_find_by_handle(dpl, operand->type_handle);
@@ -1541,18 +1656,18 @@ DPL_Bound_Node* _dplb_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* func
                                  nob_sv_from_cstr(function_name),
                                  lhs->type_handle, rhs->type_handle);
     if (function) {
-        DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        calltree_node->kind = CALLTREE_NODE_FUNCTIONCALL;
-        calltree_node->type_handle = function->signature.returns;
+        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        bound_node->kind = BOUND_NODE_FUNCTIONCALL;
+        bound_node->type_handle = function->signature.returns;
 
-        calltree_node->as.function_call.function_handle = function->handle;
+        bound_node->as.function_call.function_handle = function->handle;
 
         da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, lhs);
         da_add(temp_arguments, rhs);
-        _dplb_move_nodelist(dpl, temp_arguments, &calltree_node->as.function_call.arguments_count, &calltree_node->as.function_call.arguments);
+        _dplb_move_nodelist(dpl, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
 
-        return calltree_node;
+        return bound_node;
     }
 
     DPL_Type* lhs_type = _dplt_find_by_handle(dpl, lhs->type_handle);
@@ -1571,7 +1686,7 @@ void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data
 DPL_Bound_Node* _dplb_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
 {
     DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-    result_ctn->kind = CALLTREE_NODE_FUNCTIONCALL;
+    result_ctn->kind = BOUND_NODE_FUNCTIONCALL;
 
     DPL_Handles argument_types = {0};
 
@@ -1651,7 +1766,7 @@ DPL_Bound_Node* _dplb_bind_scope(DPL* dpl, DPL_Ast_Node* node)
     _dplb_scopes_begin_scope(dpl);
 
     DPL_Bound_Node* result_ctn = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-    result_ctn->kind = CALLTREE_NODE_SCOPE;
+    result_ctn->kind = BOUND_NODE_SCOPE;
 
     DPL_Ast_Scope scope = node->as.scope;
     da_array(DPL_Bound_Node*) temp_expressions = 0;
@@ -1732,7 +1847,7 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                 .as.boolean = false,
             };
         default:
-            DPL_TOKEN_ERROR(dpl, value, "Cannot fold literal constant of type `%s`.", _dpll_token_kind_name(value.kind));
+            DPL_TOKEN_ERROR(dpl, value, "Cannot fold %s.", _dpll_token_kind_name(value.kind));
         }
     }
     break;
@@ -1756,17 +1871,17 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
                 };
             }
 
-            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Both operands must be either of type `number` or `string`.",
+            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator %s: Both operands must be either of type `number` or `string`.",
                             _dpll_token_kind_name(operator.kind));
 
         }
         case TOKEN_MINUS: {
             if (lhs_value.type_handle != dpl->number_type_handle) {
-                DPL_AST_ERROR(dpl, node->as.binary.left, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
+                DPL_AST_ERROR(dpl, node->as.binary.left, "Cannot fold constant for binary operator %s: Left operand must be of type `number`.",
                               _dpll_token_kind_name(operator.kind));
             }
             if (rhs_value.type_handle != dpl->number_type_handle) {
-                DPL_AST_ERROR(dpl, node->as.binary.right, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
+                DPL_AST_ERROR(dpl, node->as.binary.right, "Cannot fold constant for binary operator %s: Right operand must be of type `number`.",
                               _dpll_token_kind_name(operator.kind));
             }
 
@@ -1778,11 +1893,11 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         break;
         case TOKEN_STAR: {
             if (lhs_value.type_handle != dpl->number_type_handle) {
-                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator %s: Left operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
             if (rhs_value.type_handle != dpl->number_type_handle) {
-                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator %s: Right operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
 
@@ -1794,11 +1909,11 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         break;
         case TOKEN_SLASH: {
             if (lhs_value.type_handle != dpl->number_type_handle) {
-                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Left operand must be of type `number`.",
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator %s: Left operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
             if (rhs_value.type_handle != dpl->number_type_handle) {
-                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`: Right operand must be of type `number`.",
+                DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator %s: Right operand must be of type `number`.",
                                 _dpll_token_kind_name(operator.kind));
             }
 
@@ -1809,7 +1924,7 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         }
         break;
         default:
-            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator `%s`.", _dpll_token_kind_name(operator.kind));
+            DPL_TOKEN_ERROR(dpl, operator, "Cannot fold constant for binary operator %s.", _dpll_token_kind_name(operator.kind));
         }
     }
     break;
@@ -1840,31 +1955,31 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         switch (node->as.literal.value.kind)
         {
         case TOKEN_NUMBER: {
-            DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->number_type_handle;
-            calltree_node->as.value = _dplb_fold_constant(dpl, node);
-            return calltree_node;
+            DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+            bound_node->kind = BOUND_NODE_VALUE;
+            bound_node->type_handle = dpl->number_type_handle;
+            bound_node->as.value = _dplb_fold_constant(dpl, node);
+            return bound_node;
         }
         case TOKEN_STRING: {
-            DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->string_type_handle;
-            calltree_node->as.value = _dplb_fold_constant(dpl, node);
-            return calltree_node;
+            DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+            bound_node->kind = BOUND_NODE_VALUE;
+            bound_node->type_handle = dpl->string_type_handle;
+            bound_node->as.value = _dplb_fold_constant(dpl, node);
+            return bound_node;
         }
         break;
         case TOKEN_TRUE:
         case TOKEN_FALSE: {
-            DPL_Bound_Node* calltree_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            calltree_node->kind = CALLTREE_NODE_VALUE;
-            calltree_node->type_handle = dpl->boolean_type_handle;
-            calltree_node->as.value = _dplb_fold_constant(dpl, node);
-            return calltree_node;
+            DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+            bound_node->kind = BOUND_NODE_VALUE;
+            bound_node->type_handle = dpl->boolean_type_handle;
+            bound_node->as.value = _dplb_fold_constant(dpl, node);
+            return bound_node;
         }
         break;
         default:
-            DPL_AST_ERROR(dpl, node, "Cannot resolve literal type for token of kind \"%s\".",
+            DPL_AST_ERROR(dpl, node, "Cannot resolve literal type for %s.",
                           _dpll_token_kind_name(node->as.literal.value.kind));
         }
         break;
@@ -1906,12 +2021,31 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             return _dplb_bind_binary(dpl, node, "equal");
         case TOKEN_BANG_EQUAL:
             return _dplb_bind_binary(dpl, node, "not_equal");
+        case TOKEN_AND_AND:
+        case TOKEN_PIPE_PIPE: {
+            DPL_Bound_Node* lhs = _dplb_bind_node(dpl, node->as.binary.left);
+            if (!lhs) {
+                DPL_AST_ERROR(dpl, node, "Cannot bind left-hand side of binary expression.");
+            }
+            DPL_Bound_Node* rhs = _dplb_bind_node(dpl, node->as.binary.right);
+            if (!rhs) {
+                DPL_AST_ERROR(dpl, node, "Cannot bind right-hand side of binary expression.");
+            }
+
+            DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+            bound_node->kind = BOUND_NODE_LOGICAL_OPERATOR;
+            bound_node->type_handle = dpl->boolean_type_handle;
+            bound_node->as.logical_operator.operator = node->as.binary.operator;
+            bound_node->as.logical_operator.lhs = lhs;
+            bound_node->as.logical_operator.rhs = rhs;
+            return bound_node;
+        }
         default:
             break;
         }
 
-        DPL_AST_ERROR(dpl, node, "Cannot resolve function for binary operator \""SV_Fmt"\".",
-                      SV_Arg(operator.text));
+        DPL_AST_ERROR(dpl, node, "Cannot resolve function for binary operator %s.",
+                      _dpll_token_kind_name(operator.kind));
     }
     break;
     case AST_NODE_FUNCTIONCALL:
@@ -1988,7 +2122,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         switch (symbol->kind) {
         case SYMBOL_CONSTANT: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            node->kind = CALLTREE_NODE_VALUE;
+            node->kind = BOUND_NODE_VALUE;
             node->type_handle = symbol->as.constant.type_handle;
             node->as.value = symbol->as.constant;
             return node;
@@ -1996,7 +2130,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         break;
         case SYMBOL_VAR: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            node->kind = CALLTREE_NODE_VARREF;
+            node->kind = BOUND_NODE_VARREF;
             node->type_handle = symbol->as.var.type_handle;
             node->as.varref = symbol->as.var.scope_index;
             return node;
@@ -2004,7 +2138,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         break;
         case SYMBOL_ARGUMENT: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-            node->kind = CALLTREE_NODE_ARGREF;
+            node->kind = BOUND_NODE_ARGREF;
             node->type_handle = symbol->as.argument.type_handle;
             node->as.argref = symbol->as.argument.scope_index;
             return node;
@@ -2034,7 +2168,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
 
         DPL_Bound_Node* ct_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        ct_node->kind = CALLTREE_NODE_ASSIGNMENT;
+        ct_node->kind = BOUND_NODE_ASSIGNMENT;
         ct_node->type_handle = symbol->as.var.type_handle;
         ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
         ct_node->as.assignment.expression = _dplb_bind_node(dpl, node->as.assignment.expression);
@@ -2103,8 +2237,36 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         da_add(dpl->symbol_stack.symbols, s);
         return NULL;
     }
+    case AST_NODE_CONDITIONAL: {
+        DPL_Ast_Conditional conditional =  node->as.conditional;
+
+        DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, conditional.condition);
+        if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_AST_ERROR(dpl, conditional.condition,
+                          "Condition operand of a conditional must be of type `boolean`.");
+        }
+
+        DPL_Bound_Node* bound_then_clause = _dplb_bind_node(dpl, conditional.then_clause);
+        DPL_Bound_Node* bound_else_clause = _dplb_bind_node(dpl, conditional.else_clause);
+        if (bound_then_clause->type_handle != bound_else_clause->type_handle) {
+            DPL_Type* then_clause_type = _dplt_find_by_handle(dpl, bound_then_clause->type_handle);
+            DPL_Type* else_clause_type = _dplt_find_by_handle(dpl, bound_else_clause->type_handle);
+
+            DPL_AST_ERROR(dpl, node, "Types of then and else clause operands of a conditional must match. Then clause type is `"SV_Fmt"`, else clause type is `"SV_Fmt"`.",
+                          SV_Arg(then_clause_type->name), SV_Arg(else_clause_type->name));
+        }
+
+        DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        node->kind = BOUND_NODE_CONDITIONAL;
+        node->type_handle = bound_then_clause->type_handle;
+        node->as.conditional.condition = bound_condition;
+        node->as.conditional.then_clause = bound_then_clause;
+        node->as.conditional.else_clause = bound_else_clause;
+        return node;
+    }
+    break;
     default:
-        DPL_AST_ERROR(dpl, node, "Cannot resolve function call tree for AST node of kind \"%s\".",
+        DPL_AST_ERROR(dpl, node, "Cannot bind AST node of kind \"%s\".",
                       _dpla_node_kind_name(node->kind));
     }
 
@@ -2137,7 +2299,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
     }
 
     switch(node->kind) {
-    case CALLTREE_NODE_FUNCTIONCALL: {
+    case BOUND_NODE_FUNCTIONCALL: {
         DPL_Function* function = _dplf_find_by_handle(dpl, node->as.function_call.function_handle);
         printf(SV_Fmt"(\n", SV_Arg(function->name));
 
@@ -2152,7 +2314,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
 
     }
     break;
-    case CALLTREE_NODE_VALUE: {
+    case BOUND_NODE_VALUE: {
         printf("Value `");
         if (node->as.value.type_handle == dpl->number_type_handle) {
             printf("%f", node->as.value.as.number);
@@ -2165,7 +2327,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf("`\n");
     }
     break;
-    case CALLTREE_NODE_SCOPE: {
+    case BOUND_NODE_SCOPE: {
         printf("$scope(\n");
 
         for (size_t i = 0; i < node->as.scope.expressions_count; ++i) {
@@ -2178,15 +2340,15 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf(")\n");
     }
     break;
-    case CALLTREE_NODE_VARREF: {
+    case BOUND_NODE_VARREF: {
         printf("$varref(scope_index = %zu)\n", node->as.varref);
     }
     break;
-    case CALLTREE_NODE_ARGREF: {
+    case BOUND_NODE_ARGREF: {
         printf("$argref(scope_index = %zu)\n", node->as.argref);
     }
     break;
-    case CALLTREE_NODE_ASSIGNMENT: {
+    case BOUND_NODE_ASSIGNMENT: {
         printf("$assignment(\n");
 
         for (size_t i = 0; i < level + 1; ++i) {
@@ -2195,6 +2357,33 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf("scope_index %zu\n", node->as.assignment.scope_index);
 
         _dplb_print(dpl, node->as.assignment.expression, level + 1);
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_CONDITIONAL: {
+        printf("$conditional(\n");
+        _dplb_print(dpl, node->as.conditional.condition, level + 1);
+        _dplb_print(dpl, node->as.conditional.then_clause, level + 1);
+        _dplb_print(dpl, node->as.conditional.else_clause, level + 1);
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_LOGICAL_OPERATOR: {
+        printf("$logical_operator(\n");
+        for (size_t i = 0; i < level + 1; ++i) {
+            printf("  ");
+        }
+        printf("%s\n", _dpll_token_kind_name(node->as.logical_operator.operator.kind));
+        _dplb_print(dpl, node->as.logical_operator.lhs, level + 1);
+        _dplb_print(dpl, node->as.logical_operator.rhs, level + 1);
 
         for (size_t i = 0; i < level; ++i) {
             printf("  ");
@@ -2212,7 +2401,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
 void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
     switch (node->kind)
     {
-    case CALLTREE_NODE_VALUE: {
+    case BOUND_NODE_VALUE: {
         if (node->type_handle == dpl->number_type_handle) {
             dplp_write_push_number(program, node->as.value.as.number);
         } else if (node->type_handle == dpl->string_type_handle) {
@@ -2226,7 +2415,7 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         }
     }
     break;
-    case CALLTREE_NODE_FUNCTIONCALL: {
+    case BOUND_NODE_FUNCTIONCALL: {
         DPL_Bound_FunctionCall f = node->as.function_call;
         for (size_t i = 0; i < f.arguments_count; ++i) {
             _dplg_generate(dpl, f.arguments[i], program);
@@ -2236,7 +2425,7 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         function->generator.callback(dpl, program, function->generator.user_data);
     }
     break;
-    case CALLTREE_NODE_SCOPE: {
+    case BOUND_NODE_SCOPE: {
         DPL_Bound_Scope s = node->as.scope;
         bool prev_was_persistent = false;
         size_t persistent_count = 0;
@@ -2258,14 +2447,49 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         }
     }
     break;
-    case CALLTREE_NODE_ARGREF:
-    case CALLTREE_NODE_VARREF: {
+    case BOUND_NODE_ARGREF:
+    case BOUND_NODE_VARREF: {
         dplp_write_push_local(program, node->as.varref);
     }
     break;
-    case CALLTREE_NODE_ASSIGNMENT: {
+    case BOUND_NODE_ASSIGNMENT: {
         _dplg_generate(dpl, node->as.assignment.expression, program);
         dplp_write_store_local(program, node->as.assignment.scope_index);
+    }
+    break;
+    case BOUND_NODE_CONDITIONAL: {
+        _dplg_generate(dpl, node->as.conditional.condition, program);
+
+        // jump over then clause if condition is false
+        size_t then_jump = dplp_write_jump(program, INST_JUMP_IF_FALSE);
+
+        dplp_write_pop(program);
+        _dplg_generate(dpl, node->as.conditional.then_clause, program);
+
+        // jump over else clause if condition is true
+        size_t else_jump = dplp_write_jump(program, INST_JUMP);
+        dplp_patch_jump(program, then_jump);
+
+        // else clause
+        dplp_write_pop(program);
+        _dplg_generate(dpl, node->as.conditional.else_clause, program);
+
+        dplp_patch_jump(program, else_jump);
+    }
+    break;
+    case BOUND_NODE_LOGICAL_OPERATOR: {
+        _dplg_generate(dpl, node->as.logical_operator.lhs, program);
+
+        size_t jump;
+        if (node->as.logical_operator.operator.kind == TOKEN_AND_AND) {
+            jump = dplp_write_jump(program, INST_JUMP_IF_FALSE);
+        } else {
+            jump = dplp_write_jump(program, INST_JUMP_IF_TRUE);
+        }
+
+        _dplg_generate(dpl, node->as.logical_operator.rhs, program);
+
+        dplp_patch_jump(program, jump);
     }
     break;
     default:

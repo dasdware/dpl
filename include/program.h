@@ -34,6 +34,9 @@ typedef enum
     INST_STORE_LOCAL,
     INST_POP_SCOPE,
     INST_RETURN,
+    INST_JUMP,
+    INST_JUMP_IF_FALSE,
+    INST_JUMP_IF_TRUE,
 } DPL_Instruction_Kind;
 
 typedef struct {
@@ -80,6 +83,9 @@ void dplp_write_call_user(DPL_Program *program, size_t arity, size_t ip_begin);
 void dplp_write_return(DPL_Program* program);
 
 void dplp_write_store_local(DPL_Program *program, size_t scope_index);
+
+size_t dplp_write_jump(DPL_Program *program, DPL_Instruction_Kind jump_kind);
+void dplp_patch_jump(DPL_Program *program, size_t offset);
 
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
 
