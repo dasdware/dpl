@@ -109,6 +109,8 @@ typedef enum
     TOKEN_EQUAL_EQUAL,
     TOKEN_BANG,
     TOKEN_BANG_EQUAL,
+    TOKEN_AND_AND,
+    TOKEN_PIPE_PIPE,
 
     TOKEN_DOT,
     TOKEN_COLON,
@@ -269,6 +271,7 @@ typedef enum
     BOUND_NODE_ARGREF,
     BOUND_NODE_ASSIGNMENT,
     BOUND_NODE_CONDITIONAL,
+    BOUND_NODE_LOGICAL_OPERATOR,
 } DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
@@ -306,6 +309,12 @@ typedef struct {
     DPL_Bound_Node* else_clause;
 } DPL_Bound_Conditional;
 
+typedef struct {
+    DPL_Token operator;
+    DPL_Bound_Node *lhs;
+    DPL_Bound_Node *rhs;
+} DPL_Bound_LogicalOperator;
+
 struct _DPL_Bound_Node
 {
     DPL_BoundNodeKind kind;
@@ -319,6 +328,7 @@ struct _DPL_Bound_Node
         size_t argref;
         DPL_Bound_Assignment assignment;
         DPL_Bound_Conditional conditional;
+        DPL_Bound_LogicalOperator logical_operator;
     } as;
 };
 
