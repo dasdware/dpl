@@ -134,6 +134,7 @@ typedef enum
     TOKEN_KEYWORD_VAR,
     TOKEN_KEYWORD_IF,
     TOKEN_KEYWORD_ELSE,
+    TOKEN_KEYWORD_WHILE,
 } DPL_TokenKind;
 
 typedef struct
@@ -157,6 +158,7 @@ typedef enum
     AST_NODE_ASSIGNMENT,
     AST_NODE_FUNCTION,
     AST_NODE_CONDITIONAL,
+    AST_NODE_WHILE_LOOP,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -185,6 +187,12 @@ typedef struct
     DPL_Ast_Node *then_clause;
     DPL_Ast_Node *else_clause;
 } DPL_Ast_Conditional;
+
+typedef struct
+{
+    DPL_Ast_Node *condition;
+    DPL_Ast_Node *body;
+} DPL_Ast_WhileLoop;
 
 typedef struct
 {
@@ -250,6 +258,7 @@ struct _DPL_Ast_Node
         DPL_Ast_Assignment assignment;
         DPL_Ast_Function function;
         DPL_Ast_Conditional conditional;
+        DPL_Ast_WhileLoop while_loop;
     } as;
 };
 
@@ -272,6 +281,7 @@ typedef enum
     BOUND_NODE_ASSIGNMENT,
     BOUND_NODE_CONDITIONAL,
     BOUND_NODE_LOGICAL_OPERATOR,
+    BOUND_NODE_WHILE_LOOP,
 } DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
@@ -315,6 +325,11 @@ typedef struct {
     DPL_Bound_Node *rhs;
 } DPL_Bound_LogicalOperator;
 
+typedef struct {
+    DPL_Bound_Node* condition;
+    DPL_Bound_Node* body;
+} DPL_Bound_WhileLoop;
+
 struct _DPL_Bound_Node
 {
     DPL_BoundNodeKind kind;
@@ -329,6 +344,7 @@ struct _DPL_Bound_Node
         DPL_Bound_Assignment assignment;
         DPL_Bound_Conditional conditional;
         DPL_Bound_LogicalOperator logical_operator;
+        DPL_Bound_WhileLoop while_loop;
     } as;
 };
 
