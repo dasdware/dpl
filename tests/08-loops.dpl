@@ -1,0 +1,22 @@
+function fibonacci(n: number): number :=
+    if (n <= 1)
+        n
+    else {
+        var fib: number := 1;
+        var prevFib: number := 1;
+        var i: number := 2;
+        while (i < n) {
+            var temp: number := fib;
+            fib := fib + prevFib;
+            prevFib := temp;
+            i := i + 1;
+        };
+        fib
+    };
+
+print(fibonacci(1)); print("\n");
+print(fibonacci(2)); print("\n");
+print(fibonacci(3)); print("\n");
+print(fibonacci(4)); print("\n");
+print(fibonacci(5)); print("\n");
+print(fibonacci(6)); print("\n");
