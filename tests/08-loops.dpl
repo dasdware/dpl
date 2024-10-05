@@ -14,9 +14,8 @@ function fibonacci(n: number): number :=
         fib
     };
 
-print(fibonacci(1)); print("\n");
-print(fibonacci(2)); print("\n");
-print(fibonacci(3)); print("\n");
-print(fibonacci(4)); print("\n");
-print(fibonacci(5)); print("\n");
-print(fibonacci(6)); print("\n");
+var n: number := 1;
+while (n < 20) {
+    print(fibonacci(n)); print("\n");    
+    n := n + 1;
+}
