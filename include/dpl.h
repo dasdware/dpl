@@ -434,6 +434,7 @@ struct _DPL
     DPL_Handle number_type_handle;
     DPL_Handle string_type_handle;
     DPL_Handle boolean_type_handle;
+    DPL_Handle none_type_handle;
 
     DPL_Functions functions;
 

@@ -66,6 +66,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
     dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
     dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("boolean"));
+    dpl->none_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("none"));
 
     /// FUNCTIONS AND GENERATORS
 
@@ -1158,6 +1159,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         DPL_Token result_type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
         _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
+
         DPL_Ast_Node *body = _dplp_parse_expression(dpl);
 
         DPL_Ast_Node* function = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTION, keyword, body->last);
@@ -1534,7 +1536,7 @@ void _dplp_parse(DPL* dpl)
     dpl->tree.root = _dplp_parse_scope(dpl, dpl->first_token, TOKEN_EOF);
 }
 
-// CALLTREE
+// BOUND TREE
 
 const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
     switch (kind) {
@@ -2238,6 +2240,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         size_t current_bottom = dpl->symbol_stack.bottom;
         dpl->symbol_stack.bottom = da_size(dpl->symbol_stack.symbols);
 
+        DPL_Scope* current_scope = _dplb_scopes_current(dpl);
         for (size_t i = 0; i < function->signature.argument_count; ++i) {
             DPL_Symbol arg_symbol = {
                 .kind = SYMBOL_ARGUMENT,
@@ -2249,6 +2252,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             };
 
             da_add(dpl->symbol_stack.symbols, arg_symbol);
+            current_scope->count++;
         }
 
         DPL_Symbol s = {
@@ -2309,9 +2313,12 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_body = _dplb_bind_node(dpl, while_loop.body);
 
+        // TODO: At the moment, loops do not produce values and therefore are of type `none`.
+        //       This should change in the future, where they can yield optional values or
+        //       arrays.
         DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         node->kind = BOUND_NODE_WHILE_LOOP;
-        node->type_handle = bound_body->type_handle;
+        node->type_handle = dpl->none_type_handle;
         node->as.while_loop.condition = bound_condition;
         node->as.while_loop.body = bound_body;
         return node;
@@ -2553,6 +2560,25 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         _dplg_generate(dpl, node->as.logical_operator.rhs, program);
 
         dplp_patch_jump(program, jump);
+    }
+    break;
+    case BOUND_NODE_WHILE_LOOP: {
+        size_t loop_start = da_size(program->code);
+
+        _dplg_generate(dpl, node->as.while_loop.condition, program);
+
+        // jump over loop if condition is false
+        size_t exit_jump = dplp_write_jump(program, INST_JUMP_IF_FALSE);
+
+        dplp_write_pop(program);
+        _dplg_generate(dpl, node->as.while_loop.body, program);
+
+        // TODO: Once while loops can generate values, this pop should do something else
+        dplp_write_pop(program);
+
+        // jump over else clause if condition is true
+        dplp_write_loop(program, loop_start);
+        dplp_patch_jump(program, exit_jump);
     }
     break;
     default:
