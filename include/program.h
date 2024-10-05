@@ -37,6 +37,7 @@ typedef enum
     INST_JUMP,
     INST_JUMP_IF_FALSE,
     INST_JUMP_IF_TRUE,
+    INST_JUMP_LOOP,
 } DPL_Instruction_Kind;
 
 typedef struct {
@@ -86,6 +87,7 @@ void dplp_write_store_local(DPL_Program *program, size_t scope_index);
 
 size_t dplp_write_jump(DPL_Program *program, DPL_Instruction_Kind jump_kind);
 void dplp_patch_jump(DPL_Program *program, size_t offset);
+void dplp_write_loop(DPL_Program *program, size_t target);
 
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
 

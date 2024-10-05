@@ -1,0 +1,21 @@
+function fibonacci(n: number): number :=
+    if (n <= 1)
+        n
+    else {
+        var fib: number := 1;
+        var prevFib: number := 1;
+        var i: number := 2;
+        while (i < n) {
+            var temp: number := fib;
+            fib := fib + prevFib;
+            prevFib := temp;
+            i := i + 1;
+        };
+        fib
+    };
+
+var n: number := 1;
+while (n < 20) {
+    print(fibonacci(n)); print("\n");    
+    n := n + 1;
+}

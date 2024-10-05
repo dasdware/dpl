@@ -160,7 +160,8 @@ size_t dplp_write_jump(DPL_Program *program, DPL_Instruction_Kind jump_kind)
     return da_size(program->code) - 2;
 }
 
-void dplp_patch_jump(DPL_Program *program, size_t offset) {
+void dplp_patch_jump(DPL_Program *program, size_t offset)
+{
     // -2 to adjust for the bytecode for the jump offset itself.
     int jump = da_size(program->code) - offset - 2;
 
@@ -170,6 +171,18 @@ void dplp_patch_jump(DPL_Program *program, size_t offset) {
 
     uint16_t u16_jump = jump;
     *((uint16_t*)(program->code + offset)) = u16_jump;
+}
+
+void dplp_write_loop(DPL_Program *program, size_t target)
+{
+    dplp_write(program, INST_JUMP_LOOP);
+
+    int jump = da_size(program->code) - target + 2;
+    if (jump > UINT16_MAX) {
+        DW_ERROR("Cannot generate jumps larger then %u bytes.", UINT16_MAX);
+    }
+
+    bb_write_u16(&program->code, jump);
 }
 
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
@@ -226,6 +239,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "JUMP_IF_FALSE";
     case INST_JUMP_IF_TRUE:
         return "JUMP_IF_TRUE";
+    case INST_JUMP_LOOP:
+        return "JUMP_LOOP";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -374,7 +389,8 @@ void dplp_print(DPL_Program *program) {
         break;
         case INST_JUMP:
         case INST_JUMP_IF_FALSE:
-        case INST_JUMP_IF_TRUE: {
+        case INST_JUMP_IF_TRUE:
+        case INST_JUMP_LOOP: {
             uint16_t offset = *(program->code + ip);
             printf(" %u", offset);
             ip += sizeof(offset);

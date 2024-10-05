@@ -64,13 +64,13 @@ void _dplv_pop_callframe(DPL_VirtualMachine *vm) {
 }
 
 void _dplv_trace_stack(DPL_VirtualMachine *vm) {
-    printf("Stack:");
+    printf("<");
     for (size_t i = 0; i < vm->stack_top; ++i)
     {
         printf(" ");
         dpl_value_print(vm->stack[i]);
     }
-    printf("\n");
+    printf(" >");
 }
 
 DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
@@ -123,7 +123,8 @@ void dplv_run(DPL_VirtualMachine *vm)
     while (!bs_at_end(&program))
     {
         if (vm->trace) {
-            printf("[%03zu] ", program.position);
+            printf("[%04zu] ", program.position);
+            _dplv_trace_stack(vm);
         }
 
         size_t ip_begin = program.position;
@@ -225,6 +226,9 @@ void dplv_run(DPL_VirtualMachine *vm)
             }
             break;
         case INST_POP:
+            if (vm->stack_top == 0) {
+                DW_ERROR("Fatal Error: Stack underflow in program execution.");
+            }
             dplv_release(vm, TOP0);
             --vm->stack_top;
             break;
@@ -305,14 +309,23 @@ void dplv_run(DPL_VirtualMachine *vm)
             }
         }
         break;
+        case INST_JUMP_LOOP: {
+            uint16_t jump = bs_read_u16(&program);
+            program.position -= jump;
+        }
+        break;
         default:
             printf("\n=======================================\n");
             _dplv_trace_stack(vm);
+            printf("\n");
             DW_UNIMPLEMENTED_MSG("`%s` at position %zu.", dplp_inst_kind_name(instruction), ip_begin);
         }
 
         if (vm->trace) {
+            printf("\n    :: ");
             _dplv_trace_stack(vm);
+            printf(" [%04zu]\n", program.position);
+            getc(stdin);
         }
     }
 
@@ -324,5 +337,9 @@ void dplv_run(DPL_VirtualMachine *vm)
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
+    if (vm->stack_top == 0) {
+        DW_ERROR("Fatal Error: Stack underflow in program execution.");
+    }
+
     return vm->stack[vm->stack_top - 1];
 }

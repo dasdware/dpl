@@ -66,6 +66,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
     dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
     dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("boolean"));
+    dpl->none_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("none"));
 
     /// FUNCTIONS AND GENERATORS
 
@@ -775,6 +776,8 @@ DPL_Token _dpll_next_token(DPL* dpl)
             t.kind = TOKEN_KEYWORD_ELSE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("true"))) {
             t.kind = TOKEN_TRUE;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("while"))) {
+            t.kind = TOKEN_KEYWORD_WHILE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("false"))) {
             t.kind = TOKEN_FALSE;
         }
@@ -847,6 +850,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "keyword `if`";
     case TOKEN_KEYWORD_ELSE:
         return "keyword `else`";
+    case TOKEN_KEYWORD_WHILE:
+        return "keyword `while`";
 
     case TOKEN_WHITESPACE:
         return "<whitespace>";
@@ -939,6 +944,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_FUNCTION";
     case AST_NODE_CONDITIONAL:
         return "AST_NODE_CONDITIONAL";
+    case AST_NODE_WHILE_LOOP:
+        return "AST_NODE_WHILE_LOOP";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1051,6 +1058,19 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(conditional.else_clause, level + 2);
     }
     break;
+    case AST_NODE_WHILE_LOOP: {
+        DPL_Ast_WhileLoop while_loop = node->as.while_loop;
+        printf("\n");
+
+        _dpla_print_indent(level + 1);
+        printf("<condition>\n");
+        _dpla_print(while_loop.condition, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<body>\n");
+        _dpla_print(while_loop.body, level + 2);
+    }
+    break;
     default: {
         printf("\n");
         break;
@@ -1139,6 +1159,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         DPL_Token result_type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
         _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
+
         DPL_Ast_Node *body = _dplp_parse_expression(dpl);
 
         DPL_Ast_Node* function = _dpla_create_node(&dpl->tree, AST_NODE_FUNCTION, keyword, body->last);
@@ -1425,11 +1446,11 @@ DPL_Ast_Node* _dplp_parse_or(DPL* dpl)
     return expression;
 }
 
-DPL_Ast_Node* _dplp_parse_conditional(DPL* dpl)
+DPL_Ast_Node* _dplp_parse_conditional_or_loop(DPL* dpl)
 {
-    DPL_Token if_keyword_candidate = _dplp_peek_token(dpl);
+    DPL_Token keyword_candidate = _dplp_peek_token(dpl);
 
-    if (if_keyword_candidate.kind == TOKEN_KEYWORD_IF) {
+    if (keyword_candidate.kind == TOKEN_KEYWORD_IF) {
         _dplp_next_token(dpl);
 
         _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
@@ -1439,10 +1460,22 @@ DPL_Ast_Node* _dplp_parse_conditional(DPL* dpl)
         _dplp_expect_token(dpl, TOKEN_KEYWORD_ELSE);
         DPL_Ast_Node* else_clause = _dplp_parse_expression(dpl);
 
-        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_CONDITIONAL, if_keyword_candidate, else_clause->last);
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_CONDITIONAL, keyword_candidate, else_clause->last);
         new_expression->as.conditional.condition = condition;
         new_expression->as.conditional.then_clause = then_clause;
         new_expression->as.conditional.else_clause = else_clause;
+        return new_expression;
+    } else if (keyword_candidate.kind == TOKEN_KEYWORD_WHILE) {
+        _dplp_next_token(dpl);
+
+        _dplp_expect_token(dpl, TOKEN_OPEN_PAREN);
+        DPL_Ast_Node* condition = _dplp_parse_expression(dpl);
+        _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
+        DPL_Ast_Node* body = _dplp_parse_expression(dpl);
+
+        DPL_Ast_Node* new_expression = _dpla_create_node(&dpl->tree, AST_NODE_WHILE_LOOP, keyword_candidate, body->last);
+        new_expression->as.while_loop.condition = condition;
+        new_expression->as.while_loop.body = body;
         return new_expression;
     }
 
@@ -1451,7 +1484,7 @@ DPL_Ast_Node* _dplp_parse_conditional(DPL* dpl)
 
 DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
 {
-    DPL_Ast_Node* target = _dplp_parse_conditional(dpl);
+    DPL_Ast_Node* target = _dplp_parse_conditional_or_loop(dpl);
 
     if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
         if (target->kind != AST_NODE_SYMBOL) {
@@ -1503,7 +1536,7 @@ void _dplp_parse(DPL* dpl)
     dpl->tree.root = _dplp_parse_scope(dpl, dpl->first_token, TOKEN_EOF);
 }
 
-// CALLTREE
+// BOUND TREE
 
 const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
     switch (kind) {
@@ -1523,6 +1556,8 @@ const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
         return "BOUND_NODE_CONDITIONAL";
     case BOUND_NODE_LOGICAL_OPERATOR:
         return "BOUND_NODE_LOGICAL_OPERATOR";
+    case BOUND_NODE_WHILE_LOOP:
+        return "BOUND_NODE_WHILE_LOOP";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -2205,6 +2240,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         size_t current_bottom = dpl->symbol_stack.bottom;
         dpl->symbol_stack.bottom = da_size(dpl->symbol_stack.symbols);
 
+        DPL_Scope* current_scope = _dplb_scopes_current(dpl);
         for (size_t i = 0; i < function->signature.argument_count; ++i) {
             DPL_Symbol arg_symbol = {
                 .kind = SYMBOL_ARGUMENT,
@@ -2216,6 +2252,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             };
 
             da_add(dpl->symbol_stack.symbols, arg_symbol);
+            current_scope->count++;
         }
 
         DPL_Symbol s = {
@@ -2262,6 +2299,28 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         node->as.conditional.condition = bound_condition;
         node->as.conditional.then_clause = bound_then_clause;
         node->as.conditional.else_clause = bound_else_clause;
+        return node;
+    }
+    break;
+    case AST_NODE_WHILE_LOOP: {
+        DPL_Ast_WhileLoop while_loop =  node->as.while_loop;
+
+        DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, while_loop.condition);
+        if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_AST_ERROR(dpl, while_loop.condition,
+                          "Condition operand of a while loop must be of type `boolean`.");
+        }
+
+        DPL_Bound_Node* bound_body = _dplb_bind_node(dpl, while_loop.body);
+
+        // TODO: At the moment, loops do not produce values and therefore are of type `none`.
+        //       This should change in the future, where they can yield optional values or
+        //       arrays.
+        DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        node->kind = BOUND_NODE_WHILE_LOOP;
+        node->type_handle = dpl->none_type_handle;
+        node->as.while_loop.condition = bound_condition;
+        node->as.while_loop.body = bound_body;
         return node;
     }
     break;
@@ -2391,6 +2450,17 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf(")\n");
     }
     break;
+    case BOUND_NODE_WHILE_LOOP: {
+        printf("$while(\n");
+        _dplb_print(dpl, node->as.while_loop.condition, level + 1);
+        _dplb_print(dpl, node->as.while_loop.body, level + 1);
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
     default:
         DW_UNIMPLEMENTED_MSG("%s", _dplb_nodekind_name(node->kind));
     }
@@ -2490,6 +2560,25 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         _dplg_generate(dpl, node->as.logical_operator.rhs, program);
 
         dplp_patch_jump(program, jump);
+    }
+    break;
+    case BOUND_NODE_WHILE_LOOP: {
+        size_t loop_start = da_size(program->code);
+
+        _dplg_generate(dpl, node->as.while_loop.condition, program);
+
+        // jump over loop if condition is false
+        size_t exit_jump = dplp_write_jump(program, INST_JUMP_IF_FALSE);
+
+        dplp_write_pop(program);
+        _dplg_generate(dpl, node->as.while_loop.body, program);
+
+        // TODO: Once while loops can generate values, this pop should do something else
+        dplp_write_pop(program);
+
+        // jump over else clause if condition is true
+        dplp_write_loop(program, loop_start);
+        dplp_patch_jump(program, exit_jump);
     }
     break;
     default:
