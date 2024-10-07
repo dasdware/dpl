@@ -92,6 +92,7 @@ void dplp_write_loop(DPL_Program *program, size_t target);
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
 
 void dplp_print_escaped_string(const char* value, size_t length);
+void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants);
 void dplp_print(DPL_Program *program);
 
 bool dplp_save(DPL_Program* program, const char* file_name);
