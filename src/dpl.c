@@ -1982,6 +1982,29 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     }
 }
 
+void _dplb_check_assignment(DPL* dpl, const char* what, DPL_Ast_Node* node, DPL_Handle expression_type_handle)
+{
+    DPL_Ast_Declaration *decl = &node->as.declaration;
+    DPL_Type* expression_type = _dplt_find_by_handle(dpl,  expression_type_handle);
+    if (expression_type->handle == dpl->none_type_handle) {
+        DPL_AST_ERROR(dpl, decl->initialization,
+                      "Expressions of type `"SV_Fmt"` cannot be assigned.", SV_Arg(expression_type->name));
+    }
+
+    if (decl->type.kind != TOKEN_NONE) {
+        DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
+        if (!declared_type) {
+            DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of %s `"SV_Fmt"`.",
+                            SV_Arg(decl->type.text), what, SV_Arg(decl->name.text));
+        }
+
+        if (expression_type->handle != declared_type->handle) {
+            DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match expression type `"SV_Fmt"` in declaration of %s `"SV_Fmt"`.",
+                          SV_Arg(declared_type->name), SV_Arg(expression_type->name), what, SV_Arg(decl->name.text));
+        }
+    }
+}
+
 DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
@@ -2096,45 +2119,21 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 .name = decl->name.text,
                 .as.constant =  _dplb_fold_constant(dpl, decl->initialization),
             };
-
-            if (decl->type.kind != TOKEN_NONE) {
-                DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
-                if (!declared_type) {
-                    DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.",
-                                    SV_Arg(decl->type.text), SV_Arg(decl->name.text));
-                }
-
-                DPL_Type* folded_type = _dplt_find_by_handle(dpl,  s.as.constant.type_handle);
-                if (folded_type->handle != declared_type->handle) {
-                    DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match folded type `"SV_Fmt"` in declaration of constant `"SV_Fmt"`.",
-                                  SV_Arg(declared_type->name), SV_Arg(folded_type->name), SV_Arg(decl->name.text));
-                }
-            }
+            _dplb_check_assignment(dpl, "constant", node, s.as.constant.type_handle);
 
             da_add(dpl->symbol_stack.symbols, s);
 
             return NULL;
         } else {
             DPL_Bound_Node* expression = _dplb_bind_node(dpl, decl->initialization);
-
-            DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
-            if (!declared_type) {
-                DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of variable `"SV_Fmt"`.",
-                                SV_Arg(decl->type.text), SV_Arg(decl->name.text));
-            }
-
-            DPL_Type* expression_type = _dplt_find_by_handle(dpl, expression->type_handle);
-            if (declared_type->handle != expression_type->handle) {
-                DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match expression type `"SV_Fmt"` in declaration of variable `"SV_Fmt"`.",
-                              SV_Arg(declared_type->name), SV_Arg(expression_type->name), SV_Arg(decl->name.text));
-            }
+            _dplb_check_assignment(dpl, "variable", node, expression->type_handle);
 
             DPL_Scope* current_scope = _dplb_scopes_current(dpl);
             DPL_Symbol s = {
                 .kind = SYMBOL_VAR,
                 .name = decl->name.text,
                 .as.var = {
-                    .type_handle = expression_type->handle,
+                    .type_handle = expression->type_handle,
                     .scope_index = current_scope->offset + current_scope->count,
                 }
             };
