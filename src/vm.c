@@ -119,11 +119,17 @@ void dplv_run(DPL_VirtualMachine *vm)
         .buffer = vm->program->code,
         .position = vm->program->entry,
     };
+    DW_ByteStream constants = {
+        .buffer = vm->program->constants,
+        .position = 0,
+    };
 
     while (!bs_at_end(&program))
     {
         if (vm->trace) {
-            printf("[%04zu] ", program.position);
+            DW_ByteStream trace_program = program;
+            dplp_print_stream_instruction(&trace_program, &constants);
+            printf("    :: ");
             _dplv_trace_stack(vm);
         }
 
@@ -140,8 +146,7 @@ void dplv_run(DPL_VirtualMachine *vm)
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
             }
 
-            size_t offset = bs_read_u64(&program);
-            double value = bb_read_f64(vm->program->constants, offset);
+            double value = bs_read_f64(&program);
 
             ++vm->stack_top;
             TOP0 = dpl_value_make_number(value);

@@ -41,22 +41,22 @@ bool _dplp_find_string_constant(DPL_Program* program, Nob_String_View value, siz
     return false;
 }
 
-size_t _dplp_add_number_constant(DPL_Program *program, double value) {
-    size_t offset = da_size(program->constants);
-    if (_dplp_find_number_constant(program, value, &offset)) {
-        return offset;
-    }
+// size_t _dplp_add_number_constant(DPL_Program *program, double value) {
+//     size_t offset = da_size(program->constants);
+//     if (_dplp_find_number_constant(program, value, &offset)) {
+//         return offset;
+//     }
 
-    bb_write_f64(&program->constants, value);
+//     bb_write_f64(&program->constants, value);
 
-    DPL_Constant dictionary_entry = {
-        .kind = VALUE_NUMBER,
-        .offset = offset,
-    };
-    da_add(program->constants_dictionary, dictionary_entry);
+//     DPL_Constant dictionary_entry = {
+//         .kind = VALUE_NUMBER,
+//         .offset = offset,
+//     };
+//     da_add(program->constants_dictionary, dictionary_entry);
 
-    return offset;
-}
+//     return offset;
+// }
 
 size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
     Nob_String_View value_view = nob_sv_from_cstr(value);
@@ -86,7 +86,8 @@ void dplp_write_noop(DPL_Program *program) {
 
 void dplp_write_push_number(DPL_Program *program, double value) {
     bb_write_u8(&program->code, INST_PUSH_NUMBER);
-    bb_write_u64(&program->code, _dplp_add_number_constant(program, value));
+    bb_write_f64(&program->code, value);
+    // bb_write_u64(&program->code, _dplp_add_number_constant(program, value));
 }
 
 void dplp_write_push_string(DPL_Program *program, const char* value) {
@@ -283,6 +284,91 @@ void _dplp_print_constant(DPL_Program* program, size_t i) {
     printf(" (offset: %zu)\n", constant.offset);
 }
 
+void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants) {
+    printf("[%04zu] ", code->position);
+    DPL_Instruction_Kind kind = bs_read_u8(code);
+    printf("%s", dplp_inst_kind_name(kind));
+
+    switch (kind) {
+    case INST_PUSH_NUMBER: {
+        double value = bs_read_f64(code);
+        printf(" %f ", value);
+    }
+    break;
+    case INST_PUSH_STRING: {
+        constants->position = bs_read_u64(code);
+        printf(" %zu: ", constants->position);
+        size_t length = bs_read_u64(constants);
+        printf("(length: %zu, value: \"", length);
+        dplp_print_escaped_string(
+            (char*)(constants->buffer + constants->position),
+            length);
+        printf("\")");
+    }
+    break;
+    case INST_PUSH_BOOLEAN: {
+        uint8_t value = bs_read_u8(code);
+        printf(" %s", (value == 1) ? "true" : "false");
+    }
+    break;
+    case INST_PUSH_LOCAL: {
+        size_t scope_index = bs_read_u64(code);
+        printf(" %zu", scope_index);
+    }
+    break;
+    case INST_NOOP:
+    case INST_POP:
+    case INST_NEGATE:
+    case INST_NOT:
+    case INST_ADD:
+    case INST_SUBTRACT:
+    case INST_MULTIPLY:
+    case INST_DIVIDE:
+    case INST_LESS:
+    case INST_LESS_EQUAL:
+    case INST_GREATER:
+    case INST_GREATER_EQUAL:
+    case INST_EQUAL:
+    case INST_NOT_EQUAL:
+    case INST_RETURN:
+        break;
+    case INST_CALL_EXTERNAL: {
+        uint8_t external_num = bs_read_u8(code);
+        printf(" %u", external_num);
+    }
+    break;
+    case INST_CALL_USER: {
+        uint8_t arity = bs_read_u8(code);
+        size_t begin_ip = bs_read_u64(code);
+        printf(" %u %zu", arity, begin_ip);
+    }
+    break;
+    case INST_STORE_LOCAL: {
+        size_t scope_index = bs_read_u64(code);
+        printf(" %zu", scope_index);
+    }
+    break;
+    case INST_POP_SCOPE: {
+        size_t n = bs_read_u64(code);
+        printf(" %zu", n);
+    }
+    break;
+    case INST_JUMP:
+    case INST_JUMP_IF_FALSE:
+    case INST_JUMP_IF_TRUE:
+    case INST_JUMP_LOOP: {
+        uint16_t offset = bs_read_u16(code);
+        printf(" %u", offset);
+    }
+    break;
+    default:
+        DW_UNIMPLEMENTED_MSG("%s", dplp_inst_kind_name(kind));
+    }
+
+    printf("\n");
+
+}
+
 void dplp_print(DPL_Program *program) {
     printf("============ PROGRAM ============\n");
     printf("        Version: %u\n", program->version);
@@ -298,109 +384,17 @@ void dplp_print(DPL_Program *program) {
     printf("------------- CODE --------------\n");
     printf("     Chunk size: %zu\n", da_size(program->code));
 
-    size_t ip = 0;
-    while (ip < da_size(program->code)) {
-        DPL_Instruction_Kind kind = program->code[ip];
-        ++ip;
-
-        printf("[%04zu] %s", ip - 1, dplp_inst_kind_name(kind));
-        switch (kind) {
-        case INST_PUSH_NUMBER: {
-            size_t offset = *(program->code + ip);
-            ip += sizeof(offset);
-
-            double value = *(double*)(program->constants + offset);
-
-            printf(" %zu: %f ", offset, value);
-        }
-        break;
-        case INST_PUSH_STRING: {
-            size_t offset = *(program->code + ip);
-            size_t length = *(size_t*)(program->constants + offset);
-
-            printf(" %zu: (length: %zu, value: \"", offset, length);
-            dplp_print_escaped_string(
-                (char*)(program->constants + offset + sizeof(length)),
-                length);
-            printf("\")");
-
-            ip += sizeof(offset);
-        }
-        break;
-        case INST_PUSH_BOOLEAN: {
-            uint8_t value = *(program->code + ip);
-
-            printf(" %s", (value == 1) ? "true" : "false");
-
-            ip += sizeof(value);
-        }
-        break;
-        case INST_PUSH_LOCAL: {
-            size_t scope_index = *(program->code + ip);
-
-            printf(" %zu", scope_index);
-            ip += sizeof(scope_index);
-        }
-        break;
-        case INST_NOOP:
-        case INST_POP:
-        case INST_NEGATE:
-        case INST_NOT:
-        case INST_ADD:
-        case INST_SUBTRACT:
-        case INST_MULTIPLY:
-        case INST_DIVIDE:
-        case INST_LESS:
-        case INST_LESS_EQUAL:
-        case INST_GREATER:
-        case INST_GREATER_EQUAL:
-        case INST_EQUAL:
-        case INST_NOT_EQUAL:
-        case INST_RETURN:
-            break;
-        case INST_CALL_EXTERNAL: {
-            uint8_t external_num = *(program->code + ip);
-            ip += sizeof(external_num);
-            printf(" %u", external_num);
-        }
-        break;
-        case INST_CALL_USER: {
-            uint8_t arity = *(program->code + ip);
-            ip += sizeof(arity);
-            size_t begin_ip = *(program->code + ip);
-            ip += sizeof(begin_ip);
-
-            printf(" %u %zu", arity, begin_ip);
-        }
-        break;
-        case INST_STORE_LOCAL: {
-            size_t scope_index = *(program->code + ip);
-
-            printf(" %zu", scope_index);
-            ip += sizeof(scope_index);
-        }
-        break;
-        case INST_POP_SCOPE: {
-            size_t n = *(program->code + ip);
-
-            printf(" %zu", n);
-            ip += sizeof(n);
-        }
-        break;
-        case INST_JUMP:
-        case INST_JUMP_IF_FALSE:
-        case INST_JUMP_IF_TRUE:
-        case INST_JUMP_LOOP: {
-            uint16_t offset = *(program->code + ip);
-            printf(" %u", offset);
-            ip += sizeof(offset);
-        }
-        break;
-        default:
-            DW_UNIMPLEMENTED_MSG("%s", dplp_inst_kind_name(kind));
-        }
-
-        printf("\n");
+    DW_ByteStream constants = {
+        .buffer = program->constants,
+        .position = 0,
+    };
+    DW_ByteStream code = {
+        .buffer = program->code,
+        .position = 0,
+    };
+    while (!bs_at_end(&code)) {
+        dplp_print_stream_instruction(&code, &constants);
+        continue;
     }
     printf("=================================\n");
     printf("\n");
