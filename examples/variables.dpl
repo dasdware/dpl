@@ -1,17 +1,17 @@
-var x: number := 0;
+var x := 0;
 print("x: "); print(x); print("\n");
 
 x := x.add(1);
 print("x: "); print(x); print("\n");
 
 {
-    var y: number := 2 * x;
+    var y := 2 * x;
     print("y: "); print(y); print("\n");
     print(x.add(y)); print("\n");
 };
 
 {
-    var y: number := 4 * x;
+    var y := 4 * x;
     print("y: "); print(y); print("\n");
     print(x.add(y)); print("\n");
 };

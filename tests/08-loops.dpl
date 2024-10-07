@@ -2,11 +2,11 @@ function fibonacci(n: number): number :=
     if (n <= 1)
         n
     else {
-        var fib: number := 1;
-        var prevFib: number := 1;
-        var i: number := 2;
+        var fib := 1;
+        var prevFib := 1;
+        var i := 2;
         while (i < n) {
-            var temp: number := fib;
+            var temp := fib;
             fib := fib + prevFib;
             prevFib := temp;
             i := i + 1;
