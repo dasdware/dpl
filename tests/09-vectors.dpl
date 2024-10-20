@@ -1,0 +1,6 @@
+function add(a: [ x: number, y: number ], b: [ x: number, y: number ]): number :=
+    123;
+
+# var p: [ x: number, y: number ] := 123;
+var p := 123;
+print(add(p, p)); print("\n");
