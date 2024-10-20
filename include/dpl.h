@@ -186,6 +186,7 @@ typedef struct DPL_Ast_Type {
 typedef enum
 {
     AST_NODE_LITERAL = 0,
+    AST_NODE_OBJECT_LITERAL,
     AST_NODE_UNARY,
     AST_NODE_BINARY,
     AST_NODE_FUNCTIONCALL,
@@ -204,6 +205,17 @@ typedef struct
 {
     DPL_Token value;
 } DPL_Ast_Literal;
+
+typedef struct
+{
+    DPL_Token name;
+    DPL_Ast_Node* expression;
+} DPL_Ast_ObjectLiteralField;
+
+typedef struct {
+    size_t field_count;
+    DPL_Ast_ObjectLiteralField* fields;
+} DPL_Ast_ObjectLiteral;
 
 typedef struct
 {
@@ -286,6 +298,7 @@ struct _DPL_Ast_Node
     DPL_Token last;
     union {
         DPL_Ast_Literal literal;
+        DPL_Ast_ObjectLiteral object_literal;
         DPL_Ast_Unary unary;
         DPL_Ast_Binary binary;
         DPL_Ast_FunctionCall function_call;

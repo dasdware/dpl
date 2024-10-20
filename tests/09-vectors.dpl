@@ -1,6 +1,5 @@
 function add(a: [ x: number, y: number ], b: [ x: number, y: number ]): number :=
     123;
 
-# var p: [ x: number, y: number ] := 123;
-var p := 123;
-print(add(p, p)); print("\n");
+var p: [ x: number, y: number ] := [ x: 1, y: 2 ];
+print(add(123, 123)); print("\n");

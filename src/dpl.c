@@ -916,6 +916,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
     switch (kind) {
     case AST_NODE_LITERAL:
         return "AST_NODE_LITERAL";
+    case AST_NODE_OBJECT_LITERAL:
+        return "AST_NODE_OBJECT_LITERAL";
     case AST_NODE_UNARY:
         return "AST_NODE_UNARY";
     case AST_NODE_BINARY:
@@ -1011,6 +1013,17 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         printf(" [%s: "SV_Fmt"]\n", _dpll_token_kind_name(node->as.literal.value.kind), SV_Arg(node->as.literal.value.text));
         break;
     }
+    case AST_NODE_OBJECT_LITERAL: {
+        DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
+        printf("\n");
+        for (size_t i = 0; i < object_literal.field_count; ++i) {
+            _dpla_print_indent(level + 1);
+            printf("<field "SV_Fmt">\n", SV_Arg(object_literal.fields[i].name.text));
+            _dpla_print(object_literal.fields[i].expression, level + 2);
+        }
+        break;
+    }
+    break;
     case AST_NODE_FUNCTIONCALL: {
         DPL_Ast_FunctionCall call = node->as.function_call;
         printf(" [%s: "SV_Fmt"]\n", _dpll_token_kind_name(call.name.kind), SV_Arg(call.name.text));
@@ -1347,6 +1360,36 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         node->as.symbol = token;
         return node;
     }
+    case TOKEN_OPEN_BRACKET: {
+        bool first = true;
+        da_array(DPL_Ast_ObjectLiteralField) tmp_fields = NULL;
+        while (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_BRACKET) {
+            if (!first) {
+                _dplp_expect_token(dpl, TOKEN_COMMA);
+            }
+            DPL_Token field_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+            _dplp_expect_token(dpl, TOKEN_COLON);
+            DPL_Ast_Node* field_expression = _dplp_parse_expression(dpl);
+
+            DPL_Ast_ObjectLiteralField field = {
+                .name = field_name,
+                .expression = field_expression,
+            };
+            da_add(tmp_fields, field);
+
+            first = false;
+        }
+
+        DPL_Ast_Node* object_literal = _dpla_create_node(&dpl->tree, AST_NODE_OBJECT_LITERAL, token, _dplp_next_token(dpl));
+        object_literal->as.object_literal.field_count = da_size(tmp_fields);
+        if (da_size(tmp_fields) > 0) {
+            object_literal->as.object_literal.fields = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_ObjectLiteralField) * da_size(tmp_fields));
+            memcpy(object_literal->as.object_literal.fields, tmp_fields, sizeof(DPL_Ast_ObjectLiteralField) * da_size(tmp_fields));
+        }
+        da_free(tmp_fields);
+        return object_literal;
+    }
+    break;
     default: {
         DPL_TOKEN_ERROR(dpl, token, "Unexpected %s.", _dpll_token_kind_name(token.kind));
     }
