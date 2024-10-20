@@ -34,9 +34,20 @@ typedef struct {
 
 typedef enum
 {
-    TYPE_BASE,
+    TYPE_NAME,
     TYPE_FUNCTION,
+    TYPE_OBJECT,
 } DPL_Type_Kind;
+
+typedef struct {
+    Nob_String_View name;
+    DPL_Handle type;
+} DPL_TypeField;
+
+typedef struct {
+    size_t field_count;
+    DPL_TypeField* fields;
+} DPL_TypeObject;
 
 typedef struct
 {
@@ -48,6 +59,7 @@ typedef struct
     union {
         void* base;
         DPL_Signature function;
+        DPL_TypeObject object;
     } as;
 } DPL_Type;
 
@@ -120,6 +132,8 @@ typedef enum
     TOKEN_CLOSE_PAREN,
     TOKEN_OPEN_BRACE,
     TOKEN_CLOSE_BRACE,
+    TOKEN_OPEN_BRACKET,
+    TOKEN_CLOSE_BRACKET,
     TOKEN_COMMA,
     TOKEN_SEMICOLON,
 
@@ -145,6 +159,29 @@ typedef struct
 } DPL_Token;
 
 // PARSER
+
+struct DPL_Ast_Type;
+
+typedef struct {
+    DPL_Token name;
+    struct DPL_Ast_Type* type;
+
+} DPL_Ast_TypeField;
+
+typedef struct {
+    size_t field_count;
+    DPL_Ast_TypeField* fields;
+} DPL_Ast_TypeObject;
+
+typedef struct DPL_Ast_Type {
+    DPL_Type_Kind kind;
+    DPL_Token first;
+    DPL_Token last;
+    union {
+        DPL_Token name;
+        DPL_Ast_TypeObject object;
+    } as;
+} DPL_Ast_Type;
 
 typedef enum
 {
@@ -212,7 +249,7 @@ typedef struct
 {
     DPL_Token keyword;
     DPL_Token name;
-    DPL_Token type;
+    DPL_Ast_Type* type;
     DPL_Token assignment;
     DPL_Ast_Node* initialization;
 } DPL_Ast_Declaration;
@@ -226,13 +263,13 @@ typedef struct
 
 typedef struct {
     DPL_Token name;
-    DPL_Token type_name;
+    DPL_Ast_Type* type;
 } DPL_Ast_FunctionArgument;
 
 typedef struct {
     size_t argument_count;
     DPL_Ast_FunctionArgument* arguments;
-    DPL_Token type_name;
+    DPL_Ast_Type* type;
 } DPL_Ast_FunctionSignature;
 
 typedef struct {

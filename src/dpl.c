@@ -130,28 +130,6 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
         _dple_register(dpl, externals);
     }
 
-    if (dpl->debug)
-    {
-        printf("Types:\n");
-        for (size_t i = 0; i < da_size(dpl->types); ++i) {
-            printf("* %u: ", dpl->types[i].handle);
-            _dplt_print(stdout, dpl, &dpl->types[i]);
-            printf("\n");
-        }
-        printf("\n");
-    }
-
-    if (dpl->debug)
-    {
-        printf("Functions:\n");
-        for (size_t i = 0; i < da_size(dpl->functions); ++i) {
-            printf("* %u: ", dpl->functions[i].handle);
-            _dplf_print(stdout, dpl, &dpl->functions[i]);
-            printf("\n");
-        }
-        printf("\n");
-    }
-
     // lexer initialization
     dpl->current_line = dpl->source.data;
 }
@@ -323,7 +301,9 @@ void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type)
         _dpl_print_signature(out, dpl, &type->as.function);
         fprintf(out, "]");
         break;
-    case TYPE_BASE:
+    case TYPE_NAME:
+        break;
+    case TYPE_OBJECT:
         break;
     default:
         DW_UNIMPLEMENTED_MSG("%d", type->kind);
@@ -716,6 +696,12 @@ DPL_Token _dpll_next_token(DPL* dpl)
     case '}':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_CLOSE_BRACE);
+    case '[':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_OPEN_BRACKET);
+    case ']':
+        _dpll_advance(dpl);
+        return _dpll_build_token(dpl, TOKEN_CLOSE_BRACKET);
     case ',':
         _dpll_advance(dpl);
         return _dpll_build_token(dpl, TOKEN_COMMA);
@@ -901,6 +887,10 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "token `{`";
     case TOKEN_CLOSE_BRACE:
         return "token `}`";
+    case TOKEN_OPEN_BRACKET:
+        return "token `[`";
+    case TOKEN_CLOSE_BRACKET:
+        return "token `]`";
     case TOKEN_COMMA:
         return "token `,`";
     case TOKEN_SEMICOLON:
@@ -949,6 +939,43 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
+}
+
+void _dpla_build_type_name(DPL_Ast_Type* ast_type, Nob_String_Builder* sb) {
+    switch (ast_type->kind) {
+    case TYPE_NAME:
+        nob_sb_append_sv(sb, ast_type->as.name.text);
+        break;
+    case TYPE_OBJECT: {
+        nob_sb_append_cstr(sb, "[");
+        for (size_t i = 0; i < ast_type->as.object.field_count; ++i) {
+            if (i > 0) {
+                nob_sb_append_cstr(sb, ", ");
+            }
+            DPL_Ast_TypeField field = ast_type->as.object.fields[i];
+            nob_sb_append_sv(sb, field.name.text);
+            nob_sb_append_cstr(sb, ": ");
+            _dpla_build_type_name(field.type, sb);
+        }
+        nob_sb_append_cstr(sb, "]");
+    }
+    break;
+    default:
+        DW_UNIMPLEMENTED_MSG("Cannot print ast type %d.", ast_type->kind);
+    }
+}
+
+const char* _dpla_type_name(DPL_Ast_Type* ast_type) {
+    static char result[256];
+    if (!ast_type) {
+        return _dpll_token_kind_name(TOKEN_NONE);
+    }
+    Nob_String_Builder sb = {0};
+    _dpla_build_type_name(ast_type, &sb);
+    nob_sb_append_null(&sb);
+
+    strncpy(result, sb.items, NOB_ARRAY_LEN(result));
+    return result;
 }
 
 void _dpla_print_indent(size_t level) {
@@ -1006,7 +1033,7 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
     break;
     case AST_NODE_DECLARATION: {
         DPL_Ast_Declaration declaration = node->as.declaration;
-        printf(" [%s "SV_Fmt": "SV_Fmt"]\n", _dpll_token_kind_name(declaration.keyword.kind), SV_Arg(declaration.name.text), SV_Arg(declaration.type.text));
+        printf(" [%s "SV_Fmt": %s]\n", _dpll_token_kind_name(declaration.keyword.kind), SV_Arg(declaration.name.text), _dpla_type_name(declaration.type));
         _dpla_print_indent(level + 1);
         printf("<initialization>\n");
         _dpla_print(declaration.initialization, level + 2);
@@ -1033,9 +1060,9 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
                 printf(", ");
             }
             DPL_Ast_FunctionArgument arg = function.signature.arguments[i];
-            printf(SV_Fmt": "SV_Fmt, SV_Arg(arg.name.text), SV_Arg(arg.type_name.text));
+            printf(SV_Fmt": %s", SV_Arg(arg.name.text), _dpla_type_name(arg.type));
         }
-        printf("): "SV_Fmt"]\n", SV_Arg(function.signature.type_name.text));
+        printf("): %s]\n", _dpla_type_name(function.signature.type));
         _dpla_print_indent(level + 1);
         printf("<body>\n");
         _dpla_print(function.body, level + 2);
@@ -1108,22 +1135,77 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind);
 
+DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
+    DPL_Token type_begin = _dplp_peek_token(dpl);
+    switch (type_begin.kind) {
+    case TOKEN_IDENTIFIER: {
+        _dplp_next_token(dpl);
+
+        DPL_Ast_Type* name_type = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Type));
+        name_type->kind = TYPE_NAME;
+        name_type->first = type_begin;
+        name_type->last = type_begin;
+        name_type->as.name = type_begin;
+        return name_type;
+    }
+    case TOKEN_OPEN_BRACKET: {
+        _dplp_next_token(dpl);
+
+        da_array(DPL_Ast_TypeField) tmp_fields = NULL;
+        while (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_BRACKET) {
+            if (da_size(tmp_fields) > 0) {
+                _dplp_expect_token(dpl, TOKEN_COMMA);
+            }
+            DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+            _dplp_expect_token(dpl, TOKEN_COLON);
+            DPL_Ast_Type* type = _dplp_parse_type(dpl);
+            DPL_Ast_TypeField field = {
+                .name = name,
+                .type = type,
+            };
+            da_add(tmp_fields, field);
+        }
+
+
+        DPL_Ast_TypeField* fields = NULL;
+        if (da_some(tmp_fields)) {
+            fields = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_TypeField) * da_size(tmp_fields));
+            memcpy(fields, tmp_fields, sizeof(DPL_Ast_TypeField) * da_size(tmp_fields));
+        }
+
+        DPL_Ast_Type* object_type = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Type));
+        object_type->kind = TYPE_OBJECT;
+        object_type->first = type_begin;
+        object_type->last = _dplp_peek_token(dpl);
+        object_type->as.object.field_count = da_size(tmp_fields);
+        object_type->as.object.fields = fields;
+
+        da_free(tmp_fields);
+        _dplp_next_token(dpl);
+
+        return object_type;
+    }
+    default:
+        DPL_TOKEN_ERROR(dpl, type_begin, "Invalid %s in type reference, expected %s.", _dpll_token_kind_name(type_begin.kind),
+                        _dpll_token_kind_name(TOKEN_IDENTIFIER));
+    }
+}
+
 DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     DPL_Token keyword_candidate = _dplp_peek_token(dpl);
     if (keyword_candidate.kind == TOKEN_KEYWORD_CONSTANT || keyword_candidate.kind == TOKEN_KEYWORD_VAR) {
         DPL_Token keyword = _dplp_next_token(dpl);
         DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
 
-        DPL_Token type = {0};
+        DPL_Ast_Type* type = NULL;
         if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
             _dplp_expect_token(dpl, TOKEN_COLON);
-            type = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+            type = _dplp_parse_type(dpl);
         }
 
         DPL_Token assignment = _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
 
         DPL_Ast_Node* initialization = _dplp_parse_expression(dpl);
-
 
         DPL_Ast_Node* declaration = _dpla_create_node(&dpl->tree, AST_NODE_DECLARATION, keyword, initialization->last);
         declaration->as.declaration.keyword = keyword;
@@ -1143,7 +1225,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
                 DPL_Ast_FunctionArgument argument = {0};
                 argument.name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
                 _dplp_expect_token(dpl, TOKEN_COLON);
-                argument.type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+                argument.type = _dplp_parse_type(dpl);
 
                 da_add(arguments, argument);
 
@@ -1156,7 +1238,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         }
         _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
         _dplp_expect_token(dpl, TOKEN_COLON);
-        DPL_Token result_type_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+        DPL_Ast_Type* result_type = _dplp_parse_type(dpl);
 
         _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
 
@@ -1172,7 +1254,7 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
             memcpy(function->as.function.signature.arguments, arguments, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
             da_free(arguments);
         }
-        function->as.function.signature.type_name = result_type_name;
+        function->as.function.signature.type = result_type;
 
         function->as.function.body = body;
 
@@ -1641,6 +1723,58 @@ void _dplb_move_nodelist(DPL* dpl, da_array(DPL_Bound_Node*) list, size_t *targe
     }
 }
 
+Nob_String_View _dpl_arena_strcpy(Arena* arena, const char* s) {
+    printf("-- %s\n", s);
+    char* copy = arena_alloc(arena, strlen(s));
+    strcpy(copy, s);
+    return nob_sv_from_cstr(copy);
+}
+
+Nob_String_View _dpl_arena_svcpy(Arena* arena, Nob_String_View sv) {
+    char* copy = arena_alloc(arena, sv.count);
+    memcpy(copy, sv.data, sv.count);
+    return nob_sv_from_parts(copy, sv.count);
+}
+
+DPL_Type* _dplb_bind_type(DPL* dpl, DPL_Ast_Type* ast_type) {
+    DPL_Type* result = NULL;
+    Nob_String_View type_name = nob_sv_from_cstr(strdup(_dpla_type_name(ast_type)));
+
+    DPL_Type* cached_type = _dplt_find_by_name(dpl, type_name);
+    if (cached_type) {
+        nob_return_defer(cached_type);
+    }
+
+    if (ast_type->kind == TYPE_OBJECT) {
+        DPL_Ast_TypeObject object_type = ast_type->as.object;
+
+        DPL_TypeField* fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_TypeField) * object_type.field_count);
+        for (size_t i = 0; i < object_type.field_count; ++i) {
+            DPL_Ast_TypeField ast_field = object_type.fields[i];
+            DPL_Type* bound_field_type = _dplb_bind_type(dpl, ast_field.type);
+            if (!bound_field_type) {
+                DPL_AST_ERROR(dpl, ast_field.type, "Unable to bind type `%s` for field `"SV_Fmt"`.",
+                              _dpla_type_name(ast_field.type), SV_Arg(ast_field.name.text));
+            }
+            fields[i].name = _dpl_arena_svcpy(&dpl->bound_tree.memory, ast_field.name.text);
+            fields[i].type = bound_field_type->handle;
+        }
+
+        DPL_Type new_object_type = {
+            .name = _dpl_arena_svcpy(&dpl->bound_tree.memory, type_name),
+            .kind = TYPE_OBJECT,
+            .as.object.field_count = object_type.field_count,
+            .as.object.fields = fields,
+        };
+        DPL_Handle registered_type_handle = _dplt_register(dpl, new_object_type);
+        nob_return_defer(_dplt_find_by_handle(dpl, registered_type_handle));
+    }
+
+defer:
+    free((char*)type_name.data);
+    return result;
+}
+
 DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
 DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
@@ -1991,11 +2125,11 @@ void _dplb_check_assignment(DPL* dpl, const char* what, DPL_Ast_Node* node, DPL_
                       "Expressions of type `"SV_Fmt"` cannot be assigned.", SV_Arg(expression_type->name));
     }
 
-    if (decl->type.kind != TOKEN_NONE) {
-        DPL_Type* declared_type = _dplt_find_by_name(dpl, decl->type.text);
+    if (decl->type) {
+        DPL_Type* declared_type = _dplb_bind_type(dpl, decl->type);
         if (!declared_type) {
-            DPL_TOKEN_ERROR(dpl, decl->type, "Unknown type `"SV_Fmt"` in declaration of %s `"SV_Fmt"`.",
-                            SV_Arg(decl->type.text), what, SV_Arg(decl->name.text));
+            DPL_AST_ERROR(dpl, decl->type, "Unknown type `%s` in declaration of %s `"SV_Fmt"`.",
+                          _dpla_type_name(decl->type), what, SV_Arg(decl->name.text));
         }
 
         if (expression_type->handle != declared_type->handle) {
@@ -2215,21 +2349,21 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         DPL_Signature signature = {0};
         for (size_t i = 0; i < function->signature.argument_count; ++i) {
             DPL_Ast_FunctionArgument arg = function->signature.arguments[i];
-            DPL_Type* arg_type = _dplt_find_by_name(dpl, arg.type_name.text);
+            DPL_Type* arg_type = _dplb_bind_type(dpl, arg.type);
             if (!arg_type) {
-                DPL_TOKEN_ERROR(dpl, arg.type_name,
-                                "Cannot resolve type `"SV_Fmt"` for argument `"SV_Fmt"` in current scope.",
-                                SV_Arg(arg.type_name.text), SV_Arg(arg.name.text));
+                DPL_AST_ERROR(dpl, arg.type,
+                              "Cannot resolve type `%s` for argument `"SV_Fmt"` in current scope.",
+                              _dpla_type_name(arg.type), SV_Arg(arg.name.text));
             }
 
             _dpl_add_handle(&signature.arguments, arg_type->handle);
         }
 
-        DPL_Type* return_type = _dplt_find_by_name(dpl, function->signature.type_name.text);
+        DPL_Type* return_type = _dplb_bind_type(dpl, function->signature.type);
         if (!return_type) {
-            DPL_TOKEN_ERROR(dpl, function->signature.type_name,
-                            "Cannot resolve return type `"SV_Fmt"` in current scope.",
-                            SV_Arg(function->signature.type_name.text));
+            DPL_AST_ERROR(dpl, function->signature.type,
+                          "Cannot resolve return type `%s` in current scope.",
+                          _dpla_type_name(function->signature.type));
         }
         signature.returns = return_type->handle;
 
@@ -2624,5 +2758,28 @@ void dpl_compile(DPL *dpl, DPL_Program* program)
     if (dpl->debug)
     {
         dplp_print(program);
+    }
+
+
+    if (dpl->debug)
+    {
+        printf("Types:\n");
+        for (size_t i = 0; i < da_size(dpl->types); ++i) {
+            printf("* %u: ", dpl->types[i].handle);
+            _dplt_print(stdout, dpl, &dpl->types[i]);
+            printf("\n");
+        }
+        printf("\n");
+    }
+
+    if (dpl->debug)
+    {
+        printf("Functions:\n");
+        for (size_t i = 0; i < da_size(dpl->functions); ++i) {
+            printf("* %u: ", dpl->functions[i].handle);
+            _dplf_print(stdout, dpl, &dpl->functions[i]);
+            printf("\n");
+        }
+        printf("\n");
     }
 }
