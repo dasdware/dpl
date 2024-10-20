@@ -259,6 +259,32 @@ DPL_Type* _dplt_find_by_signature(DPL* dpl, DPL_Handles* arguments, DPL_Handle r
     return NULL;
 }
 
+DPL_Type* _dplt_find_by_object_query(DPL* dpl, DPL_TypeObjectQuery query)
+{
+    for (size_t i = 0;  i < da_size(dpl->types); ++i)
+    {
+        DPL_Type *type = &dpl->types[i];
+        if (type->kind == TYPE_OBJECT && type->as.object.field_count == da_size(query)) {
+            bool is_match = true;
+            for (size_t j = 0; j < type->as.object.field_count; ++j) {
+                if (!nob_sv_eq(query[j].name, type->as.object.fields[j].name)) {
+                    is_match = false;
+                    break;
+                }
+                if (query[j].type != type->as.object.fields[j].type) {
+                    is_match = false;
+                    break;
+                }
+            }
+            if (is_match) {
+                return type;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 bool _dpl_add_handle_by_name(DPL_Handles* handles, DPL* dpl, Nob_String_View name)
 {
     DPL_Type* type = _dplt_find_by_name(dpl, name);
@@ -1767,7 +1793,6 @@ void _dplb_move_nodelist(DPL* dpl, da_array(DPL_Bound_Node*) list, size_t *targe
 }
 
 Nob_String_View _dpl_arena_strcpy(Arena* arena, const char* s) {
-    printf("-- %s\n", s);
     char* copy = arena_alloc(arena, strlen(s));
     strcpy(copy, s);
     return nob_sv_from_cstr(copy);
@@ -2219,6 +2244,83 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
         break;
     }
+    case AST_NODE_OBJECT_LITERAL: {
+        DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
+        da_array(DPL_Bound_ObjectField) tmp_bound_fields = NULL;
+        DPL_TypeObjectQuery type_query = NULL;
+        for (size_t i = 0; i < object_literal.field_count; ++i) {
+            DPL_Bound_ObjectField bound_field = {
+                .name = _dpl_arena_svcpy(&dpl->bound_tree.memory, object_literal.fields[i].name.text),
+                .expression = _dplb_bind_node(dpl, object_literal.fields[i].expression),
+            };
+            da_add(tmp_bound_fields, bound_field);
+
+            DPL_TypeField query_field = {
+                .name = bound_field.name,
+                .type = bound_field.expression->type_handle,
+            };
+            da_add(type_query, query_field);
+        }
+
+        DPL_Type* bound_type = _dplt_find_by_object_query(dpl, type_query);
+
+        if (!bound_type) {
+            Nob_String_Builder type_name_builder = {0};
+            nob_sb_append_cstr(&type_name_builder, "[");
+            for (size_t i = 0; i < da_size(type_query); ++i) {
+                if (i > 0) {
+                    nob_sb_append_cstr(&type_name_builder, ", ");
+                }
+                nob_sb_append_sv(&type_name_builder, type_query[i].name);
+                nob_sb_append_cstr(&type_name_builder, ": ");
+
+                DPL_Type* field_type = _dplt_find_by_handle(dpl, type_query[i].type);
+                if (!field_type) {
+                    DW_UNIMPLEMENTED_MSG("Did not find a field type which really should already be there.");
+                }
+                nob_sb_append_sv(&type_name_builder, field_type->name);
+            }
+            nob_sb_append_cstr(&type_name_builder, "]");
+            nob_sb_append_null(&type_name_builder);
+
+            DPL_TypeField* new_object_type_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_TypeField) * da_size(type_query));
+            memcpy(new_object_type_fields, type_query, sizeof(DPL_TypeField) * da_size(type_query));
+
+            DPL_Type new_object_type = {
+                .name = _dpl_arena_strcpy(&dpl->bound_tree.memory, type_name_builder.items),
+                .kind = TYPE_OBJECT,
+                .as.object.field_count = da_size(type_query),
+                .as.object.fields = new_object_type_fields,
+            };
+            DPL_Handle registered_type_handle = _dplt_register(dpl, new_object_type);
+            bound_type = _dplt_find_by_handle(dpl, registered_type_handle);
+
+            nob_sb_free(type_name_builder);
+        }
+        da_free(type_query);
+
+        // printf("%zu\n", bound_type->handle);
+
+        // DW_UNIMPLEMENTED;
+
+        DPL_Bound_ObjectField* bound_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
+        memcpy(bound_fields, tmp_bound_fields, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
+
+        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        bound_node->kind = BOUND_NODE_VALUE;
+        bound_node->type_handle = bound_type->handle;
+        bound_node->as.value = (DPL_Bound_Value) {
+            .type_handle = bound_type->handle,
+            .as.object = {
+                .field_count = da_size(tmp_bound_fields),
+                .fields = bound_fields,
+            }
+        };
+
+        da_free(tmp_bound_fields);
+        return bound_node;
+    }
+    break;
     case AST_NODE_UNARY: {
         DPL_Token operator = node->as.unary.operator;
         switch(operator.kind) {
@@ -2558,6 +2660,26 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
             dplp_print_escaped_string(value.data, value.count);
         } else if (node->as.value.type_handle == dpl->boolean_type_handle) {
             printf("%s", node->as.value.as.boolean ? "true" : "false");
+        } else {
+            if (!type) {
+                printf("<unknown>");
+            } else if (type->kind == TYPE_OBJECT) {
+                DPL_Bound_Object object = node->as.value.as.object;
+                printf("[\n");
+
+                for (size_t field_index = 0; field_index < object.field_count; ++field_index) {
+                    for (size_t i = 0; i < level + 1; ++i) {
+                        printf("  ");
+                    }
+                    printf(SV_Fmt":\n", SV_Arg(object.fields[field_index].name));
+                    _dplb_print(dpl, object.fields[field_index].expression, level + 2);
+                }
+
+                for (size_t i = 0; i < level; ++i) {
+                    printf("  ");
+                }
+                printf("]");
+            }
         }
         printf("`\n");
     }

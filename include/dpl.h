@@ -44,6 +44,8 @@ typedef struct {
     DPL_Handle type;
 } DPL_TypeField;
 
+typedef da_array(DPL_TypeField) DPL_TypeObjectQuery;
+
 typedef struct {
     size_t field_count;
     DPL_TypeField* fields;
@@ -337,11 +339,22 @@ typedef enum
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
 
 typedef struct {
+    Nob_String_View name;
+    DPL_Bound_Node* expression;
+} DPL_Bound_ObjectField;
+
+typedef struct {
+    size_t field_count;
+    DPL_Bound_ObjectField* fields;
+} DPL_Bound_Object;
+
+typedef struct {
     DPL_Handle type_handle;
     union {
         double number;
         Nob_String_View string;
         bool boolean;
+        DPL_Bound_Object object;
     } as;
 } DPL_Bound_Value;
 
