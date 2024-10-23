@@ -14,8 +14,8 @@
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 
-#define DW_STRING_TABLE_IMPLEMENTATION
-#include <string_table.h>
+#define DW_MEMORY_TABLE_IMPLEMENTATION
+#include <dw_memory_table.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
             dpl_value_print(vm.stack[i]);
             printf("\n");
         }
-        printf("Entries remaining in string table: %llu\n", ST_CAPACITY - vm.strings.free_items.count);
+        printf("Entries remaining in string table: %llu\n", MT_CAPACITY - vm.strings.free_items.count);
         printf("==[ /DEBUG ]============================\n");
     }
 

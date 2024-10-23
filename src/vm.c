@@ -26,12 +26,12 @@ void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctio
 
     vm->callstack = arena_alloc(&vm->memory, vm->callstack_capacity * sizeof(*vm->callstack));
 
-    st_init(&vm->strings);
+    mt_init(&vm->strings);
 }
 
 void dplv_free(DPL_VirtualMachine *vm)
 {
-    //st_free(&vm->strings);
+    mt_free(&vm->strings);
     arena_free(&vm->memory);
 }
 
@@ -76,14 +76,14 @@ void _dplv_trace_stack(DPL_VirtualMachine *vm) {
 DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
         return dpl_value_make_string(
-                   st_allocate_sv(&vm->strings, value.as.string));
+                   mt_sv_allocate_sv(&vm->strings, value.as.string));
     }
     return value;
 }
 
 void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
-        st_release(&vm->strings, value.as.string);
+        mt_sv_release(&vm->strings, value.as.string);
     }
 }
 
@@ -163,7 +163,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             Nob_String_View value = bb_read_sv(vm->program->constants, offset);
 
             ++vm->stack_top;
-            TOP0 = dpl_value_make_string(st_allocate_sv(&vm->strings, value));
+            TOP0 = dpl_value_make_string(mt_sv_allocate_sv(&vm->strings, value));
         }
         break;
         case INST_PUSH_BOOLEAN: {
@@ -188,7 +188,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
                 dplv_return_number(vm, 2, TOP1.as.number + TOP0.as.number);
             } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
-                dplv_return_string(vm, 2, st_allocate_concat(&vm->strings, TOP1.as.string, TOP0.as.string));
+                dplv_return_string(vm, 2, mt_sv_allocate_concat(&vm->strings, TOP1.as.string, TOP0.as.string));
             }
             break;
         case INST_SUBTRACT:
