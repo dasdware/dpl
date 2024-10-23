@@ -26,12 +26,12 @@ void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctio
 
     vm->callstack = arena_alloc(&vm->memory, vm->callstack_capacity * sizeof(*vm->callstack));
 
-    mt_init(&vm->strings);
+    mt_init(&vm->stack_memory);
 }
 
 void dplv_free(DPL_VirtualMachine *vm)
 {
-    mt_free(&vm->strings);
+    mt_free(&vm->stack_memory);
     arena_free(&vm->memory);
 }
 
@@ -76,19 +76,19 @@ void _dplv_trace_stack(DPL_VirtualMachine *vm) {
 DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
         return dpl_value_make_string(
-                   mt_sv_allocate_sv(&vm->strings, value.as.string));
+                   mt_sv_allocate_sv(&vm->stack_memory, value.as.string));
     } else if (value.kind == VALUE_OBJECT) {
         return dpl_value_make_object(
-                   mt_allocate_data(&vm->strings, value.as.object->data, value.as.object->length));
+                   mt_allocate_data(&vm->stack_memory, value.as.object->data, value.as.object->length));
     }
     return value;
 }
 
 void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
-        mt_sv_release(&vm->strings, value.as.string);
+        mt_sv_release(&vm->stack_memory, value.as.string);
     } else if (value.kind == VALUE_OBJECT) {
-        mt_release(&vm->strings, value.as.object);
+        mt_release(&vm->stack_memory, value.as.object);
     }
 }
 
@@ -168,7 +168,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             Nob_String_View value = bb_read_sv(vm->program->constants, offset);
 
             ++vm->stack_top;
-            TOP0 = dpl_value_make_string(mt_sv_allocate_sv(&vm->strings, value));
+            TOP0 = dpl_value_make_string(mt_sv_allocate_sv(&vm->stack_memory, value));
         }
         break;
         case INST_PUSH_BOOLEAN: {
@@ -193,7 +193,7 @@ void dplv_run(DPL_VirtualMachine *vm)
             if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
                 dplv_return_number(vm, 2, TOP1.as.number + TOP0.as.number);
             } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
-                dplv_return_string(vm, 2, mt_sv_allocate_concat(&vm->strings, TOP1.as.string, TOP0.as.string));
+                dplv_return_string(vm, 2, mt_sv_allocate_concat(&vm->stack_memory, TOP1.as.string, TOP0.as.string));
             }
             break;
         case INST_SUBTRACT:
@@ -329,7 +329,7 @@ void dplv_run(DPL_VirtualMachine *vm)
 
             size_t object_size = field_count * sizeof(DPL_Value);
 
-            DW_MemoryTable_Item* object = mt_allocate(&vm->strings, object_size);
+            DW_MemoryTable_Item* object = mt_allocate(&vm->stack_memory, object_size);
             memcpy(object->data, &vm->stack[vm->stack_top - field_count], object_size);
 
             vm->stack_top -= (field_count - 1);

@@ -24,12 +24,11 @@ typedef struct DPL_VirtualMachine
     size_t stack_capacity;
     size_t stack_top;
     DPL_Value *stack;
+    DW_MemoryTable stack_memory;
 
     size_t callstack_capacity;
     size_t callstack_top;
     DPL_CallFrame *callstack;
-
-    DW_MemoryTable strings;
 
     Arena memory;
 } DPL_VirtualMachine;
