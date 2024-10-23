@@ -136,7 +136,7 @@ Nob_String_View mt_sv_allocate_concat(DW_MemoryTable *table, Nob_String_View sv1
 }
 
 
-size_t _st_check_handle_value(DW_MemoryTable *table, Nob_String_View sv, const char* operation)
+size_t _mt_check_handle_value(DW_MemoryTable *table, Nob_String_View sv, const char* operation)
 {
     size_t handle = *((size_t*)((sv.data) - sizeof(size_t)));
 
@@ -154,7 +154,7 @@ size_t _st_check_handle_value(DW_MemoryTable *table, Nob_String_View sv, const c
 
 void mt_sv_release(DW_MemoryTable *table, Nob_String_View sv)
 {
-    size_t handle = _st_check_handle_value(table, sv, "release string");
+    size_t handle = _mt_check_handle_value(table, sv, "release string");
 
     rb_enqueue(table->free_items, handle);
     table->items[handle].is_free = true;
