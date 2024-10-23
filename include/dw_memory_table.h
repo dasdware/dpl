@@ -22,7 +22,8 @@ typedef struct
 {
     bool is_free;
     size_t length;
-    char data[sizeof(size_t) + MT_MAX_LENGTH + 1];
+    size_t handle;
+    char data[MT_MAX_LENGTH + 1];
 } DW_MemoryTable_Item;
 
 typedef struct
@@ -42,6 +43,10 @@ typedef struct
 
 void mt_init(DW_MemoryTable *table);
 void mt_free(DW_MemoryTable *table);
+
+DW_MemoryTable_Item* mt_allocate(DW_MemoryTable *table, size_t length);
+void mt_release(DW_MemoryTable* table, DW_MemoryTable_Item* item);
+DW_MemoryTable_Item* mt_allocate_data(DW_MemoryTable *table, const void* data, size_t length);
 
 Nob_String_View mt_sv_allocate(DW_MemoryTable *table, size_t length);
 Nob_String_View mt_sv_allocate_cstr(DW_MemoryTable *table, const char *value);
@@ -71,8 +76,7 @@ void mt_init(DW_MemoryTable *table)
     for (size_t handle = 0; handle < MT_CAPACITY; ++handle)
     {
         table->items[handle].is_free = true;
-        *((size_t*)(table->items[handle].data)) = handle;
-
+        table->items[handle].handle = handle;
         rb_enqueue(table->free_items, handle);
     }
 }
@@ -83,7 +87,7 @@ void mt_free(DW_MemoryTable *table)
     free(table->items);
 }
 
-Nob_String_View mt_sv_allocate(DW_MemoryTable *table, size_t length)
+DW_MemoryTable_Item* mt_allocate(DW_MemoryTable *table, size_t length)
 {
     if (length >= MT_MAX_LENGTH)
     {
@@ -97,11 +101,30 @@ Nob_String_View mt_sv_allocate(DW_MemoryTable *table, size_t length)
     size_t handle;
     rb_dequeue(table->free_items, handle);
 
-    table->items[handle].is_free = false;
-    table->items[handle].length = length;
-    table->items[handle].data[sizeof(size_t) + length] = '\0';
+    DW_MemoryTable_Item* item = &table->items[handle];
+    item->is_free = false;
+    item->length = length;
+    item->data[length] = '\0';
+    return item;
+}
 
-    return nob_sv_from_parts(table->items[handle].data + sizeof(size_t), length);
+DW_MemoryTable_Item* mt_allocate_data(DW_MemoryTable *table, const void* data, size_t length) {
+    DW_MemoryTable_Item* item = mt_allocate(table, length);
+    memcpy(item->data, data, length);
+    return item;
+}
+
+
+void mt_release(DW_MemoryTable* table, DW_MemoryTable_Item* item)
+{
+    rb_enqueue(table->free_items, item->handle);
+    item->is_free = true;
+}
+
+Nob_String_View mt_sv_allocate(DW_MemoryTable *table, size_t length)
+{
+    DW_MemoryTable_Item* item = mt_allocate(table, length);
+    return nob_sv_from_parts(item->data, item->length);
 }
 
 Nob_String_View mt_sv_allocate_cstr(DW_MemoryTable *table, const char *value)
@@ -155,9 +178,7 @@ size_t _mt_check_handle_value(DW_MemoryTable *table, Nob_String_View sv, const c
 void mt_sv_release(DW_MemoryTable *table, Nob_String_View sv)
 {
     size_t handle = _mt_check_handle_value(table, sv, "release string");
-
-    rb_enqueue(table->free_items, handle);
-    table->items[handle].is_free = true;
+    mt_release(table, &table->items[handle]);
 }
 
 

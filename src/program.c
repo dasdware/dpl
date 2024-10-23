@@ -278,14 +278,13 @@ void _dplp_print_constant(DPL_Program* program, size_t i) {
     printf(" #%zu: ", i);
     DPL_Constant constant = program->constants_dictionary[i];
     switch (constant.kind) {
-    case VALUE_NUMBER:
-        dpl_value_print_number(bb_read_f64(program->constants, constant.offset));
-        break;
     case VALUE_STRING:
         dpl_value_print_string(bb_read_sv(program->constants, constant.offset));
         break;
+    case VALUE_NUMBER:
     case VALUE_BOOLEAN:
-        // booleans will never occur in constant dictionary
+    case VALUE_OBJECT:
+        // numbers, booleans or objects will never occur in constant dictionary
         break;
     }
     printf(" (offset: %zu)\n", constant.offset);

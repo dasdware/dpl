@@ -15,6 +15,8 @@ const char* dpl_value_kind_name(DPL_ValueKind kind) {
         return "string";
     case VALUE_BOOLEAN:
         return "boolean";
+    case VALUE_OBJECT:
+        return "object";
     }
 
     DW_ERROR("ERROR: Invalid value kind `%02X`.", kind);
@@ -43,6 +45,15 @@ DPL_Value dpl_value_make_boolean(bool value) {
         .kind = VALUE_BOOLEAN,
         .as = {
             .boolean = value
+        }
+    };
+}
+
+DPL_Value dpl_value_make_object(DW_MemoryTable_Item* value) {
+    return (DPL_Value) {
+        .kind = VALUE_OBJECT,
+        .as = {
+            .object = value
         }
     };
 }
@@ -105,6 +116,23 @@ void dpl_value_print_boolean(bool value) {
     printf("[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), dpl_value_format_boolean(value));
 }
 
+uint8_t dpl_value_object_field_count(DW_MemoryTable_Item* object) {
+    return object->length / sizeof(DPL_Value);
+}
+
+DPL_Value dpl_value_object_field(DW_MemoryTable_Item* object, uint8_t field_index) {
+    return ((DPL_Value*)object->data)[field_index];
+}
+
+void dpl_value_print_object(DW_MemoryTable_Item* object) {
+    uint8_t field_count = dpl_value_object_field_count(object);
+    printf("[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);
+    for (uint8_t field_index = 0; field_index < field_count; ++field_index) {
+        dpl_value_print(dpl_value_object_field(object, field_index));
+    }
+    printf("]");
+}
+
 void dpl_value_print(DPL_Value value) {
     switch (value.kind) {
     case VALUE_NUMBER:
@@ -116,9 +144,12 @@ void dpl_value_print(DPL_Value value) {
     case VALUE_BOOLEAN:
         dpl_value_print_boolean(value.as.boolean);
         break;
+    case VALUE_OBJECT:
+        dpl_value_print_object(value.as.object);
+        break;
     default:
-        DW_ERROR("Cannot debug print value of kind `%s`.",
-                 dpl_value_kind_name(value.kind));
+        DW_UNIMPLEMENTED_MSG("Cannot debug print value of kind `%s`.",
+                             dpl_value_kind_name(value.kind));
     }
 }
 

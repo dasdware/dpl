@@ -77,6 +77,9 @@ DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
         return dpl_value_make_string(
                    mt_sv_allocate_sv(&vm->strings, value.as.string));
+    } else if (value.kind == VALUE_OBJECT) {
+        return dpl_value_make_object(
+                   mt_allocate_data(&vm->strings, value.as.object->data, value.as.object->length));
     }
     return value;
 }
@@ -84,6 +87,8 @@ DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
 void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
         mt_sv_release(&vm->strings, value.as.string);
+    } else if (value.kind == VALUE_OBJECT) {
+        mt_release(&vm->strings, value.as.object);
     }
 }
 
@@ -317,6 +322,18 @@ void dplv_run(DPL_VirtualMachine *vm)
         case INST_JUMP_LOOP: {
             uint16_t jump = bs_read_u16(&program);
             program.position -= jump;
+        }
+        break;
+        case INST_CREATE_OBJECT: {
+            uint8_t field_count = bs_read_u8(&program);
+
+            size_t object_size = field_count * sizeof(DPL_Value);
+
+            DW_MemoryTable_Item* object = mt_allocate(&vm->strings, object_size);
+            memcpy(object->data, &vm->stack[vm->stack_top - field_count], object_size);
+
+            vm->stack_top -= (field_count - 1);
+            TOP0 = dpl_value_make_object(object);
         }
         break;
         default:
