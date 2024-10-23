@@ -100,6 +100,11 @@ void dplp_write_push_boolean(DPL_Program *program, bool value) {
     bb_write_u8(&program->code, value ? 1 : 0);
 }
 
+void dplp_write_create_object(DPL_Program *program, size_t field_count) {
+    bb_write_u8(&program->code, INST_CREATE_OBJECT);
+    bb_write_u8(&program->code, field_count);
+}
+
 void dplp_write_push_local(DPL_Program *program, size_t scope_index) {
     bb_write_u8(&program->code, INST_PUSH_LOCAL);
     bb_write_u64(&program->code, scope_index);
@@ -242,6 +247,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "JUMP_IF_TRUE";
     case INST_JUMP_LOOP:
         return "JUMP_LOOP";
+    case INST_CREATE_OBJECT:
+        return "CREATE_OBJECT";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -316,6 +323,10 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
         printf(" %zu", scope_index);
     }
     break;
+    case INST_CREATE_OBJECT: {
+        size_t field_count = bs_read_u8(code);
+        printf(" %zu", field_count);
+    }
     case INST_NOOP:
     case INST_POP:
     case INST_NEGATE:

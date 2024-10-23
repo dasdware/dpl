@@ -38,6 +38,7 @@ typedef enum
     INST_JUMP_IF_FALSE,
     INST_JUMP_IF_TRUE,
     INST_JUMP_LOOP,
+    INST_CREATE_OBJECT,
 } DPL_Instruction_Kind;
 
 typedef struct {
@@ -71,6 +72,8 @@ void dplp_write_push_boolean(DPL_Program *program, bool value);
 void dplp_write_push_local(DPL_Program *program, size_t scope_index);
 void dplp_write_pop(DPL_Program* program);
 void dplp_write_pop_scope(DPL_Program* program, size_t n);
+
+void dplp_write_create_object(DPL_Program *program, size_t field_count);
 
 void dplp_write_negate(DPL_Program *program);
 

@@ -2778,8 +2778,17 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
             dplp_write_push_boolean(program, node->as.value.as.boolean);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
-            DPL_ERROR("Cannot generate program for value node of type "SV_Fmt".",
-                      SV_Arg(type->name));
+            if (type->kind == TYPE_OBJECT) {
+                DPL_Bound_Object object = node->as.value.as.object;
+                for (size_t i = 0; i < object.field_count; ++i) {
+                    _dplg_generate(dpl, object.fields[i].expression, program);
+                }
+
+                dplp_write_create_object(program, object.field_count);
+            } else {
+                DPL_ERROR("Cannot generate program for value node of type "SV_Fmt".",
+                          SV_Arg(type->name));
+            }
         }
     }
     break;
