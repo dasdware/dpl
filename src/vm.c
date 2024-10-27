@@ -336,6 +336,12 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = dpl_value_make_object(object);
         }
         break;
+        case INST_LOAD_FIELD: {
+            uint8_t field_index = bs_read_u8(&program);
+
+            TOP0 = dpl_value_object_field(TOP0.as.object, field_index);
+        }
+        break;
         default:
             printf("\n=======================================\n");
             _dplv_trace_stack(vm);
