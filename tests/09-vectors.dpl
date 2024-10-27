@@ -8,4 +8,4 @@ var p1 := [ x: 1, y: 2 ];
 print(p1); print("\n");
 var p2: [ x: number, y: number ] := [ x: 1, y: 2*3 ];
 print(p2); print("\n");
-print(add(p1, p2)); print("\n");
+print(p1 + p2); print("\n");

@@ -1865,6 +1865,37 @@ defer:
     return result;
 }
 
+void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data)
+{
+    DPL_UserFunction* uf = &dpl->user_functions[(size_t) data];
+    dplp_write_call_user(program, uf->arity, uf->begin_ip);
+}
+
+void _dplb_check_function_used(DPL* dpl, DPL_Symbol* symbol) {
+    DPL_Symbol_Function* f = &symbol->as.function;
+    if (!f->used) {
+        f->used = true;
+        f->user_handle = da_size(dpl->user_functions);
+
+        Nob_String_View name = nob_sv_from_cstr(
+                                   nob_temp_sprintf("$%zu_"SV_Fmt,
+                                           f->user_handle,
+                                           SV_Arg(symbol->name)));
+
+        f->function_handle = _dplf_register(dpl, name, &f->signature,
+                                            _dplg_generate_call_userfunction,
+                                            (void*)(size_t)f->user_handle);
+
+        DPL_UserFunction user_function = {
+            .function_handle = f->function_handle,
+            .arity = f->signature.arguments.count,
+            .begin_ip = 0,
+            .body = f->body,
+        };
+        da_add(dpl->user_functions, user_function);
+    }
+}
+
 DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
 DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
@@ -1874,21 +1905,37 @@ DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
         DPL_AST_ERROR(dpl, node, "Cannot bind operand of unary expression.");
     }
 
-    DPL_Function* function = _dplf_find_by_signature1(
-                                 dpl,
-                                 nob_sv_from_cstr(function_name),
-                                 operand->type_handle);
-    if (function) {
-        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+    DPL_Handles argument_types = {0};
+    _dpl_add_handle(&argument_types, operand->type_handle);
+
+    DPL_Bound_Node* bound_node = NULL;
+
+    DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
+    if (function_symbol) {
+        DPL_Symbol_Function* f = &function_symbol->as.function;
+        _dplb_check_function_used(dpl, function_symbol);
+
+        bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         bound_node->kind = BOUND_NODE_FUNCTIONCALL;
-        bound_node->type_handle = function->signature.returns;
+        bound_node->type_handle = f->signature.returns;
+        bound_node->as.function_call.function_handle = f->function_handle;
+    } else {
+        DPL_Function* function = _dplf_find_by_signature1(
+                                     dpl,
+                                     nob_sv_from_cstr(function_name),
+                                     operand->type_handle);
+        if (function) {
+            bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+            bound_node->kind = BOUND_NODE_FUNCTIONCALL;
+            bound_node->type_handle = function->signature.returns;
+            bound_node->as.function_call.function_handle = function->handle;
+        }
+    }
 
-        bound_node->as.function_call.function_handle = function->handle;
-
+    if (bound_node) {
         da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, operand);
         _dplb_move_nodelist(dpl, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
-
         return bound_node;
     }
 
@@ -1910,22 +1957,39 @@ DPL_Bound_Node* _dplb_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* func
         DPL_AST_ERROR(dpl, node, "Cannot bind right-hand side of binary expression.");
     }
 
-    DPL_Function* function = _dplf_find_by_signature2(
-                                 dpl,
-                                 nob_sv_from_cstr(function_name),
-                                 lhs->type_handle, rhs->type_handle);
-    if (function) {
-        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+    DPL_Handles argument_types = {0};
+    _dpl_add_handle(&argument_types, lhs->type_handle);
+    _dpl_add_handle(&argument_types, rhs->type_handle);
+
+    DPL_Bound_Node* bound_node = NULL;
+
+    DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
+    if (function_symbol) {
+        DPL_Symbol_Function* f = &function_symbol->as.function;
+        _dplb_check_function_used(dpl, function_symbol);
+
+        bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         bound_node->kind = BOUND_NODE_FUNCTIONCALL;
-        bound_node->type_handle = function->signature.returns;
+        bound_node->type_handle = f->signature.returns;
+        bound_node->as.function_call.function_handle = f->function_handle;
+    } else {
+        DPL_Function* function = _dplf_find_by_signature2(
+                                     dpl,
+                                     nob_sv_from_cstr(function_name),
+                                     lhs->type_handle, rhs->type_handle);
+        if (function) {
+            bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+            bound_node->kind = BOUND_NODE_FUNCTIONCALL;
+            bound_node->type_handle = function->signature.returns;
+            bound_node->as.function_call.function_handle = function->handle;
+        }
+    }
 
-        bound_node->as.function_call.function_handle = function->handle;
-
+    if (bound_node) {
         da_array(DPL_Bound_Node*) temp_arguments = 0;
         da_add(temp_arguments, lhs);
         da_add(temp_arguments, rhs);
         _dplb_move_nodelist(dpl, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
-
         return bound_node;
     }
 
@@ -1934,12 +1998,6 @@ DPL_Bound_Node* _dplb_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* func
     DPL_Token operator_token = node->as.binary.operator;
     DPL_AST_ERROR(dpl, node, "Cannot resolve function \"%s("SV_Fmt", "SV_Fmt")\" for binary operator \""SV_Fmt"\".",
                   function_name, SV_Arg(lhs_type->name), SV_Arg(rhs_type->name), SV_Arg(operator_token.text));
-}
-
-void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data)
-{
-    DPL_UserFunction* uf = &dpl->user_functions[(size_t) data];
-    dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
 DPL_Bound_Node* _dplb_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
@@ -1965,27 +2023,7 @@ DPL_Bound_Node* _dplb_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, fc.name.text, &argument_types);
     if (function_symbol) {
         DPL_Symbol_Function* f = &function_symbol->as.function;
-        if (!f->used) {
-            f->used = true;
-            f->user_handle = da_size(dpl->user_functions);
-
-            Nob_String_View name = nob_sv_from_cstr(
-                                       nob_temp_sprintf("$%zu_"SV_Fmt,
-                                               f->user_handle,
-                                               SV_Arg(function_symbol->name)));
-
-            f->function_handle = _dplf_register(dpl, name, &f->signature,
-                                                _dplg_generate_call_userfunction,
-                                                (void*)(size_t)f->user_handle);
-
-            DPL_UserFunction user_function = {
-                .function_handle = f->function_handle,
-                .arity = f->signature.arguments.count,
-                .begin_ip = 0,
-                .body = f->body,
-            };
-            da_add(dpl->user_functions, user_function);
-        }
+        _dplb_check_function_used(dpl, function_symbol);
 
         result_ctn->as.function_call.function_handle = f->function_handle;
         result_ctn->type_handle = f->signature.returns;
