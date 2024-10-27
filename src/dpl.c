@@ -2859,6 +2859,11 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         }
     }
     break;
+    case BOUND_NODE_FIELD_ACCESS: {
+        _dplg_generate(dpl, node->as.field_access.expression, program);
+        dplp_write_load_field(program, node->as.field_access.field_index);
+    }
+    break;
     case BOUND_NODE_FUNCTIONCALL: {
         DPL_Bound_FunctionCall f = node->as.function_call;
         for (size_t i = 0; i < f.arguments_count; ++i) {
