@@ -964,6 +964,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "AST_NODE_CONDITIONAL";
     case AST_NODE_WHILE_LOOP:
         return "AST_NODE_WHILE_LOOP";
+    case AST_NODE_FIELD_ACCESS:
+        return "AST_NODE_FIELD_ACCESS";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1048,6 +1050,19 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
             _dpla_print(object_literal.fields[i].expression, level + 2);
         }
         break;
+    }
+    break;
+    case AST_NODE_FIELD_ACCESS: {
+        DPL_Ast_FieldAccess field_access = node->as.field_access;
+        printf("\n");
+
+        _dpla_print_indent(level + 1);
+        printf("<expression>\n");
+        _dpla_print(field_access.expression, level + 2);
+
+        _dpla_print_indent(level + 1);
+        printf("<field>\n");
+        _dpla_print(field_access.field, level + 2);
     }
     break;
     case AST_NODE_FUNCTIONCALL: {
@@ -1431,22 +1446,27 @@ DPL_Ast_Node *_dplp_parse_dot(DPL* dpl)
         _dplp_next_token(dpl);
         DPL_Ast_Node* new_expression = _dplp_parse_primary(dpl);
 
-        if (new_expression->kind != AST_NODE_FUNCTIONCALL) {
-            DPL_AST_ERROR(dpl, new_expression, "Right-hand operand of `.` operator must be a function call.");
+        if (new_expression->kind == AST_NODE_SYMBOL) {
+            DPL_Ast_Node* field_access = _dpla_create_node(&dpl->tree, AST_NODE_FIELD_ACCESS, expression->first, new_expression->last);
+            field_access->as.field_access.expression = expression;
+            field_access->as.field_access.field = new_expression;
+            expression = field_access;
+        } else if (new_expression->kind == AST_NODE_FUNCTIONCALL) {
+            DPL_Ast_FunctionCall* fc = &new_expression->as.function_call;
+            fc->arguments = arena_realloc(&dpl->tree.memory, fc->arguments,
+                                          fc->argument_count * sizeof(DPL_Ast_Node*),
+                                          (fc->argument_count + 1) * sizeof(DPL_Ast_Node*));
+            fc->argument_count++;
+
+            for (size_t i = fc->argument_count - 1; i > 0; --i) {
+                fc->arguments[i] = fc->arguments[i - 1];
+            }
+
+            fc->arguments[0] = expression;
+            expression = new_expression;
+        } else {
+            DPL_AST_ERROR(dpl, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
         }
-
-        DPL_Ast_FunctionCall* fc = &new_expression->as.function_call;
-        fc->arguments = arena_realloc(&dpl->tree.memory, fc->arguments,
-                                      fc->argument_count * sizeof(DPL_Ast_Node*),
-                                      (fc->argument_count + 1) * sizeof(DPL_Ast_Node*));
-        fc->argument_count++;
-
-        for (size_t i = fc->argument_count - 1; i > 0; --i) {
-            fc->arguments[i] = fc->arguments[i - 1];
-        }
-
-        fc->arguments[0] = expression;
-        expression = new_expression;
 
         operator_candidate = _dplp_peek_token(dpl);
     }
@@ -1709,6 +1729,8 @@ const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
         return "BOUND_NODE_LOGICAL_OPERATOR";
     case BOUND_NODE_WHILE_LOOP:
         return "BOUND_NODE_WHILE_LOOP";
+    case BOUND_NODE_FIELD_ACCESS:
+        return "BOUND_NODE_FIELD_ACCESS";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -2299,10 +2321,6 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
         da_free(type_query);
 
-        // printf("%zu\n", bound_type->handle);
-
-        // DW_UNIMPLEMENTED;
-
         DPL_Bound_ObjectField* bound_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
         memcpy(bound_fields, tmp_bound_fields, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
 
@@ -2318,6 +2336,45 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         };
 
         da_free(tmp_bound_fields);
+        return bound_node;
+    }
+    break;
+    case AST_NODE_FIELD_ACCESS: {
+        DPL_Bound_Node* bound_expression = _dplb_bind_node(dpl, node->as.field_access.expression);
+
+        DPL_Type* expression_type = _dplt_find_by_handle(dpl, bound_expression->type_handle);
+        if (!expression_type || expression_type->kind != TYPE_OBJECT) {
+            DPL_AST_ERROR(dpl, node->as.field_access.expression, "Can access fields only for object types.");
+        }
+
+        DPL_Token field_name = node->as.field_access.field->as.symbol;
+        DPL_TypeObject object_type = expression_type->as.object;
+
+        bool field_found = false;
+        size_t field_index = 0;
+        DPL_Handle field_type = 0;
+        for (size_t i = 0; i < object_type.field_count; ++i) {
+            if (nob_sv_eq(object_type.fields[i].name, field_name.text)) {
+                field_found = true;
+                field_index = i;
+                field_type = object_type.fields[i].type;
+                break;
+            }
+        }
+
+        if (!field_found) {
+            DPL_AST_ERROR(dpl, node, "Objects of type `"SV_Fmt"`, have no field `"SV_Fmt"`.",
+                          SV_Arg(expression_type->name), SV_Arg(field_name.text));
+        }
+
+        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        bound_node->kind = BOUND_NODE_FIELD_ACCESS;
+        bound_node->type_handle = field_type;
+        bound_node->as.field_access = (DPL_Bound_FieldAccess) {
+            .expression = bound_expression,
+            .field_index = field_index,
+        };
+
         return bound_node;
     }
     break;
@@ -2752,6 +2809,16 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf("$while(\n");
         _dplb_print(dpl, node->as.while_loop.condition, level + 1);
         _dplb_print(dpl, node->as.while_loop.body, level + 1);
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_FIELD_ACCESS: {
+        printf("$field_access( #%zu\n", node->as.field_access.field_index);
+        _dplb_print(dpl, node->as.field_access.expression, level + 1);
 
         for (size_t i = 0; i < level; ++i) {
             printf("  ");

@@ -1,6 +1,11 @@
 function add(a: [ x: number, y: number ], b: [ x: number, y: number ]): [ x: number, y: number ] 
-    := [ x: 1, y: 2 ];
+    := [ x: a.x + b.x, y: a.y + b.y ];
+
+function print(p: [ x: number, y: number ]): string
+    := print("[x: " + p.x.to_string() + ", y: " + p.y.to_string() + "]");
 
 var p1 := [ x: 1, y: 2 ];
+print(p1); print("\n");
 var p2: [ x: number, y: number ] := [ x: 1, y: 2*3 ];
-print(add(123, 123)); print("\n");
+print(p2); print("\n");
+print(add(p1, p2)); print("\n");
