@@ -1189,6 +1189,19 @@ DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
 DPL_Ast_Node* _dplp_parse_expression(DPL* dpl);
 DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind closing_token_kind);
 
+int _dplp_compare_object_type_fields(void const* a, void const* b)
+{
+    Nob_String_View name_a = ((DPL_Ast_TypeField*) a)->name.text;
+    Nob_String_View name_b = ((DPL_Ast_TypeField*) b)->name.text;
+    int result = strncmp(name_a.data, name_b.data, min(name_a.count, name_b.count));
+    if (result != 0) {
+        return result;
+    }
+
+    return name_a.count - name_b.count;
+}
+
+
 DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
     DPL_Token type_begin = _dplp_peek_token(dpl);
     switch (type_begin.kind) {
@@ -1219,6 +1232,7 @@ DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
             };
             da_add(tmp_fields, field);
         }
+        qsort(tmp_fields, da_size(tmp_fields), sizeof(*tmp_fields), _dplp_compare_object_type_fields);
 
 
         DPL_Ast_TypeField* fields = NULL;
@@ -1354,6 +1368,18 @@ da_array(DPL_Ast_Node*) _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimite
     return list;
 }
 
+int _dplp_compare_object_literal_fields(void const* a, void const* b)
+{
+    Nob_String_View name_a = ((DPL_Ast_ObjectLiteralField*) a)->name.text;
+    Nob_String_View name_b = ((DPL_Ast_ObjectLiteralField*) b)->name.text;
+    int result = strncmp(name_a.data, name_b.data, min(name_a.count, name_b.count));
+    if (result != 0) {
+        return result;
+    }
+
+    return name_a.count - name_b.count;
+}
+
 DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
 {
     DPL_Token token = _dplp_next_token(dpl);
@@ -1420,6 +1446,8 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
 
             first = false;
         }
+
+        qsort(tmp_fields, da_size(tmp_fields), sizeof(*tmp_fields), _dplp_compare_object_literal_fields);
 
         DPL_Ast_Node* object_literal = _dpla_create_node(&dpl->tree, AST_NODE_OBJECT_LITERAL, token, _dplp_next_token(dpl));
         object_literal->as.object_literal.field_count = da_size(tmp_fields);
