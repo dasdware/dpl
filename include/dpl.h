@@ -151,6 +151,7 @@ typedef enum
     TOKEN_KEYWORD_IF,
     TOKEN_KEYWORD_ELSE,
     TOKEN_KEYWORD_WHILE,
+    TOKEN_KEYWORD_TYPE,
 } DPL_TokenKind;
 
 typedef struct
@@ -444,6 +445,7 @@ typedef enum {
     SYMBOL_VAR,
     SYMBOL_FUNCTION,
     SYMBOL_ARGUMENT,
+    SYMBOL_TYPE,
 } DPL_SymbolKind;
 
 typedef struct {
@@ -467,6 +469,7 @@ typedef struct {
         DPL_Symbol_Var var;
         DPL_Symbol_Var argument;
         DPL_Symbol_Function function;
+        DPL_Type* type;
     } as;
 } DPL_Symbol;
 
