@@ -166,8 +166,9 @@ struct DPL_Ast_Type;
 
 typedef struct {
     DPL_Token name;
+    DPL_Token first;
+    DPL_Token last;
     struct DPL_Ast_Type* type;
-
 } DPL_Ast_TypeField;
 
 typedef struct {
@@ -212,6 +213,8 @@ typedef struct
 typedef struct
 {
     DPL_Token name;
+    DPL_Token first;
+    DPL_Token last;
     DPL_Ast_Node* expression;
 } DPL_Ast_ObjectLiteralField;
 

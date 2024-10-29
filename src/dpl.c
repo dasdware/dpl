@@ -35,6 +35,18 @@
         exit(1);                                                                      \
     } while(false)
 
+#define DPL_AST_ERROR_WITH_NOTE(dpl, note_node, note, error_node, error_format, ...)              \
+    do {                                                                                          \
+        DW_ERROR_MSG(LOC_Fmt": ERROR: ", LOC_Arg((error_node)->first.location));                  \
+        DW_ERROR_MSG(error_format, ## __VA_ARGS__);                                                     \
+        DW_ERROR_MSG("\n");                                                                       \
+        _dpll_print_token_range(DW_ERROR_STREAM, (dpl), (error_node)->first, (error_node)->last); \
+        DW_ERROR_MSG(LOC_Fmt": NOTE: " note, LOC_Arg((note_node)->first.location));               \
+        DW_ERROR_MSG("\n");                                                                       \
+        _dpll_print_token_range(DW_ERROR_STREAM, (dpl), (note_node)->first, (note_node)->last);   \
+        exit(1);                                                                                  \
+    } while(false)
+
 
 // Forward declarations needed for initialization
 void _dpl_add_handle(DPL_Handles* handles, DPL_Handle handle);
@@ -1221,8 +1233,18 @@ DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
             DPL_Ast_Type* type = _dplp_parse_type(dpl);
             DPL_Ast_TypeField field = {
                 .name = name,
+                .first = name,
+                .last = type->last,
                 .type = type,
             };
+
+            for (size_t i = 0; i < da_size(tmp_fields); ++i) {
+                if (nob_sv_eq(tmp_fields[i].name.text, name.text)) {
+                    DPL_AST_ERROR_WITH_NOTE(dpl, 
+                        &tmp_fields[i], "Previous declaration was here.",
+                        &field, "Duplicate field `"SV_Fmt"` in object type.", SV_Arg(name.text));
+                }
+            }
             da_add(tmp_fields, field);
         }
         qsort(tmp_fields, da_size(tmp_fields), sizeof(*tmp_fields), _dplp_compare_object_type_fields);
@@ -1426,8 +1448,19 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
 
             DPL_Ast_ObjectLiteralField field = {
                 .name = field_name,
+                .first = field_name,
+                .last = field_expression->last,
                 .expression = field_expression,
             };
+
+            for (size_t i = 0; i < da_size(tmp_fields); ++i) {
+                if (nob_sv_eq(tmp_fields[i].name.text, field_name.text)) {
+                    DPL_AST_ERROR_WITH_NOTE(dpl, 
+                        &tmp_fields[i], "Previous declaration was here.",
+                        &field, "Duplicate field `"SV_Fmt"` in object literal.", SV_Arg(field_name.text));
+                }
+            }
+
             da_add(tmp_fields, field);
 
             first = false;
