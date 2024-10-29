@@ -5,7 +5,7 @@
 #include "externals.h"
 #include "program.h"
 #include "value.h"
-#include "string_table.h"
+#include "dw_memory_table.h"
 
 typedef struct {
     size_t stack_top;
@@ -24,12 +24,11 @@ typedef struct DPL_VirtualMachine
     size_t stack_capacity;
     size_t stack_top;
     DPL_Value *stack;
+    DW_MemoryTable stack_memory;
 
     size_t callstack_capacity;
     size_t callstack_top;
     DPL_CallFrame *callstack;
-
-    DW_StringTable strings;
 
     Arena memory;
 } DPL_VirtualMachine;

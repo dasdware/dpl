@@ -100,6 +100,16 @@ void dplp_write_push_boolean(DPL_Program *program, bool value) {
     bb_write_u8(&program->code, value ? 1 : 0);
 }
 
+void dplp_write_create_object(DPL_Program *program, size_t field_count) {
+    bb_write_u8(&program->code, INST_CREATE_OBJECT);
+    bb_write_u8(&program->code, field_count);
+}
+
+void dplp_write_load_field(DPL_Program *program, size_t field_index) {
+    bb_write_u8(&program->code, INST_LOAD_FIELD);
+    bb_write_u8(&program->code, field_index);
+}
+
 void dplp_write_push_local(DPL_Program *program, size_t scope_index) {
     bb_write_u8(&program->code, INST_PUSH_LOCAL);
     bb_write_u64(&program->code, scope_index);
@@ -242,6 +252,10 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "JUMP_IF_TRUE";
     case INST_JUMP_LOOP:
         return "JUMP_LOOP";
+    case INST_CREATE_OBJECT:
+        return "CREATE_OBJECT";
+    case INST_LOAD_FIELD:
+        return "LOAD_FIELD";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -271,14 +285,13 @@ void _dplp_print_constant(DPL_Program* program, size_t i) {
     printf(" #%zu: ", i);
     DPL_Constant constant = program->constants_dictionary[i];
     switch (constant.kind) {
-    case VALUE_NUMBER:
-        dpl_value_print_number(bb_read_f64(program->constants, constant.offset));
-        break;
     case VALUE_STRING:
         dpl_value_print_string(bb_read_sv(program->constants, constant.offset));
         break;
+    case VALUE_NUMBER:
     case VALUE_BOOLEAN:
-        // booleans will never occur in constant dictionary
+    case VALUE_OBJECT:
+        // numbers, booleans or objects will never occur in constant dictionary
         break;
     }
     printf(" (offset: %zu)\n", constant.offset);
@@ -314,6 +327,16 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_PUSH_LOCAL: {
         size_t scope_index = bs_read_u64(code);
         printf(" %zu", scope_index);
+    }
+    break;
+    case INST_CREATE_OBJECT: {
+        size_t field_count = bs_read_u8(code);
+        printf(" %zu", field_count);
+    }
+    break;
+    case INST_LOAD_FIELD: {
+        size_t field_index = bs_read_u8(code);
+        printf(" %zu", field_index);
     }
     break;
     case INST_NOOP:

@@ -46,13 +46,13 @@ void _dple_length_string_callback(DPL_VirtualMachine* vm) {
 void _dple_to_string_number_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
     dplv_return_string(vm, 1,
-                       st_allocate_cstr(&vm->strings, dpl_value_format_number(value.as.number)));
+                       mt_sv_allocate_cstr(&vm->stack_memory, dpl_value_format_number(value.as.number)));
 }
 
 void _dple_to_string_boolean_callback(DPL_VirtualMachine* vm) {
     DPL_Value value = dplv_peek(vm);
     dplv_return_string(vm, 1,
-                       st_allocate_cstr(&vm->strings, dpl_value_format_boolean(value.as.boolean)));
+                       mt_sv_allocate_cstr(&vm->stack_memory, dpl_value_format_boolean(value.as.boolean)));
     DW_UNUSED(vm);
 }
 

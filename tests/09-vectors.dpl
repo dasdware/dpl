@@ -1,0 +1,11 @@
+function add(a: [ x: number, y: number ], b: [ y: number, x: number ]): [ x: number, y: number ] 
+    := [ x: a.x + b.x, y: a.y + b.y ];
+
+function print(p: [ x: number, y: number ]): string
+    := print("[x: " + p.x.to_string() + ", y: " + p.y.to_string() + "]");
+
+var p1 := [ x: 1, y: 2 ];
+print(p1); print("\n");
+var p2: [ x: number, y: number ] := [ y: 2*3, x: 1 ];
+print(p2); print("\n");
+print(p1 + p2); print("\n");

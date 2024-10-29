@@ -34,9 +34,22 @@ typedef struct {
 
 typedef enum
 {
-    TYPE_BASE,
+    TYPE_NAME,
     TYPE_FUNCTION,
+    TYPE_OBJECT,
 } DPL_Type_Kind;
+
+typedef struct {
+    Nob_String_View name;
+    DPL_Handle type;
+} DPL_TypeField;
+
+typedef da_array(DPL_TypeField) DPL_TypeObjectQuery;
+
+typedef struct {
+    size_t field_count;
+    DPL_TypeField* fields;
+} DPL_TypeObject;
 
 typedef struct
 {
@@ -48,6 +61,7 @@ typedef struct
     union {
         void* base;
         DPL_Signature function;
+        DPL_TypeObject object;
     } as;
 } DPL_Type;
 
@@ -120,6 +134,8 @@ typedef enum
     TOKEN_CLOSE_PAREN,
     TOKEN_OPEN_BRACE,
     TOKEN_CLOSE_BRACE,
+    TOKEN_OPEN_BRACKET,
+    TOKEN_CLOSE_BRACKET,
     TOKEN_COMMA,
     TOKEN_SEMICOLON,
 
@@ -146,9 +162,34 @@ typedef struct
 
 // PARSER
 
+struct DPL_Ast_Type;
+
+typedef struct {
+    DPL_Token name;
+    DPL_Token first;
+    DPL_Token last;
+    struct DPL_Ast_Type* type;
+} DPL_Ast_TypeField;
+
+typedef struct {
+    size_t field_count;
+    DPL_Ast_TypeField* fields;
+} DPL_Ast_TypeObject;
+
+typedef struct DPL_Ast_Type {
+    DPL_Type_Kind kind;
+    DPL_Token first;
+    DPL_Token last;
+    union {
+        DPL_Token name;
+        DPL_Ast_TypeObject object;
+    } as;
+} DPL_Ast_Type;
+
 typedef enum
 {
     AST_NODE_LITERAL = 0,
+    AST_NODE_OBJECT_LITERAL,
     AST_NODE_UNARY,
     AST_NODE_BINARY,
     AST_NODE_FUNCTIONCALL,
@@ -159,6 +200,7 @@ typedef enum
     AST_NODE_FUNCTION,
     AST_NODE_CONDITIONAL,
     AST_NODE_WHILE_LOOP,
+    AST_NODE_FIELD_ACCESS,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -167,6 +209,19 @@ typedef struct
 {
     DPL_Token value;
 } DPL_Ast_Literal;
+
+typedef struct
+{
+    DPL_Token name;
+    DPL_Token first;
+    DPL_Token last;
+    DPL_Ast_Node* expression;
+} DPL_Ast_ObjectLiteralField;
+
+typedef struct {
+    size_t field_count;
+    DPL_Ast_ObjectLiteralField* fields;
+} DPL_Ast_ObjectLiteral;
 
 typedef struct
 {
@@ -212,7 +267,7 @@ typedef struct
 {
     DPL_Token keyword;
     DPL_Token name;
-    DPL_Token type;
+    DPL_Ast_Type* type;
     DPL_Token assignment;
     DPL_Ast_Node* initialization;
 } DPL_Ast_Declaration;
@@ -226,13 +281,13 @@ typedef struct
 
 typedef struct {
     DPL_Token name;
-    DPL_Token type_name;
+    DPL_Ast_Type* type;
 } DPL_Ast_FunctionArgument;
 
 typedef struct {
     size_t argument_count;
     DPL_Ast_FunctionArgument* arguments;
-    DPL_Token type_name;
+    DPL_Ast_Type* type;
 } DPL_Ast_FunctionSignature;
 
 typedef struct {
@@ -242,6 +297,11 @@ typedef struct {
     DPL_Ast_Node* body;
 } DPL_Ast_Function;
 
+typedef struct {
+    DPL_Ast_Node* expression;
+    DPL_Ast_Node* field;
+} DPL_Ast_FieldAccess;
+
 struct _DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
@@ -249,6 +309,7 @@ struct _DPL_Ast_Node
     DPL_Token last;
     union {
         DPL_Ast_Literal literal;
+        DPL_Ast_ObjectLiteral object_literal;
         DPL_Ast_Unary unary;
         DPL_Ast_Binary binary;
         DPL_Ast_FunctionCall function_call;
@@ -259,6 +320,7 @@ struct _DPL_Ast_Node
         DPL_Ast_Function function;
         DPL_Ast_Conditional conditional;
         DPL_Ast_WhileLoop while_loop;
+        DPL_Ast_FieldAccess field_access;
     } as;
 };
 
@@ -282,9 +344,20 @@ typedef enum
     BOUND_NODE_CONDITIONAL,
     BOUND_NODE_LOGICAL_OPERATOR,
     BOUND_NODE_WHILE_LOOP,
+    BOUND_NODE_FIELD_ACCESS,
 } DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
+
+typedef struct {
+    Nob_String_View name;
+    DPL_Bound_Node* expression;
+} DPL_Bound_ObjectField;
+
+typedef struct {
+    size_t field_count;
+    DPL_Bound_ObjectField* fields;
+} DPL_Bound_Object;
 
 typedef struct {
     DPL_Handle type_handle;
@@ -292,6 +365,7 @@ typedef struct {
         double number;
         Nob_String_View string;
         bool boolean;
+        DPL_Bound_Object object;
     } as;
 } DPL_Bound_Value;
 
@@ -330,6 +404,11 @@ typedef struct {
     DPL_Bound_Node* body;
 } DPL_Bound_WhileLoop;
 
+typedef struct {
+    DPL_Bound_Node* expression;
+    size_t field_index;
+} DPL_Bound_FieldAccess;
+
 struct _DPL_Bound_Node
 {
     DPL_BoundNodeKind kind;
@@ -345,6 +424,7 @@ struct _DPL_Bound_Node
         DPL_Bound_Conditional conditional;
         DPL_Bound_LogicalOperator logical_operator;
         DPL_Bound_WhileLoop while_loop;
+        DPL_Bound_FieldAccess field_access;
     } as;
 };
 

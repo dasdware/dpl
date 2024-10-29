@@ -1,13 +1,17 @@
 #ifndef __DPL_VALUE_H
 #define __DPL_VALUE_H
 
+#include <stdint.h>
 #include <nob.h>
+
+#include <dw_memory_table.h>
 
 typedef enum
 {
     VALUE_NUMBER,
     VALUE_STRING,
     VALUE_BOOLEAN,
+    VALUE_OBJECT,
 } DPL_ValueKind;
 
 typedef struct
@@ -17,6 +21,7 @@ typedef struct
         double number;
         Nob_String_View string;
         bool boolean;
+        DW_MemoryTable_Item* object;
     } as;
 } DPL_Value;
 
@@ -30,6 +35,10 @@ DPL_Value dpl_value_make_string(Nob_String_View value);
 
 DPL_Value dpl_value_make_boolean(bool value);
 const char *dpl_value_format_boolean(bool value);
+
+DPL_Value dpl_value_make_object(DW_MemoryTable_Item* value);
+uint8_t dpl_value_object_field_count(DW_MemoryTable_Item* object);
+DPL_Value dpl_value_object_field(DW_MemoryTable_Item* object, uint8_t field_index);
 
 void dpl_value_print_number(double value);
 void dpl_value_print_string(Nob_String_View value);

@@ -12,8 +12,8 @@
 #define DW_ARRAY_IMPLEMENTATION
 #include <dw_array.h>
 
-#define DW_STRING_TABLE_IMPLEMENTATION
-#include <string_table.h>
+#define DW_MEMORY_TABLE_IMPLEMENTATION
+#include <dw_memory_table.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
