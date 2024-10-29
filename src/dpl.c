@@ -804,6 +804,8 @@ DPL_Token _dpll_next_token(DPL* dpl)
             t.kind = TOKEN_KEYWORD_WHILE;
         } else if (nob_sv_eq(t.text, nob_sv_from_cstr("false"))) {
             t.kind = TOKEN_FALSE;
+        } else if (nob_sv_eq(t.text, nob_sv_from_cstr("type"))) {
+            t.kind = TOKEN_KEYWORD_TYPE;
         }
 
         return t;
@@ -876,6 +878,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "keyword `else`";
     case TOKEN_KEYWORD_WHILE:
         return "keyword `while`";
+    case TOKEN_KEYWORD_TYPE:
+        return "keyword `type`";
 
     case TOKEN_WHITESPACE:
         return "<whitespace>";
@@ -933,7 +937,6 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
         return "token `,`";
     case TOKEN_SEMICOLON:
         return "token `;`";
-
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1240,9 +1243,9 @@ DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
 
             for (size_t i = 0; i < da_size(tmp_fields); ++i) {
                 if (nob_sv_eq(tmp_fields[i].name.text, name.text)) {
-                    DPL_AST_ERROR_WITH_NOTE(dpl, 
-                        &tmp_fields[i], "Previous declaration was here.",
-                        &field, "Duplicate field `"SV_Fmt"` in object type.", SV_Arg(name.text));
+                    DPL_AST_ERROR_WITH_NOTE(dpl,
+                                            &tmp_fields[i], "Previous declaration was here.",
+                                            &field, "Duplicate field `"SV_Fmt"` in object type.", SV_Arg(name.text));
                 }
             }
             da_add(tmp_fields, field);
@@ -1342,6 +1345,25 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
         function->as.function.body = body;
 
         return function;
+    } else if (keyword_candidate.kind == TOKEN_KEYWORD_TYPE) {
+        DPL_Token keyword = _dplp_next_token(dpl);
+        DPL_Token name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
+
+        DPL_Token assignment = _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
+
+        DPL_Ast_Type* type = _dplp_parse_type(dpl);
+        if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
+            _dplp_expect_token(dpl, TOKEN_COLON);
+            type = _dplp_parse_type(dpl);
+        }
+
+        DPL_Ast_Node* declaration = _dpla_create_node(&dpl->tree, AST_NODE_DECLARATION, keyword, type->last);
+        declaration->as.declaration.keyword = keyword;
+        declaration->as.declaration.name = name;
+        declaration->as.declaration.type = type;
+        declaration->as.declaration.assignment = assignment;
+        declaration->as.declaration.initialization = NULL;
+        return declaration;
     }
 
     return _dplp_parse_expression(dpl);
@@ -1455,9 +1477,9 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
 
             for (size_t i = 0; i < da_size(tmp_fields); ++i) {
                 if (nob_sv_eq(tmp_fields[i].name.text, field_name.text)) {
-                    DPL_AST_ERROR_WITH_NOTE(dpl, 
-                        &tmp_fields[i], "Previous declaration was here.",
-                        &field, "Duplicate field `"SV_Fmt"` in object literal.", SV_Arg(field_name.text));
+                    DPL_AST_ERROR_WITH_NOTE(dpl,
+                                            &tmp_fields[i], "Previous declaration was here.",
+                                            &field, "Duplicate field `"SV_Fmt"` in object literal.", SV_Arg(field_name.text));
                 }
             }
 
@@ -1876,6 +1898,12 @@ Nob_String_View _dpl_arena_svcpy(Arena* arena, Nob_String_View sv) {
 DPL_Type* _dplb_bind_type(DPL* dpl, DPL_Ast_Type* ast_type) {
     DPL_Type* result = NULL;
     Nob_String_View type_name = nob_sv_from_cstr(strdup(_dpla_type_name(ast_type)));
+
+    DPL_Symbol* s = _dplb_symbols_lookup(dpl, type_name);
+    if (s && s->kind == SYMBOL_TYPE) {
+        nob_return_defer(s->as.type);
+    }
+
 
     DPL_Type* cached_type = _dplt_find_by_name(dpl, type_name);
     if (cached_type) {
@@ -2545,7 +2573,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             da_add(dpl->symbol_stack.symbols, s);
 
             return NULL;
-        } else {
+        } else if (decl->keyword.kind == TOKEN_KEYWORD_VAR) {
             DPL_Bound_Node* expression = _dplb_bind_node(dpl, decl->initialization);
             _dplb_check_assignment(dpl, "variable", node, expression->type_handle);
 
@@ -2564,6 +2592,20 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
             expression->persistent = true;
             return expression;
+        } else if (decl->keyword.kind == TOKEN_KEYWORD_TYPE) {
+            DPL_Type* bound_type = _dplb_bind_type(dpl, decl->type);
+
+            DPL_Symbol s = {
+                .kind = SYMBOL_TYPE,
+                .name = decl->name.text,
+                .as.type = bound_type,
+            };
+            da_add(dpl->symbol_stack.symbols, s);
+
+            return NULL;
+        } else {
+            DW_UNIMPLEMENTED_MSG("Cannot bind declaration with `%s`.",
+                                 _dpll_token_kind_name(decl->keyword.kind));
         }
     }
     break;
