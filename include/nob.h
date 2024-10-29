@@ -308,6 +308,7 @@ const char *nob_temp_sv_to_cstr(Nob_String_View sv);
 Nob_String_View nob_sv_chop_by_delim(Nob_String_View *sv, char delim);
 Nob_String_View nob_sv_trim(Nob_String_View sv);
 bool nob_sv_eq(Nob_String_View a, Nob_String_View b);
+int nob_sv_cmp(Nob_String_View a, Nob_String_View b);
 Nob_String_View nob_sv_from_cstr(const char *cstr);
 Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 Nob_String_View nob_sv_last_part_by_delim(Nob_String_View sv, char delim);
@@ -1226,6 +1227,17 @@ bool nob_sv_eq(Nob_String_View a, Nob_String_View b)
     } else {
         return memcmp(a.data, b.data, a.count) == 0;
     }
+}
+
+int nob_sv_cmp(Nob_String_View a, Nob_String_View b)
+{
+    size_t len = (a.count < b.count) ? a.count : b.count;
+    int result = strncmp(a.data, b.data, len);
+    if (result != 0) {
+        return result;
+    }
+
+    return a.count - b.count;    
 }
 
 // RETURNS:

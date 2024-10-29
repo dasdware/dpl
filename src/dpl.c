@@ -1191,14 +1191,7 @@ DPL_Ast_Node* _dplp_parse_scope(DPL* dpl, DPL_Token opening_token, DPL_TokenKind
 
 int _dplp_compare_object_type_fields(void const* a, void const* b)
 {
-    Nob_String_View name_a = ((DPL_Ast_TypeField*) a)->name.text;
-    Nob_String_View name_b = ((DPL_Ast_TypeField*) b)->name.text;
-    int result = strncmp(name_a.data, name_b.data, min(name_a.count, name_b.count));
-    if (result != 0) {
-        return result;
-    }
-
-    return name_a.count - name_b.count;
+    return nob_sv_cmp(((DPL_Ast_TypeField*) a)->name.text, ((DPL_Ast_TypeField*) b)->name.text);
 }
 
 
@@ -1370,14 +1363,7 @@ da_array(DPL_Ast_Node*) _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimite
 
 int _dplp_compare_object_literal_fields(void const* a, void const* b)
 {
-    Nob_String_View name_a = ((DPL_Ast_ObjectLiteralField*) a)->name.text;
-    Nob_String_View name_b = ((DPL_Ast_ObjectLiteralField*) b)->name.text;
-    int result = strncmp(name_a.data, name_b.data, min(name_a.count, name_b.count));
-    if (result != 0) {
-        return result;
-    }
-
-    return name_a.count - name_b.count;
+    return nob_sv_cmp(((DPL_Ast_ObjectLiteralField*) a)->name.text, ((DPL_Ast_ObjectLiteralField*) b)->name.text);
 }
 
 DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
