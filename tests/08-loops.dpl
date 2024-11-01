@@ -1,4 +1,4 @@
-function fibonacci(n: number): number :=
+function fibonacci(n: number) :=
     if (n <= 1)
         n
     else {

@@ -1,9 +1,9 @@
 type point := [ x: number, y: number ];
 
-function add(a: point, b: point): point 
+function add(a: point, b: point)
     := [ x: a.x + b.x, y: a.y + b.y ];
 
-function print(p: point): string
+function print(p: point)
     := print("[x: " + p.x.to_string() + ", y: " + p.y.to_string() + "]");
 
 var p1 := [ x: 1, y: 2 ];
