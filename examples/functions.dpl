@@ -1,6 +1,6 @@
-function square(n: number): number 
+function square(n: number)
     := n * n;
-function times(n: number, m: number): number
+function times(n: number, m: number)
     := n * m;
 
 print(5.square()); print("\n");
