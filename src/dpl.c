@@ -1323,8 +1323,12 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
             }
         }
         _dplp_expect_token(dpl, TOKEN_CLOSE_PAREN);
-        _dplp_expect_token(dpl, TOKEN_COLON);
-        DPL_Ast_Type* result_type = _dplp_parse_type(dpl);
+
+        DPL_Ast_Type* result_type = NULL;
+        if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
+            _dplp_expect_token(dpl, TOKEN_COLON);
+            result_type = _dplp_parse_type(dpl);
+        }
 
         _dplp_expect_token(dpl, TOKEN_COLON_EQUAL);
 
@@ -2688,14 +2692,6 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             _dpl_add_handle(&signature.arguments, arg_type->handle);
         }
 
-        DPL_Type* return_type = _dplb_bind_type(dpl, function->signature.type);
-        if (!return_type) {
-            DPL_AST_ERROR(dpl, function->signature.type,
-                          "Cannot resolve return type `%s` in current scope.",
-                          _dpla_type_name(function->signature.type));
-        }
-        signature.returns = return_type->handle;
-
         _dplb_symbols_begin_scope(dpl);
         _dplb_scopes_begin_scope(dpl);
 
@@ -2717,6 +2713,30 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             current_scope->count++;
         }
 
+        DPL_Bound_Node *bound_body = _dplb_bind_node(dpl, function->body);
+
+        if (function->signature.type) {
+            DPL_Type* return_type = _dplb_bind_type(dpl, function->signature.type);
+            if (!return_type) {
+                DPL_AST_ERROR(dpl, function->signature.type,
+                              "Cannot resolve return type `%s` in current scope.",
+                              _dpla_type_name(function->signature.type));
+            }
+
+            if (return_type->handle != bound_body->type_handle) {
+                Nob_String_View body_type_name = _dplt_find_by_handle(dpl, bound_body->type_handle)->name;
+                DPL_AST_ERROR(dpl, node,
+                              "Declared return type `%s` of function `"SV_Fmt"` is not compatible with body expression type `"SV_Fmt"`.",
+                              _dpla_type_name(function->signature.type),
+                              SV_Arg(function->name.text),
+                              SV_Arg(body_type_name));
+            }
+
+            signature.returns = return_type->handle;
+        } else {
+            signature.returns = bound_body->type_handle;
+        }
+
         DPL_Symbol s = {
             .kind = SYMBOL_FUNCTION,
             .name = function->name.text,
@@ -2724,7 +2744,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
                 .signature = signature,
                 .used = false,
                 .user_handle = 0,
-                .body = _dplb_bind_node(dpl, function->body),
+                .body = bound_body,
             },
         };
 
