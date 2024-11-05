@@ -1,6 +1,6 @@
 # DPL - Dasd's Programming Language
 
-```bash
+```bash filename="hello.dpl"
 # Prints "Hello from DPL!" to stdout
 print("Hello from DPL!\n");
 ```
