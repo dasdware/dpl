@@ -75,10 +75,10 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     // CATALOGS
 
     /// TYPES
-    dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
-    dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
-    dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("boolean"));
-    dpl->none_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("none"));
+    dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("Number"));
+    dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("String"));
+    dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("Boolean"));
+    dpl->none_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("None"));
 
     /// FUNCTIONS AND GENERATORS
 
@@ -128,15 +128,15 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 
     // comparison operators
     _dplf_register(dpl, nob_sv_from_cstr("less"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS);
-    _dplf_register(dpl, nob_sv_from_cstr("less_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("lessEqual"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("greater"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER);
-    _dplf_register(dpl, nob_sv_from_cstr("greater_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("greaterEqual"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_number, _dplg_generate_inst, (void*) INST_EQUAL);
-    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("notEqual"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_string, _dplg_generate_inst, (void*) INST_EQUAL);
-    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_string, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("notEqual"), &comparison_string, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_EQUAL);
-    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("notEqual"), &comparison_boolean, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);
@@ -2523,15 +2523,15 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         case TOKEN_LESS:
             return _dplb_bind_binary(dpl, node, "less");
         case TOKEN_LESS_EQUAL:
-            return _dplb_bind_binary(dpl, node, "less_equal");
+            return _dplb_bind_binary(dpl, node, "lessEqual");
         case TOKEN_GREATER:
             return _dplb_bind_binary(dpl, node, "greater");
         case TOKEN_GREATER_EQUAL:
-            return _dplb_bind_binary(dpl, node, "greater_equal");
+            return _dplb_bind_binary(dpl, node, "greaterEqual");
         case TOKEN_EQUAL_EQUAL:
             return _dplb_bind_binary(dpl, node, "equal");
         case TOKEN_BANG_EQUAL:
-            return _dplb_bind_binary(dpl, node, "not_equal");
+            return _dplb_bind_binary(dpl, node, "notEqual");
         case TOKEN_AND_AND:
         case TOKEN_PIPE_PIPE: {
             DPL_Bound_Node* lhs = _dplb_bind_node(dpl, node->as.binary.left);

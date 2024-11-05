@@ -59,33 +59,33 @@ void _dple_to_string_boolean_callback(DPL_VirtualMachine* vm) {
 void dple_init(DPL_ExternalFunctions* externals)
 {
     DPL_ExternalFunction* print_number = dple_add_by_name(externals, "print");
-    da_add(print_number->argument_types, "number");
-    print_number->return_type = "number";
+    da_add(print_number->argument_types, "Number");
+    print_number->return_type = "Number";
     print_number->callback = _dple_print_callback;
 
     DPL_ExternalFunction* print_string = dple_add_by_name(externals, "print");
-    da_add(print_string->argument_types, "string");
-    print_string->return_type = "string";
+    da_add(print_string->argument_types, "String");
+    print_string->return_type = "String";
     print_string->callback = _dple_print_callback;
 
     DPL_ExternalFunction* print_boolean = dple_add_by_name(externals, "print");
-    da_add(print_boolean->argument_types, "boolean");
-    print_boolean->return_type = "boolean";
+    da_add(print_boolean->argument_types, "Boolean");
+    print_boolean->return_type = "Boolean";
     print_boolean->callback = _dple_print_callback;
 
     DPL_ExternalFunction* length_string = dple_add_by_name(externals, "length");
-    da_add(length_string->argument_types, "string");
-    length_string->return_type = "number";
+    da_add(length_string->argument_types, "String");
+    length_string->return_type = "Number";
     length_string->callback = _dple_length_string_callback;
 
-    DPL_ExternalFunction* to_string_number = dple_add_by_name(externals, "to_string");
-    da_add(to_string_number->argument_types, "number");
-    to_string_number->return_type = "string";
+    DPL_ExternalFunction* to_string_number = dple_add_by_name(externals, "toString");
+    da_add(to_string_number->argument_types, "Number");
+    to_string_number->return_type = "String";
     to_string_number->callback = _dple_to_string_number_callback;
 
-    DPL_ExternalFunction* to_string_boolean = dple_add_by_name(externals, "to_string");
-    da_add(to_string_boolean->argument_types, "boolean");
-    to_string_boolean->return_type = "string";
+    DPL_ExternalFunction* to_string_boolean = dple_add_by_name(externals, "toString");
+    da_add(to_string_boolean->argument_types, "Boolean");
+    to_string_boolean->return_type = "String";
     to_string_boolean->callback = _dple_to_string_boolean_callback;
 
 }

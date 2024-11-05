@@ -1,4 +1,4 @@
-function fibonacci(n: number) :=
+function fibonacci(n: Number) :=
     if (n <= 1)
         n
     else {
@@ -14,7 +14,7 @@ function fibonacci(n: number) :=
         fib
     };
 
-var n: number := 1;
+var n := 1;
 while (n < 20) {
     print(fibonacci(n)); print("\n");    
     n := n + 1;
