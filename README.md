@@ -50,8 +50,12 @@ gcc -o nob nob.c
 
 ## Language features
 
-### Expressions
+DPL is an expression based and statically typed programming language that is compiled into bytecode and then run in a virtual machine. This has the following implications:
 
+* **Expression based** means that every construct in the language that you create is an expression that ultimately yields some kind of value. Even calling `print` functions will return the `String` value that has been printed.
+* **Statically typed** means that every value in the program has a type that is known beforehand at compile time and will always stay the same at runtime.
+* **Compiled into bytecode** means that a compiled DPL program is not a native executable. Instead, it contains instruction that can be run on a virtual stack machine.
+ 
 ### Types
 
 Since all expressions yield a value, they also have a type. Types are considered compatible, if they have the same structure. If, for example, two object type definitions have the same structure (individual fields and their types), they are considered compatible even if they have different names.
@@ -69,8 +73,11 @@ The following types are built directly into the language:
 
 #### User-defined Types
 
-User defined types can be declared in a DPL program.
+User defined types can be declared in a DPL program. They are used to form more complex structures from basic types.
 
 | Type   | Declaration example      | Value example  | Description                                                   |
 | ------ | ------------------------ | -------------- | ------------------------------------------------------------- |
 | Object | `[x: number, y: number]` | `[x: 1, y: 2]` | Objects can be used to structure data into more complex bits. |
+
+### Expressions
+
