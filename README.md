@@ -1,6 +1,6 @@
 # DPL - Dasd's Programming Language
 
-```bash filename="hello.dpl"
+```bash
 # Prints "Hello from DPL!" to stdout
 print("Hello from DPL!\n");
 ```
@@ -30,11 +30,11 @@ The build process uses [nob.h](https://github.com/tsoding/musializer/blob/master
 
 ### Windows build
 
-```cmd
-REM Bootstrap the build system
+```bash
+# Bootstrap the build system
 gcc -o nob.exe nob.c
 
-REM Build all executables, compile  and run the "Hello World" example
+# Build all executables, compile  and run the "Hello World" example
 nob.exe build -- run examples\hello_world.dpl
 ```
 
@@ -79,5 +79,60 @@ User defined types can be declared in a DPL program. They are used to form more 
 | ------ | ------------------------ | -------------- | ------------------------------------------------------------- |
 | Object | `[x: number, y: number]` | `[x: 1, y: 2]` | Objects can be used to structure data into more complex bits. |
 
-### Expressions
+### Function calls
 
+```bash
+# Print "foo"
+print("foo");
+
+# Also print "foo", but using method syntax
+"foo".print();
+```
+
+DPL supports [Uniform function call syntax](https://en.wikipedia.org/wiki/Uniform_Function_Call_Syntax), which means functions can be called either as free standing functions or as methods of their first argument. Internally, the latter is handled by the `.` operator which transforms the function call appropriately.
+
+All operators except for the logical ones are also translated into function calls. This makes it easy to declare mathematical operations on user defined types.
+
+```bash
+# The following expressions are the same, they even compile into the same bytecode
+1 + 2 * 3;
+add(1, multiply(2, 3));
+1.add(2.multiply(3));
+```
+
+The following sections contain tables listing the function names the individual operators try to resolve to.
+
+### Arithmetics
+
+Arithmetic operators take up to two operands and yield a result of the same type.
+
+| Operator     | Function   | Description                                        |
+| ------------ | ---------- |--------------------------------------------------- |
+| `+`          | `add`      | Adds the left and the right operand.               |
+| `-` (binary) | `subtract` | Subtracts the right operand from the left operand. |
+| `-` (unary)  | `negate`   | Negates the operand.                               |
+| `*`          | `multiply` | Multiplies the left and the right operand.         |
+| `/`          | `divide`   | Divides the left operand by the right operand.     |
+
+### Comparisons
+
+Comparison operators take two operands and yield a `Boolean` result.
+
+| Operator | Function       | Description                                                                                          |
+| -------- | -------------- |----------------------------------------------------------------------------------------------------- |
+| `<`      | `less`         | Yields `true`, if the left operand is less than the right operand, `false` otherwise.                |
+| `<=`     | `lessEqual`    | Yields `true`, if the left operand is less than or equal to the right operand, `false` otherwise.    |
+| `>`      | `greater`      | Yields `true`, if the left operand is greater than the right operand, `false` otherwise.             |
+| `>=`     | `greaterEqual` | Yields `true`, if the left operand is greater than or equal to the right operand, `false` otherwise. |
+| `==`     | `equal`        | Yields `true`, if the left operand is equal to the right operand, `false` otherwise.                 |
+| `!=`     | `notEqual`     | Yields `true`, if the left operand is not equal to the right operand, `false` otherwise.             |
+
+### Logical
+
+Logical operators combine two `Boolean` values and yield another `Boolean`. Since they might short circuit, they are not resolved as functions.
+
+| Operator    | Function | Description                                                                      |
+| ----------- | -------- |--------------------------------------------------------------------------------- |
+| `!` (unary) | `-`      | Logical not. Yields `true`, if its operand is `false`, and vice versa.           |
+| `&&`        | `-`      | Logical and. Yields `true`, if both operands are `true`, `false` otherwise.      |
+| `\|\|`      | `-`      | Logical or. Yields `true`, if at least one operand is `true`, `false` otherwise. |
