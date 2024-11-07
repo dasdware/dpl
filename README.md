@@ -105,8 +105,8 @@ The following sections contain tables listing the function names the individual 
 ### Arithmetics
 
 ```bash
-print(1 + 2 + 3); # = 6
-print(-(2 + 1.5) * 3/4); # = -2.625
+print(1 + 2 + 3); # 6
+print(-(2 + 1.5) * 3/4); # -2.625
 ```
 
 Arithmetic operators take up to two operands and yield a result of the same type.
@@ -151,3 +151,30 @@ Logical operators combine two `Boolean` values and yield another `Boolean`. Sinc
 | `!` (unary) | `-`      | Logical not. Yields `true`, if its operand is `false`, and vice versa.           |
 | `&&`        | `-`      | Logical and. Yields `true`, if both operands are `true`, `false` otherwise.      |
 | `\|\|`      | `-`      | Logical or. Yields `true`, if at least one operand is `true`, `false` otherwise. |
+
+### Variables
+
+```bash
+var x := 2;
+print(2 * x); # 4
+
+x := 3;
+print(2 * x); # 6
+```
+
+Variables via the `var` keyword. After that follows the name of the variable, the assignment operator `:=` and an initializer expression. After that, the variable can be referred to by its name and reassigned.
+
+It is also possible to declare the type the variable should have. If the initializer yields the wrong type, that is an compiler error:
+
+```bash
+var x: Number := "foo"; # Cannot assign expression of type `String` to variable `x` of type `Number`.
+```
+
+If the type declaration is omitted, the variable type is inferred from the initializer.
+
+Once variables are declared, their type is fixed and cannot change later. Therefore, it is also not possible to assign an expression of another type:
+
+```bash
+var x := 2;
+x := "foo"; # Cannot assign expression of type `String` to variable `x` of type `Number`.
+```

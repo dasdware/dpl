@@ -2340,8 +2340,8 @@ void _dplb_check_assignment(DPL* dpl, const char* what, DPL_Ast_Node* node, DPL_
         }
 
         if (expression_type->handle != declared_type->handle) {
-            DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match expression type `"SV_Fmt"` in declaration of %s `"SV_Fmt"`.",
-                          SV_Arg(declared_type->name), SV_Arg(expression_type->name), what, SV_Arg(decl->name.text));
+            DPL_AST_ERROR(dpl, node, "Cannot assign expression of type `"SV_Fmt"` to %s `"SV_Fmt"` of type `"SV_Fmt"`.",
+                          SV_Arg(expression_type->name), what, SV_Arg(decl->name.text), SV_Arg(declared_type->name));
         }
     }
 }
@@ -2668,11 +2668,20 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
                           _dplb_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
         }
 
+        DPL_Bound_Node* bound_expression = _dplb_bind_node(dpl, node->as.assignment.expression);
+
+        if (symbol->as.var.type_handle != bound_expression->type_handle) {
+            DPL_Type* expression_type = _dplt_find_by_handle(dpl, bound_expression->type_handle);
+            DPL_Type* var_type = _dplt_find_by_handle(dpl, symbol->as.var.type_handle);
+            DPL_AST_ERROR(dpl, node, "Cannot assign expression of type `"SV_Fmt"` to variable `"SV_Fmt"` of type `"SV_Fmt"`.",
+                          SV_Arg(expression_type->name), SV_Arg(symbol->name), SV_Arg(var_type->name));
+        }
+
         DPL_Bound_Node* ct_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         ct_node->kind = BOUND_NODE_ASSIGNMENT;
         ct_node->type_handle = symbol->as.var.type_handle;
         ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
-        ct_node->as.assignment.expression = _dplb_bind_node(dpl, node->as.assignment.expression);
+        ct_node->as.assignment.expression = bound_expression;
 
         return ct_node;
     }
