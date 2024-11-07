@@ -52,10 +52,10 @@ gcc -o nob nob.c
 
 DPL is an expression based and statically typed programming language that is compiled into bytecode and then run in a virtual machine. This has the following implications:
 
-* **Expression based** means that every construct in the language that you create is an expression that ultimately yields some kind of value. Even calling `print` functions will return the `String` value that has been printed.
-* **Statically typed** means that every value in the program has a type that is known beforehand at compile time and will always stay the same at runtime.
-* **Compiled into bytecode** means that a compiled DPL program is not a native executable. Instead, it contains instruction that can be run on a virtual stack machine.
- 
+- **Expression based** means that every construct in the language that you create is an expression that ultimately yields some kind of value. Even calling `print` functions will return the `String` value that has been printed.
+- **Statically typed** means that every value in the program has a type that is known beforehand at compile time and will always stay the same at runtime.
+- **Compiled into bytecode** means that a compiled DPL program is not a native executable. Instead, it contains instruction that can be run on a virtual stack machine.
+
 ### Types
 
 Since all expressions yield a value, they also have a type. Types are considered compatible, if they have the same structure. If, for example, two object type definitions have the same structure (individual fields and their types), they are considered compatible even if they have different names.
@@ -104,10 +104,15 @@ The following sections contain tables listing the function names the individual 
 
 ### Arithmetics
 
+```bash
+print(1 + 2 + 3); # = 6
+print(-(2 + 1.5) * 3/4); # = -2.625
+```
+
 Arithmetic operators take up to two operands and yield a result of the same type.
 
 | Operator     | Function   | Description                                        |
-| ------------ | ---------- |--------------------------------------------------- |
+| ------------ | ---------- | -------------------------------------------------- |
 | `+`          | `add`      | Adds the left and the right operand.               |
 | `-` (binary) | `subtract` | Subtracts the right operand from the left operand. |
 | `-` (unary)  | `negate`   | Negates the operand.                               |
@@ -116,10 +121,15 @@ Arithmetic operators take up to two operands and yield a result of the same type
 
 ### Comparisons
 
+```bash
+print(1 < 3); # true
+print((1 > 3) == (2 < 4)); # false
+```
+
 Comparison operators take two operands and yield a `Boolean` result.
 
 | Operator | Function       | Description                                                                                          |
-| -------- | -------------- |----------------------------------------------------------------------------------------------------- |
+| -------- | -------------- | ---------------------------------------------------------------------------------------------------- |
 | `<`      | `less`         | Yields `true`, if the left operand is less than the right operand, `false` otherwise.                |
 | `<=`     | `lessEqual`    | Yields `true`, if the left operand is less than or equal to the right operand, `false` otherwise.    |
 | `>`      | `greater`      | Yields `true`, if the left operand is greater than the right operand, `false` otherwise.             |
@@ -129,10 +139,15 @@ Comparison operators take two operands and yield a `Boolean` result.
 
 ### Logical
 
+```bash
+print(!true); # false
+print(true || false); # true
+```
+
 Logical operators combine two `Boolean` values and yield another `Boolean`. Since they might short circuit, they are not resolved as functions.
 
 | Operator    | Function | Description                                                                      |
-| ----------- | -------- |--------------------------------------------------------------------------------- |
+| ----------- | -------- | -------------------------------------------------------------------------------- |
 | `!` (unary) | `-`      | Logical not. Yields `true`, if its operand is `false`, and vice versa.           |
 | `&&`        | `-`      | Logical and. Yields `true`, if both operands are `true`, `false` otherwise.      |
 | `\|\|`      | `-`      | Logical or. Yields `true`, if at least one operand is `true`, `false` otherwise. |
