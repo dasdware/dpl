@@ -102,7 +102,7 @@ add(1, multiply(2, 3));
 
 The following sections contain tables listing the function names the individual operators try to resolve to.
 
-### Arithmetics
+### Arithmetic operators
 
 ```bash
 print(1 + 2 + 3); # 6
@@ -119,7 +119,7 @@ Arithmetic operators take up to two operands and yield a result of the same type
 | `*`          | `multiply` | Multiplies the left and the right operand.         |
 | `/`          | `divide`   | Divides the left operand by the right operand.     |
 
-### Comparisons
+### Comparison operators
 
 ```bash
 print(1 < 3); # true
@@ -137,7 +137,7 @@ Comparison operators take two operands and yield a `Boolean` result.
 | `==`     | `equal`        | Yields `true`, if the left operand is equal to the right operand, `false` otherwise.                 |
 | `!=`     | `notEqual`     | Yields `true`, if the left operand is not equal to the right operand, `false` otherwise.             |
 
-### Logical
+### Logical operators
 
 ```bash
 print(!true); # false
@@ -167,7 +167,8 @@ Variables are declared via the `var` keyword. After that follows the name of the
 It is also possible to declare the type the variable should have. If the initializer yields the wrong type, that is an compiler error:
 
 ```bash
-var x: Number := "foo"; # Cannot assign expression of type `String` to variable `x` of type `Number`.
+var x: Number := "foo"; # Cannot assign expression of type `String`
+                        # to variable `x` of type `Number`.
 ```
 
 This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the variable type is inferred from the initializer.
@@ -176,7 +177,8 @@ Once variables are declared, their type is fixed and cannot change later. Theref
 
 ```bash
 var x := 2;
-x := "foo"; # Cannot assign expression of type `String` to variable `x` of type `Number`.
+x := "foo"; # Cannot assign expression of type `String`
+            # to variable `x` of type `Number`.
 ```
 
 ### Constants
@@ -196,7 +198,40 @@ PI := 6.28318; # Cannot assign to constant `PI`.
 It is also possible to declare the type the constant should have. If the initializer yields the wrong type, that is an compiler error:
 
 ```bash
-constant PI: Number := "foo"; # Cannot assign expression of type `String` to constant `PI` of type `Number`.
+constant PI: Number := "foo"; # Cannot assign expression of type `String`
+                              # to constant `PI` of type `Number`.
 ```
 
 This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the constant type is inferred from the initializer.
+
+### Conditionals
+
+```bash
+var x := 1;
+var y := 2;
+print(if (x > y) x else y); # y (2)
+```
+
+A conditional is DPL's version of branching and works like the [ternary operator of C/C++](https://en.wikipedia.org/wiki/Ternary_conditional_operator).
+
+It has the following form:
+
+```bash
+if (<Condition>) <ThenClause> else <ElseClause>
+```
+
+`<Condition>` is a `Boolean` expression and `<ThenClause>` and `<ElseClause>` are two expressions of the same type. The expression yields the value of `<ThenClause>`, if `<Condition>` yields `true`, otherwise it yields the value of `<ElseClause>`.
+
+It is an compiler error to have a type other then `Boolean` for the `<Condition>` expression:
+
+```bash
+print(if ("foo") 1 else 2); # Condition operand type `String` does not
+                            # match type `Boolean`.
+```
+
+Likewise, it is an compiler error to have different types for `<ThenClause>` and `<ElseClause>`:
+
+```bash
+print(if (true) 2 else "foo"); # Types `Number` and `String` do not match
+                               # in the conditional expression clauses.
+```

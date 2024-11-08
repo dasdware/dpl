@@ -2770,8 +2770,11 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, conditional.condition);
         if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_Type* condition_type = _dplt_find_by_handle(dpl, bound_condition->type_handle);
+            DPL_Type* boolean_type = _dplt_find_by_handle(dpl, dpl->boolean_type_handle);
             DPL_AST_ERROR(dpl, conditional.condition,
-                          "Condition operand of a conditional must be of type `boolean`.");
+                          "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
+                          SV_Arg(condition_type->name), SV_Arg(boolean_type->name));
         }
 
         DPL_Bound_Node* bound_then_clause = _dplb_bind_node(dpl, conditional.then_clause);
@@ -2780,7 +2783,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_Type* then_clause_type = _dplt_find_by_handle(dpl, bound_then_clause->type_handle);
             DPL_Type* else_clause_type = _dplt_find_by_handle(dpl, bound_else_clause->type_handle);
 
-            DPL_AST_ERROR(dpl, node, "Types of then and else clause operands of a conditional must match. Then clause type is `"SV_Fmt"`, else clause type is `"SV_Fmt"`.",
+            DPL_AST_ERROR(dpl, node, "Types `"SV_Fmt"` and `"SV_Fmt"` do not match in the conditional expression clauses.",
                           SV_Arg(then_clause_type->name), SV_Arg(else_clause_type->name));
         }
 
