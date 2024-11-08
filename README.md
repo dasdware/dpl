@@ -162,7 +162,7 @@ x := 3;
 print(2 * x); # 6
 ```
 
-Variables via the `var` keyword. After that follows the name of the variable, the assignment operator `:=` and an initializer expression. After that, the variable can be referred to by its name and reassigned.
+Variables are declared via the `var` keyword. After that follows the name of the variable, the assignment operator `:=` and an initializer expression. After that, the variable can be referred to by its name and reassigned.
 
 It is also possible to declare the type the variable should have. If the initializer yields the wrong type, that is an compiler error:
 
@@ -170,7 +170,7 @@ It is also possible to declare the type the variable should have. If the initial
 var x: Number := "foo"; # Cannot assign expression of type `String` to variable `x` of type `Number`.
 ```
 
-If the type declaration is omitted, the variable type is inferred from the initializer.
+This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the variable type is inferred from the initializer.
 
 Once variables are declared, their type is fixed and cannot change later. Therefore, it is also not possible to assign an expression of another type:
 
@@ -178,3 +178,25 @@ Once variables are declared, their type is fixed and cannot change later. Theref
 var x := 2;
 x := "foo"; # Cannot assign expression of type `String` to variable `x` of type `Number`.
 ```
+
+### Constants
+
+```bash
+constant PI := 3.14159;
+print(2 * x); # 6.28318
+```
+
+Constants are declared via the `constant` keyword. After that follows the name of the constant, the assignment operator `:=` and an initializer expression. After that, the constant can be referred to by its name. Constants are very similar to variables but cannot be changed after they have been declared:
+
+```bash
+constant PI := 3.14159;
+PI := 6.28318; # Cannot assign to constant `PI`.
+```
+
+It is also possible to declare the type the constant should have. If the initializer yields the wrong type, that is an compiler error:
+
+```bash
+constant PI: Number := "foo"; # Cannot assign expression of type `String` to constant `PI` of type `Number`.
+```
+
+This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the constant type is inferred from the initializer.

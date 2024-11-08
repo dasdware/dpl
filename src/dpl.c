@@ -2660,11 +2660,11 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         Nob_String_View symbol_name = node->as.assignment.target->as.symbol.text;
         DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, symbol_name);
         if (!symbol) {
-            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot resolve symbol `"SV_Fmt"` in current scope.",
+            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot find symbol `"SV_Fmt"`.",
                           SV_Arg(symbol_name));
         }
         if (symbol->kind != SYMBOL_VAR) {
-            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot assign to %s `"SV_Fmt"` in current scope.",
+            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot assign to %s `"SV_Fmt"`.",
                           _dplb_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
         }
 
