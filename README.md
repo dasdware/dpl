@@ -267,3 +267,51 @@ Similar to conditionals, it is an compiler error to have a type other then `Bool
 while(1) print("foo"); # Condition operand type `Number` does not
                        # match type `Boolean`.
 ```
+
+### Functions
+
+```bash
+# Declare the `fibonacci` function
+function fibonacci(n: Number) :=
+    if (n <= 1)
+        n
+    else {
+        var fib := 1;
+        var prevFib := 1;
+        var i := 2;
+        while (i < n) {
+            var temp := fib;
+            fib := fib + prevFib;
+            prevFib := temp;
+            i := i + 1;
+        };
+        fib
+    };
+
+# Call the `fibonacci` function
+print(fibonacci(8)); # 21
+```
+
+Functions give names to more complex expressions and allow to parameterize them. They can then be called with different parameters each time.
+
+A function declaration has the following form:
+
+```bash
+function <Name>(
+        <ParamName1>: <ParamType1>,
+        <ParamName2>: <ParamType2>, ...
+    ): <ReturnType>
+        := <BodyClause>
+```
+
+It starts with the `function` keyword, followed by the `<Name>` of function and its parameter list in parentheses (possibly empty). After that comes an optional `<ReturnType>`, and - after the assignment operator - the `<BodyClause>`.
+
+Similar to variable and constant declarations, if the `<ReturnType>` is given, it must match the type of the `<BodyClause>`:
+
+```bash
+function test(a: Number): Number := "foo";
+    # Declared return type `Number` of function `test` is not compatible
+    # with body expression type `String`.
+```
+
+If the return type is ommitted, it is inferred from the `<BodyClause>` expression.
