@@ -2772,6 +2772,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         if (bound_condition->type_handle != dpl->boolean_type_handle) {
             DPL_Type* condition_type = _dplt_find_by_handle(dpl, bound_condition->type_handle);
             DPL_Type* boolean_type = _dplt_find_by_handle(dpl, dpl->boolean_type_handle);
+
             DPL_AST_ERROR(dpl, conditional.condition,
                           "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
                           SV_Arg(condition_type->name), SV_Arg(boolean_type->name));
@@ -2801,8 +2802,12 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, while_loop.condition);
         if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_Type* condition_type = _dplt_find_by_handle(dpl, bound_condition->type_handle);
+            DPL_Type* boolean_type = _dplt_find_by_handle(dpl, dpl->boolean_type_handle);
+
             DPL_AST_ERROR(dpl, while_loop.condition,
-                          "Condition operand of a while loop must be of type `boolean`.");
+                          "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
+                          SV_Arg(condition_type->name), SV_Arg(boolean_type->name));
         }
 
         DPL_Bound_Node* bound_body = _dplb_bind_node(dpl, while_loop.body);

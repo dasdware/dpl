@@ -235,3 +235,35 @@ Likewise, it is an compiler error to have different types for `<ThenClause>` and
 print(if (true) 2 else "foo"); # Types `Number` and `String` do not match
                                # in the conditional expression clauses.
 ```
+
+### Loops
+
+```bash
+var i := 0;
+var sum := 0;
+
+while (i < 10) {
+    i := i + 1;
+    sum := sum + i;
+};
+
+print(sum); # 55
+```
+
+Loops repeat an expression as long as a given condition holds. They have the following form:
+
+```bash
+while (<Condition>) <BodyClause>
+```
+
+`<Condition>` is a `Boolean` expression and `<BodyClause>` an expression of any type.
+
+> [!WARNING]
+> At the moment, loops do not have a value at runtime. They are currently of type `None`. At the current stage of development, there is no good way to represent the possibility of them having zero iterations.
+
+Similar to conditionals, it is an compiler error to have a type other then `Boolean` for the `<Condition>` expression:
+
+```bash
+while(1) print("foo"); # Condition operand type `Number` does not
+                       # match type `Boolean`.
+```
