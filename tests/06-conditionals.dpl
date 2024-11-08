@@ -1,4 +1,4 @@
-function max(x: number, y: number) := if (x > y) x else y;
+function max(x: Number, y: Number) := if (x > y) x else y;
 
 print(max(1, 2)); print("\n");
 print(max(420, 34 + 35)); print("\n");

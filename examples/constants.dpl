@@ -1,12 +1,12 @@
-constant pi := 3.14159;
-print(pi.to_string() + "\n");
+constant PI := 3.14159;
+print(PI.toString() + "\n");
 
 {
-    constant pi2 := 2 * pi;
-    print(pi2.to_string() + "\n")
+    constant pi2 := 2 * PI;
+    print(pi2.toString() + "\n")
 };
 
-constant hello := "Hello";
-constant world := "World";
-constant hello_world := hello + ", " + world + "!";
-print(hello_world + "\n");
+constant HELLO := "Hello";
+constant WORLD := "World";
+constant HELLO_WORLD := HELLO + ", " + WORLD + "!";
+print(HELLO_WORLD + "\n");

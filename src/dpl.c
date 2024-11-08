@@ -75,10 +75,10 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     // CATALOGS
 
     /// TYPES
-    dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("number"));
-    dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("string"));
-    dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("boolean"));
-    dpl->none_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("none"));
+    dpl->number_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("Number"));
+    dpl->string_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("String"));
+    dpl->boolean_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("Boolean"));
+    dpl->none_type_handle = _dplt_register_by_name(dpl, nob_sv_from_cstr("None"));
 
     /// FUNCTIONS AND GENERATORS
 
@@ -128,15 +128,15 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 
     // comparison operators
     _dplf_register(dpl, nob_sv_from_cstr("less"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS);
-    _dplf_register(dpl, nob_sv_from_cstr("less_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("lessEqual"), &comparison_number, _dplg_generate_inst, (void*) INST_LESS_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("greater"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER);
-    _dplf_register(dpl, nob_sv_from_cstr("greater_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("greaterEqual"), &comparison_number, _dplg_generate_inst, (void*) INST_GREATER_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_number, _dplg_generate_inst, (void*) INST_EQUAL);
-    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("notEqual"), &comparison_number, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_string, _dplg_generate_inst, (void*) INST_EQUAL);
-    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_string, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("notEqual"), &comparison_string, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
     _dplf_register(dpl, nob_sv_from_cstr("equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_EQUAL);
-    _dplf_register(dpl, nob_sv_from_cstr("not_equal"), &comparison_boolean, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
+    _dplf_register(dpl, nob_sv_from_cstr("notEqual"), &comparison_boolean, _dplg_generate_inst, (void*) INST_NOT_EQUAL);
 
     if (externals != NULL) {
         _dple_register(dpl, externals);
@@ -2340,8 +2340,8 @@ void _dplb_check_assignment(DPL* dpl, const char* what, DPL_Ast_Node* node, DPL_
         }
 
         if (expression_type->handle != declared_type->handle) {
-            DPL_AST_ERROR(dpl, node, "Declared type `"SV_Fmt"` does not match expression type `"SV_Fmt"` in declaration of %s `"SV_Fmt"`.",
-                          SV_Arg(declared_type->name), SV_Arg(expression_type->name), what, SV_Arg(decl->name.text));
+            DPL_AST_ERROR(dpl, node, "Cannot assign expression of type `"SV_Fmt"` to %s `"SV_Fmt"` of type `"SV_Fmt"`.",
+                          SV_Arg(expression_type->name), what, SV_Arg(decl->name.text), SV_Arg(declared_type->name));
         }
     }
 }
@@ -2523,15 +2523,15 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         case TOKEN_LESS:
             return _dplb_bind_binary(dpl, node, "less");
         case TOKEN_LESS_EQUAL:
-            return _dplb_bind_binary(dpl, node, "less_equal");
+            return _dplb_bind_binary(dpl, node, "lessEqual");
         case TOKEN_GREATER:
             return _dplb_bind_binary(dpl, node, "greater");
         case TOKEN_GREATER_EQUAL:
-            return _dplb_bind_binary(dpl, node, "greater_equal");
+            return _dplb_bind_binary(dpl, node, "greaterEqual");
         case TOKEN_EQUAL_EQUAL:
             return _dplb_bind_binary(dpl, node, "equal");
         case TOKEN_BANG_EQUAL:
-            return _dplb_bind_binary(dpl, node, "not_equal");
+            return _dplb_bind_binary(dpl, node, "notEqual");
         case TOKEN_AND_AND:
         case TOKEN_PIPE_PIPE: {
             DPL_Bound_Node* lhs = _dplb_bind_node(dpl, node->as.binary.left);
@@ -2660,19 +2660,28 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         Nob_String_View symbol_name = node->as.assignment.target->as.symbol.text;
         DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, symbol_name);
         if (!symbol) {
-            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot resolve symbol `"SV_Fmt"` in current scope.",
+            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot find symbol `"SV_Fmt"`.",
                           SV_Arg(symbol_name));
         }
         if (symbol->kind != SYMBOL_VAR) {
-            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot assign to %s `"SV_Fmt"` in current scope.",
+            DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot assign to %s `"SV_Fmt"`.",
                           _dplb_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
+        }
+
+        DPL_Bound_Node* bound_expression = _dplb_bind_node(dpl, node->as.assignment.expression);
+
+        if (symbol->as.var.type_handle != bound_expression->type_handle) {
+            DPL_Type* expression_type = _dplt_find_by_handle(dpl, bound_expression->type_handle);
+            DPL_Type* var_type = _dplt_find_by_handle(dpl, symbol->as.var.type_handle);
+            DPL_AST_ERROR(dpl, node, "Cannot assign expression of type `"SV_Fmt"` to variable `"SV_Fmt"` of type `"SV_Fmt"`.",
+                          SV_Arg(expression_type->name), SV_Arg(symbol->name), SV_Arg(var_type->name));
         }
 
         DPL_Bound_Node* ct_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         ct_node->kind = BOUND_NODE_ASSIGNMENT;
         ct_node->type_handle = symbol->as.var.type_handle;
         ct_node->as.assignment.scope_index = symbol->as.var.scope_index;
-        ct_node->as.assignment.expression = _dplb_bind_node(dpl, node->as.assignment.expression);
+        ct_node->as.assignment.expression = bound_expression;
 
         return ct_node;
     }
@@ -2761,8 +2770,12 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, conditional.condition);
         if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_Type* condition_type = _dplt_find_by_handle(dpl, bound_condition->type_handle);
+            DPL_Type* boolean_type = _dplt_find_by_handle(dpl, dpl->boolean_type_handle);
+
             DPL_AST_ERROR(dpl, conditional.condition,
-                          "Condition operand of a conditional must be of type `boolean`.");
+                          "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
+                          SV_Arg(condition_type->name), SV_Arg(boolean_type->name));
         }
 
         DPL_Bound_Node* bound_then_clause = _dplb_bind_node(dpl, conditional.then_clause);
@@ -2771,7 +2784,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             DPL_Type* then_clause_type = _dplt_find_by_handle(dpl, bound_then_clause->type_handle);
             DPL_Type* else_clause_type = _dplt_find_by_handle(dpl, bound_else_clause->type_handle);
 
-            DPL_AST_ERROR(dpl, node, "Types of then and else clause operands of a conditional must match. Then clause type is `"SV_Fmt"`, else clause type is `"SV_Fmt"`.",
+            DPL_AST_ERROR(dpl, node, "Types `"SV_Fmt"` and `"SV_Fmt"` do not match in the conditional expression clauses.",
                           SV_Arg(then_clause_type->name), SV_Arg(else_clause_type->name));
         }
 
@@ -2789,8 +2802,12 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, while_loop.condition);
         if (bound_condition->type_handle != dpl->boolean_type_handle) {
+            DPL_Type* condition_type = _dplt_find_by_handle(dpl, bound_condition->type_handle);
+            DPL_Type* boolean_type = _dplt_find_by_handle(dpl, dpl->boolean_type_handle);
+
             DPL_AST_ERROR(dpl, while_loop.condition,
-                          "Condition operand of a while loop must be of type `boolean`.");
+                          "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
+                          SV_Arg(condition_type->name), SV_Arg(boolean_type->name));
         }
 
         DPL_Bound_Node* bound_body = _dplb_bind_node(dpl, while_loop.body);

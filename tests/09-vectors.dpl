@@ -1,13 +1,13 @@
-type point := [ x: number, y: number ];
+type Point := [ x: Number, y: Number ];
 
-function add(a: point, b: point)
+function add(a: Point, b: Point)
     := [ x: a.x + b.x, y: a.y + b.y ];
 
-function print(p: point)
-    := print("[x: " + p.x.to_string() + ", y: " + p.y.to_string() + "]");
+function print(p: Point)
+    := print("[x: " + p.x.toString() + ", y: " + p.y.toString() + "]");
 
 var p1 := [ x: 1, y: 2 ];
 print(p1); print("\n");
-var p2: point := [ y: 2*3, x: 1 ];
+var p2: Point := [ y: 2*3, x: 1 ];
 print(p2); print("\n");
 print(p1 + p2); print("\n");
