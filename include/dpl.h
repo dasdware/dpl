@@ -345,7 +345,7 @@ typedef enum
     BOUND_NODE_CONDITIONAL,
     BOUND_NODE_LOGICAL_OPERATOR,
     BOUND_NODE_WHILE_LOOP,
-    BOUND_NODE_FIELD_ACCESS,
+    BOUND_NODE_LOAD_FIELD,
 } DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
@@ -408,7 +408,7 @@ typedef struct {
 typedef struct {
     DPL_Bound_Node* expression;
     size_t field_index;
-} DPL_Bound_FieldAccess;
+} DPL_Bound_LoadField;
 
 struct _DPL_Bound_Node
 {
@@ -425,7 +425,7 @@ struct _DPL_Bound_Node
         DPL_Bound_Conditional conditional;
         DPL_Bound_LogicalOperator logical_operator;
         DPL_Bound_WhileLoop while_loop;
-        DPL_Bound_FieldAccess field_access;
+        DPL_Bound_LoadField load_field;
     } as;
 };
 

@@ -1802,8 +1802,8 @@ const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
         return "BOUND_NODE_LOGICAL_OPERATOR";
     case BOUND_NODE_WHILE_LOOP:
         return "BOUND_NODE_WHILE_LOOP";
-    case BOUND_NODE_FIELD_ACCESS:
-        return "BOUND_NODE_FIELD_ACCESS";
+    case BOUND_NODE_LOAD_FIELD:
+        return "BOUND_NODE_LOAD_FIELD";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -2485,9 +2485,9 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
 
         DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        bound_node->kind = BOUND_NODE_FIELD_ACCESS;
+        bound_node->kind = BOUND_NODE_LOAD_FIELD;
         bound_node->type_handle = field_type;
-        bound_node->as.field_access = (DPL_Bound_FieldAccess) {
+        bound_node->as.load_field = (DPL_Bound_LoadField) {
             .expression = bound_expression,
             .field_index = field_index,
         };
@@ -2980,9 +2980,9 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf(")\n");
     }
     break;
-    case BOUND_NODE_FIELD_ACCESS: {
-        printf("$field_access( #%zu\n", node->as.field_access.field_index);
-        _dplb_print(dpl, node->as.field_access.expression, level + 1);
+    case BOUND_NODE_LOAD_FIELD: {
+        printf("$load_field( #%zu\n", node->as.load_field.field_index);
+        _dplb_print(dpl, node->as.load_field.expression, level + 1);
 
         for (size_t i = 0; i < level; ++i) {
             printf("  ");
@@ -3023,9 +3023,9 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         }
     }
     break;
-    case BOUND_NODE_FIELD_ACCESS: {
-        _dplg_generate(dpl, node->as.field_access.expression, program);
-        dplp_write_load_field(program, node->as.field_access.field_index);
+    case BOUND_NODE_LOAD_FIELD: {
+        _dplg_generate(dpl, node->as.load_field.expression, program);
+        dplp_write_load_field(program, node->as.load_field.field_index);
     }
     break;
     case BOUND_NODE_FUNCTIONCALL: {
