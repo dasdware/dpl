@@ -75,11 +75,9 @@ void _dplv_trace_stack(DPL_VirtualMachine *vm) {
 
 DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
-        return dpl_value_make_string(
-                   mt_sv_allocate_sv(&vm->stack_memory, value.as.string));
+        mt_sv_reference(&vm->stack_memory, value.as.string);
     } else if (value.kind == VALUE_OBJECT) {
-        return dpl_value_make_object(
-                   mt_allocate_data(&vm->stack_memory, value.as.object->data, value.as.object->length));
+        mt_reference(&vm->stack_memory, value.as.object);
     }
     return value;
 }
