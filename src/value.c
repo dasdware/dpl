@@ -120,7 +120,7 @@ uint8_t dpl_value_object_field_count(DW_MemoryTable_Item* object) {
     return object->length / sizeof(DPL_Value);
 }
 
-DPL_Value dpl_value_object_field(DW_MemoryTable_Item* object, uint8_t field_index) {
+DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item* object, uint8_t field_index) {
     return ((DPL_Value*)object->data)[field_index];
 }
 
@@ -128,7 +128,7 @@ void dpl_value_print_object(DW_MemoryTable_Item* object) {
     uint8_t field_count = dpl_value_object_field_count(object);
     printf("[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);
     for (uint8_t field_index = 0; field_index < field_count; ++field_index) {
-        dpl_value_print(dpl_value_object_field(object, field_index));
+        dpl_value_print(dpl_value_object_get_field(object, field_index));
     }
     printf("]");
 }
