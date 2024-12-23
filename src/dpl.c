@@ -1061,7 +1061,11 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         printf("\n");
         for (size_t i = 0; i < object_literal.field_count; ++i) {
             _dpla_print_indent(level + 1);
-            printf("<field "SV_Fmt">\n", SV_Arg(object_literal.fields[i].name.text));
+            if (object_literal.fields[i].name.kind != TOKEN_NONE) {
+                printf("<field #%zu: "SV_Fmt">\n", i, SV_Arg(object_literal.fields[i].name.text));
+            } else {
+                printf("<field #%zu>\n", i);
+            }
             _dpla_print(object_literal.fields[i].expression, level + 2);
         }
         break;
@@ -1371,8 +1375,8 @@ DPL_Ast_Node* _dplp_parse_declaration(DPL* dpl) {
     }
 
     return _dplp_parse_expression(dpl);
-}
 
+}
 void _dplp_move_nodelist(DPL* dpl, da_array(DPL_Ast_Node*) list, size_t *target_count, DPL_Ast_Node*** target_items) {
     *target_count = da_size(list);
     if (da_some(list)) {
@@ -1407,11 +1411,6 @@ da_array(DPL_Ast_Node*) _dplp_parse_expressions(DPL* dpl, DPL_TokenKind delimite
     }
 
     return list;
-}
-
-int _dplp_compare_object_literal_fields(void const* a, void const* b)
-{
-    return nob_sv_cmp(((DPL_Ast_ObjectLiteralField*) a)->name.text, ((DPL_Ast_ObjectLiteralField*) b)->name.text);
 }
 
 DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
@@ -1468,31 +1467,31 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
             if (!first) {
                 _dplp_expect_token(dpl, TOKEN_COMMA);
             }
-            DPL_Token field_name = _dplp_expect_token(dpl, TOKEN_IDENTIFIER);
-            _dplp_expect_token(dpl, TOKEN_COLON);
+
             DPL_Ast_Node* field_expression = _dplp_parse_expression(dpl);
+            DPL_Token field_name = {0};
+            if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
+                if (field_expression->kind != AST_NODE_SYMBOL) {
+                    DPL_AST_ERROR(dpl, field_expression, "Only `%s`s can be used as field names.",
+                                  _dpla_node_kind_name(AST_NODE_SYMBOL));
+                }
+
+                field_name = field_expression->as.symbol;
+
+                _dplp_next_token(dpl);
+                field_expression = _dplp_parse_expression(dpl);
+            }
 
             DPL_Ast_ObjectLiteralField field = {
                 .name = field_name,
-                .first = field_name,
+                .first = (field_name.kind != TOKEN_NONE) ? field_name : field_expression->first,
                 .last = field_expression->last,
                 .expression = field_expression,
             };
-
-            for (size_t i = 0; i < da_size(tmp_fields); ++i) {
-                if (nob_sv_eq(tmp_fields[i].name.text, field_name.text)) {
-                    DPL_AST_ERROR_WITH_NOTE(dpl,
-                                            &tmp_fields[i], "Previous declaration was here.",
-                                            &field, "Duplicate field `"SV_Fmt"` in object literal.", SV_Arg(field_name.text));
-                }
-            }
-
             da_add(tmp_fields, field);
 
             first = false;
         }
-
-        qsort(tmp_fields, da_size(tmp_fields), sizeof(*tmp_fields), _dplp_compare_object_literal_fields);
 
         DPL_Ast_Node* object_literal = _dpla_create_node(&dpl->tree, AST_NODE_OBJECT_LITERAL, token, _dplp_next_token(dpl));
         object_literal->as.object_literal.field_count = da_size(tmp_fields);
@@ -1501,6 +1500,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
             memcpy(object_literal->as.object_literal.fields, tmp_fields, sizeof(DPL_Ast_ObjectLiteralField) * da_size(tmp_fields));
         }
         da_free(tmp_fields);
+
         return object_literal;
     }
     break;
@@ -1731,7 +1731,10 @@ DPL_Ast_Node* _dplp_parse_assignment(DPL* dpl)
     DPL_Ast_Node* target = _dplp_parse_conditional_or_loop(dpl);
 
     if (_dplp_peek_token(dpl).kind == TOKEN_COLON_EQUAL) {
-        if (target->kind != AST_NODE_SYMBOL) {
+        if (target->kind == AST_NODE_FIELD_ACCESS) {
+            DPL_AST_ERROR(dpl, target, "Object fields cannot be assigned directly. Instead, you can compose a new object from the old one.");
+
+        } else if (target->kind != AST_NODE_SYMBOL) {
             DPL_AST_ERROR(dpl, target, "`%s` is not a valid assignment target.",
                           _dpla_node_kind_name(target->kind));
         }
@@ -2346,6 +2349,166 @@ void _dplb_check_assignment(DPL* dpl, const char* what, DPL_Ast_Node* node, DPL_
     }
 }
 
+int _dplb_bind_object_literal_compare_fields(void const* a, void const* b)
+{
+    return nob_sv_cmp(((DPL_Bound_ObjectField*) a)->name, ((DPL_Bound_ObjectField*) b)->name);
+}
+
+int _dplb_bind_object_literal_compare_query(void const* a, void const* b)
+{
+    return nob_sv_cmp(((DPL_TypeField*) a)->name, ((DPL_TypeField*) b)->name);
+}
+
+void _dplb_bind_object_literal_add_field(DPL* dpl, da_array(DPL_Bound_ObjectField)* tmp_bound_fields,
+        DPL_TypeObjectQuery* type_query, Nob_String_View field_name, DPL_Bound_Node* field_expression) {
+    DW_UNUSED(dpl);
+
+    for (size_t i = 0; i < da_size(*tmp_bound_fields); ++i) {
+        if (nob_sv_eq((*tmp_bound_fields)[i].name, field_name)) {
+            (*tmp_bound_fields)[i].expression = field_expression;
+            return;
+        }
+    }
+
+    DPL_Bound_ObjectField bound_field = {
+        .name = field_name,
+        .expression = field_expression,
+    };
+    da_add(*tmp_bound_fields, bound_field);
+    qsort(*tmp_bound_fields, da_size(*tmp_bound_fields), sizeof(**tmp_bound_fields), _dplb_bind_object_literal_compare_fields);
+
+    DPL_TypeField query_field = {
+        .name = bound_field.name,
+        .type = bound_field.expression->type_handle,
+    };
+    da_add(*type_query, query_field);
+    qsort(*type_query, da_size(*type_query), sizeof(**type_query), _dplb_bind_object_literal_compare_query);
+}
+
+DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
+    _dplb_symbols_begin_scope(dpl);
+    _dplb_scopes_begin_scope(dpl);
+
+    DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
+    da_array(DPL_Bound_ObjectField) tmp_bound_fields = NULL;
+    DPL_TypeObjectQuery type_query = NULL;
+    da_array(DPL_Bound_Node*) temporaries = NULL;
+    for (size_t i = 0; i < object_literal.field_count; ++i) {
+        if (object_literal.fields[i].name.kind != TOKEN_NONE) {
+            _dplb_bind_object_literal_add_field(
+                dpl, &tmp_bound_fields, &type_query,
+                object_literal.fields[i].name.text,
+                _dplb_bind_node(dpl, object_literal.fields[i].expression)
+            );
+        } else {
+            DPL_Bound_Node* bound_temporary = _dplb_bind_node(dpl, object_literal.fields[i].expression);
+            bound_temporary->persistent = true;
+            DPL_Type* bound_temporary_type = _dplt_find_by_handle(dpl, bound_temporary->type_handle);
+            if (bound_temporary_type->kind != TYPE_OBJECT) {
+                DPL_AST_ERROR(dpl, object_literal.fields[i].expression, "Only object expressions can be used for composing objects.");
+            }
+            da_add(temporaries, bound_temporary);
+
+            DPL_Scope* current_scope = _dplb_scopes_current(dpl);
+            size_t scope_index = current_scope->offset + current_scope->count;
+            current_scope->count++;
+
+            DPL_TypeObject bound_object_type = bound_temporary_type->as.object;
+            for (size_t i = 0; i < bound_object_type.field_count; ++i) {
+                DPL_Bound_Node* var_ref = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+                var_ref->kind = BOUND_NODE_VARREF;
+                var_ref->type_handle = bound_temporary_type->handle;
+                var_ref->as.varref = scope_index;
+
+                DPL_Bound_Node* load_field = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+                load_field->kind = BOUND_NODE_LOAD_FIELD;
+                load_field->type_handle = bound_object_type.fields[i].type;
+                load_field->as.load_field.expression = var_ref;
+                load_field->as.load_field.field_index = i;
+
+                _dplb_bind_object_literal_add_field(
+                    dpl, &tmp_bound_fields, &type_query,
+                    bound_object_type.fields[i].name,
+                    load_field
+                );
+            }
+
+            // DW_UNIMPLEMENTED_MSG("bound_expression type "SV_Fmt, SV_Arg(type->name));
+        }
+
+    }
+
+    DPL_Type* bound_type = _dplt_find_by_object_query(dpl, type_query);
+
+    if (!bound_type) {
+        Nob_String_Builder type_name_builder = {0};
+        nob_sb_append_cstr(&type_name_builder, "[");
+        for (size_t i = 0; i < da_size(type_query); ++i) {
+            if (i > 0) {
+                nob_sb_append_cstr(&type_name_builder, ", ");
+            }
+            nob_sb_append_sv(&type_name_builder, type_query[i].name);
+            nob_sb_append_cstr(&type_name_builder, ": ");
+
+            DPL_Type* field_type = _dplt_find_by_handle(dpl, type_query[i].type);
+            if (!field_type) {
+                DW_UNIMPLEMENTED_MSG("Did not find a field type which really should already be there.");
+            }
+            nob_sb_append_sv(&type_name_builder, field_type->name);
+        }
+        nob_sb_append_cstr(&type_name_builder, "]");
+        nob_sb_append_null(&type_name_builder);
+
+        DPL_TypeField* new_object_type_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_TypeField) * da_size(type_query));
+        memcpy(new_object_type_fields, type_query, sizeof(DPL_TypeField) * da_size(type_query));
+
+        DPL_Type new_object_type = {
+            .name = _dpl_arena_strcpy(&dpl->bound_tree.memory, type_name_builder.items),
+            .kind = TYPE_OBJECT,
+            .as.object.field_count = da_size(type_query),
+            .as.object.fields = new_object_type_fields,
+        };
+        DPL_Handle registered_type_handle = _dplt_register(dpl, new_object_type);
+        bound_type = _dplt_find_by_handle(dpl, registered_type_handle);
+
+        nob_sb_free(type_name_builder);
+    }
+    da_free(type_query);
+
+    DPL_Bound_ObjectField* bound_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
+    memcpy(bound_fields, tmp_bound_fields, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
+
+    DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+    bound_node->kind = BOUND_NODE_VALUE;
+    bound_node->type_handle = bound_type->handle;
+    bound_node->as.value = (DPL_Bound_Value) {
+        .type_handle = bound_type->handle,
+        .as.object = {
+            .field_count = da_size(tmp_bound_fields),
+            .fields = bound_fields,
+        }
+    };
+
+    da_free(tmp_bound_fields);
+
+    _dplb_scopes_end_scope(dpl);
+    _dplb_symbols_end_scope(dpl);
+
+    if (da_some(temporaries)) {
+        DPL_Bound_Node* bound_scope = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        bound_scope->kind = BOUND_NODE_SCOPE;
+        bound_scope->type_handle = bound_node->type_handle;
+
+        da_add(temporaries, bound_node);
+        _dplb_move_nodelist(dpl, temporaries, &bound_scope->as.scope.expressions_count,
+                            &bound_scope->as.scope.expressions);
+
+        return bound_scope;
+    }
+
+    return bound_node;
+}
+
 DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 {
     switch (node->kind)
@@ -2383,79 +2546,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
         break;
     }
-    case AST_NODE_OBJECT_LITERAL: {
-        DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
-        da_array(DPL_Bound_ObjectField) tmp_bound_fields = NULL;
-        DPL_TypeObjectQuery type_query = NULL;
-        for (size_t i = 0; i < object_literal.field_count; ++i) {
-            DPL_Bound_ObjectField bound_field = {
-                .name = _dpl_arena_svcpy(&dpl->bound_tree.memory, object_literal.fields[i].name.text),
-                .expression = _dplb_bind_node(dpl, object_literal.fields[i].expression),
-            };
-            da_add(tmp_bound_fields, bound_field);
-
-            DPL_TypeField query_field = {
-                .name = bound_field.name,
-                .type = bound_field.expression->type_handle,
-            };
-            da_add(type_query, query_field);
-        }
-
-        DPL_Type* bound_type = _dplt_find_by_object_query(dpl, type_query);
-
-        if (!bound_type) {
-            Nob_String_Builder type_name_builder = {0};
-            nob_sb_append_cstr(&type_name_builder, "[");
-            for (size_t i = 0; i < da_size(type_query); ++i) {
-                if (i > 0) {
-                    nob_sb_append_cstr(&type_name_builder, ", ");
-                }
-                nob_sb_append_sv(&type_name_builder, type_query[i].name);
-                nob_sb_append_cstr(&type_name_builder, ": ");
-
-                DPL_Type* field_type = _dplt_find_by_handle(dpl, type_query[i].type);
-                if (!field_type) {
-                    DW_UNIMPLEMENTED_MSG("Did not find a field type which really should already be there.");
-                }
-                nob_sb_append_sv(&type_name_builder, field_type->name);
-            }
-            nob_sb_append_cstr(&type_name_builder, "]");
-            nob_sb_append_null(&type_name_builder);
-
-            DPL_TypeField* new_object_type_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_TypeField) * da_size(type_query));
-            memcpy(new_object_type_fields, type_query, sizeof(DPL_TypeField) * da_size(type_query));
-
-            DPL_Type new_object_type = {
-                .name = _dpl_arena_strcpy(&dpl->bound_tree.memory, type_name_builder.items),
-                .kind = TYPE_OBJECT,
-                .as.object.field_count = da_size(type_query),
-                .as.object.fields = new_object_type_fields,
-            };
-            DPL_Handle registered_type_handle = _dplt_register(dpl, new_object_type);
-            bound_type = _dplt_find_by_handle(dpl, registered_type_handle);
-
-            nob_sb_free(type_name_builder);
-        }
-        da_free(type_query);
-
-        DPL_Bound_ObjectField* bound_fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
-        memcpy(bound_fields, tmp_bound_fields, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
-
-        DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
-        bound_node->kind = BOUND_NODE_VALUE;
-        bound_node->type_handle = bound_type->handle;
-        bound_node->as.value = (DPL_Bound_Value) {
-            .type_handle = bound_type->handle,
-            .as.object = {
-                .field_count = da_size(tmp_bound_fields),
-                .fields = bound_fields,
-            }
-        };
-
-        da_free(tmp_bound_fields);
-        return bound_node;
-    }
-    break;
+    case AST_NODE_OBJECT_LITERAL:
+        return _dplb_bind_object_literal(dpl, node);
     case AST_NODE_FIELD_ACCESS: {
         DPL_Bound_Node* bound_expression = _dplb_bind_node(dpl, node->as.field_access.expression);
 
@@ -3133,9 +3225,11 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
 
 void dpl_compile(DPL *dpl, DPL_Program* program)
 {
+    printf("parse\n");
     _dplp_parse(dpl);
     if (dpl->debug)
     {
+        printf("a_print\n");
         _dpla_print(dpl->tree.root, 0);
         printf("\n");
     }
