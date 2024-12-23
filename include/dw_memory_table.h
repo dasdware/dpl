@@ -201,13 +201,60 @@ void mt_sv_release(DW_MemoryTable *table, Nob_String_View sv)
     mt_release(table, &table->items[handle]);
 }
 
+bool mt_is_printable(DW_MemoryTable_Item* item) {
+    for (size_t i = 0; i < item->length; ++i) {
+        if (!isprint(item->data[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void mt_print(DW_MemoryTable *table) {
+    size_t used_entries = MT_CAPACITY - table->free_items.count;
+
+    size_t used_memory = 0;
     for (size_t i = 0; i < MT_CAPACITY; ++i) {
         if (table->items[i].is_free) {
             continue;
         }
-        printf("[%02zu]: %zu\n", table->items[i].handle, table->items[i].ref_count);
+
+        used_memory += table->items[i].length;
     }
+
+    printf("================================================================\n");
+    printf("| DW Memory Table debug statistics\n");
+    printf("================================================================\n");
+    printf("| Entries: %zu/%zu\n", used_entries, MT_CAPACITY);
+    printf("| Memory : %zu/%zu bytes\n", used_memory, MT_CAPACITY * (MT_MAX_LENGTH + 1));
+    if (used_entries > 0) {
+        printf("----------------------------------------------------------------\n");
+        printf("| Entry breakdown\n");
+        printf("----------------------------------------------------------------\n");
+        for (size_t i = 0; i < MT_CAPACITY; ++i) {
+            if (table->items[i].is_free) {
+                continue;
+            }
+
+            DW_MemoryTable_Item *item = &table->items[i];
+            printf("| #%02zu - ref_count: %zu, length: %zu\n", i, item->ref_count, item->length);
+            if (mt_is_printable(item)) {
+                printf("|       string: %.*s\n", (int)item->length, item->data);
+            } else {
+                printf("|       bytes : ");
+                size_t count = (item->length > 48) ? 48 : item->length;
+                for (size_t n = 0; n < count; ++n) {
+                    printf("%02x ", item->data[n] & 0xFF);
+                }
+                if (item->length > 48) {
+                    printf("...");
+                }
+                printf("\n");
+            }
+        }
+    }
+    printf("================================================================\n");
 }
 
 #endif
