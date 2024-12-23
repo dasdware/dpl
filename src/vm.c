@@ -337,7 +337,9 @@ void dplv_run(DPL_VirtualMachine *vm)
         case INST_LOAD_FIELD: {
             uint8_t field_index = bs_read_u8(&program);
 
-            TOP0 = dpl_value_object_get_field(TOP0.as.object, field_index);
+            DPL_Value field_value = dplv_reference(vm, dpl_value_object_get_field(TOP0.as.object, field_index));
+            dplv_release(vm, TOP0);
+            TOP0 = field_value;
         }
         break;
         default:
