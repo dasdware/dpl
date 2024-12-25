@@ -676,6 +676,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_SLASH);
     case '.':
         _dpll_advance(dpl);
+        if (_dpll_match(dpl, '.')) {
+            return _dpll_build_token(dpl, TOKEN_DOT_DOT);
+        }
         return _dpll_build_token(dpl, TOKEN_DOT);
     case ':':
         _dpll_advance(dpl);
@@ -916,6 +919,8 @@ const char* _dpll_token_kind_name(DPL_TokenKind kind)
 
     case TOKEN_DOT:
         return "token `.`";
+    case TOKEN_DOT_DOT:
+        return "token `..`";
     case TOKEN_COLON:
         return "token `:`";
     case TOKEN_COLON_EQUAL:
@@ -1523,7 +1528,7 @@ DPL_Ast_Node *_dplp_parse_dot(DPL* dpl)
 DPL_Ast_Node* _dplp_parse_unary(DPL* dpl)
 {
     DPL_Token operator_candidate = _dplp_peek_token(dpl);
-    if (operator_candidate.kind == TOKEN_MINUS || operator_candidate.kind == TOKEN_BANG) {
+    if (operator_candidate.kind == TOKEN_MINUS || operator_candidate.kind == TOKEN_BANG || operator_candidate.kind == TOKEN_DOT_DOT) {
         DPL_Token operator = _dplp_next_token(dpl);
         DPL_Ast_Node* operand = _dplp_parse_unary(dpl);
 
@@ -2376,12 +2381,13 @@ DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
                 assignment->target->as.symbol.text,
                 _dplb_bind_node(dpl, assignment->expression)
             );
-        } else {
-            DPL_Bound_Node* bound_temporary = _dplb_bind_node(dpl, object_literal.fields[i]);
+        } else if (field->kind == AST_NODE_UNARY
+                   && field->as.unary.operator.kind == TOKEN_DOT_DOT) {
+            DPL_Bound_Node* bound_temporary = _dplb_bind_node(dpl, field->as.unary.operand);
             bound_temporary->persistent = true;
             DPL_Type* bound_temporary_type = _dplt_find_by_handle(dpl, bound_temporary->type_handle);
             if (bound_temporary_type->kind != TYPE_OBJECT) {
-                DPL_AST_ERROR(dpl, object_literal.fields[i], "Only object expressions can be used for composing objects.");
+                DPL_AST_ERROR(dpl, field, "Only object expressions can be spread for composing objects.");
             }
             da_add(temporaries, bound_temporary);
 

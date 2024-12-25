@@ -127,6 +127,7 @@ typedef enum
     TOKEN_PIPE_PIPE,
 
     TOKEN_DOT,
+    TOKEN_DOT_DOT,
     TOKEN_COLON,
     TOKEN_COLON_EQUAL,
 

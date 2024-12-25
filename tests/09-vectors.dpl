@@ -12,8 +12,8 @@ print("p1     : "); print(p1); print("\n");
 print("p2     : "); print(p2); print("\n");
 print("p1 + p2: "); print(p1 + p2); print("\n");
 
-p1 := [p1, x := p1.x * 3];
-p2 := [p2, y := p2.x * 21];
+p1 := [ ..p1, x := p1.x * 3 ];
+p2 := [ ..p2, y := p2.x * 21 ];
 print("p1     : "); print(p1); print("\n");
 print("p2     : "); print(p2); print("\n");
 print("p1 + p2: "); print(p1 + p2); print("\n");
