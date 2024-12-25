@@ -211,17 +211,9 @@ typedef struct
     DPL_Token value;
 } DPL_Ast_Literal;
 
-typedef struct
-{
-    DPL_Token name;
-    DPL_Token first;
-    DPL_Token last;
-    DPL_Ast_Node* expression;
-} DPL_Ast_ObjectLiteralField;
-
 typedef struct {
     size_t field_count;
-    DPL_Ast_ObjectLiteralField* fields;
+    DPL_Ast_Node** fields;
 } DPL_Ast_ObjectLiteral;
 
 typedef struct

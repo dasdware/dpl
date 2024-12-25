@@ -1061,12 +1061,8 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         printf("\n");
         for (size_t i = 0; i < object_literal.field_count; ++i) {
             _dpla_print_indent(level + 1);
-            if (object_literal.fields[i].name.kind != TOKEN_NONE) {
-                printf("<field #%zu: "SV_Fmt">\n", i, SV_Arg(object_literal.fields[i].name.text));
-            } else {
-                printf("<field #%zu>\n", i);
-            }
-            _dpla_print(object_literal.fields[i].expression, level + 2);
+            printf("<field #%zu>\n", i);
+            _dpla_print(object_literal.fields[i], level + 2);
         }
         break;
     }
@@ -1462,44 +1458,21 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     }
     case TOKEN_OPEN_BRACKET: {
         bool first = true;
-        da_array(DPL_Ast_ObjectLiteralField) tmp_fields = NULL;
+        da_array(DPL_Ast_Node*) tmp_fields = NULL;
         while (_dplp_peek_token(dpl).kind != TOKEN_CLOSE_BRACKET) {
             if (!first) {
                 _dplp_expect_token(dpl, TOKEN_COMMA);
             }
 
-            DPL_Ast_Node* field_expression = _dplp_parse_expression(dpl);
-            DPL_Token field_name = {0};
-            if (_dplp_peek_token(dpl).kind == TOKEN_COLON) {
-                if (field_expression->kind != AST_NODE_SYMBOL) {
-                    DPL_AST_ERROR(dpl, field_expression, "Only `%s`s can be used as field names.",
-                                  _dpla_node_kind_name(AST_NODE_SYMBOL));
-                }
-
-                field_name = field_expression->as.symbol;
-
-                _dplp_next_token(dpl);
-                field_expression = _dplp_parse_expression(dpl);
-            }
-
-            DPL_Ast_ObjectLiteralField field = {
-                .name = field_name,
-                .first = (field_name.kind != TOKEN_NONE) ? field_name : field_expression->first,
-                .last = field_expression->last,
-                .expression = field_expression,
-            };
+            DPL_Ast_Node* field = _dplp_parse_expression(dpl);
             da_add(tmp_fields, field);
 
             first = false;
         }
 
         DPL_Ast_Node* object_literal = _dpla_create_node(&dpl->tree, AST_NODE_OBJECT_LITERAL, token, _dplp_next_token(dpl));
-        object_literal->as.object_literal.field_count = da_size(tmp_fields);
-        if (da_size(tmp_fields) > 0) {
-            object_literal->as.object_literal.fields = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_ObjectLiteralField) * da_size(tmp_fields));
-            memcpy(object_literal->as.object_literal.fields, tmp_fields, sizeof(DPL_Ast_ObjectLiteralField) * da_size(tmp_fields));
-        }
-        da_free(tmp_fields);
+        _dplp_move_nodelist(dpl, tmp_fields, &object_literal->as.object_literal.field_count,
+                            &object_literal->as.object_literal.fields);
 
         return object_literal;
     }
@@ -2394,18 +2367,21 @@ DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
     DPL_TypeObjectQuery type_query = NULL;
     da_array(DPL_Bound_Node*) temporaries = NULL;
     for (size_t i = 0; i < object_literal.field_count; ++i) {
-        if (object_literal.fields[i].name.kind != TOKEN_NONE) {
+        DPL_Ast_Node* field = object_literal.fields[i];
+        if (field->kind == AST_NODE_ASSIGNMENT
+                && field->as.assignment.target->kind == AST_NODE_SYMBOL) {
+            DPL_Ast_Assignment* assignment = &object_literal.fields[i]->as.assignment;
             _dplb_bind_object_literal_add_field(
                 dpl, &tmp_bound_fields, &type_query,
-                object_literal.fields[i].name.text,
-                _dplb_bind_node(dpl, object_literal.fields[i].expression)
+                assignment->target->as.symbol.text,
+                _dplb_bind_node(dpl, assignment->expression)
             );
         } else {
-            DPL_Bound_Node* bound_temporary = _dplb_bind_node(dpl, object_literal.fields[i].expression);
+            DPL_Bound_Node* bound_temporary = _dplb_bind_node(dpl, object_literal.fields[i]);
             bound_temporary->persistent = true;
             DPL_Type* bound_temporary_type = _dplt_find_by_handle(dpl, bound_temporary->type_handle);
             if (bound_temporary_type->kind != TYPE_OBJECT) {
-                DPL_AST_ERROR(dpl, object_literal.fields[i].expression, "Only object expressions can be used for composing objects.");
+                DPL_AST_ERROR(dpl, object_literal.fields[i], "Only object expressions can be used for composing objects.");
             }
             da_add(temporaries, bound_temporary);
 
