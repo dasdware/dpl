@@ -961,31 +961,31 @@ DPL_Ast_Node* _dpla_create_node(DPL_Ast_Tree* tree, DPL_AstNodeKind kind, DPL_To
 const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
     switch (kind) {
     case AST_NODE_LITERAL:
-        return "AST_NODE_LITERAL";
+        return "`literal`";
     case AST_NODE_OBJECT_LITERAL:
-        return "AST_NODE_OBJECT_LITERAL";
+        return "`object literal`";
     case AST_NODE_UNARY:
-        return "AST_NODE_UNARY";
+        return "`unary operator`";
     case AST_NODE_BINARY:
-        return "AST_NODE_BINARY";
+        return "`binary operator`";
     case AST_NODE_FUNCTIONCALL:
-        return "AST_NODE_FUNCTIONCALL";
+        return "`function call`";
     case AST_NODE_SCOPE:
-        return "AST_NODE_SCOPE";
+        return "`scope`";
     case AST_NODE_DECLARATION:
-        return "AST_NODE_DECLARATION";
+        return "`declaration`";
     case AST_NODE_SYMBOL:
-        return "AST_NODE_SYMBOL";
+        return "`symbol`";
     case AST_NODE_ASSIGNMENT:
-        return "AST_NODE_ASSIGNMENT";
+        return "`assignment`";
     case AST_NODE_FUNCTION:
-        return "AST_NODE_FUNCTION";
+        return "`function`";
     case AST_NODE_CONDITIONAL:
-        return "AST_NODE_CONDITIONAL";
+        return "`conditional`";
     case AST_NODE_WHILE_LOOP:
-        return "AST_NODE_WHILE_LOOP";
+        return "`while loop`";
     case AST_NODE_FIELD_ACCESS:
-        return "AST_NODE_FIELD_ACCESS";
+        return "`field access`";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -2414,8 +2414,15 @@ DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
                     load_field
                 );
             }
-
-            // DW_UNIMPLEMENTED_MSG("bound_expression type "SV_Fmt, SV_Arg(type->name));
+        } else if (field->kind == AST_NODE_SYMBOL) {
+            _dplb_bind_object_literal_add_field(
+                dpl, &tmp_bound_fields, &type_query,
+                field->as.symbol.text,
+                _dplb_bind_node(dpl, field)
+            );
+        } else {
+            DPL_AST_ERROR(dpl, field, "Cannot use a %s in an object expression.",
+                          _dpla_node_kind_name(field->kind));
         }
 
     }

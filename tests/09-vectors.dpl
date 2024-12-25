@@ -6,7 +6,8 @@ function add(a: Point, b: Point)
 function print(p: Point)
     := print("[x: " + p.x.toString() + ", y: " + p.y.toString() + "]");
 
-var p1 := [ x := 1, y := 2 ];
+var y := 2;
+var p1 := [ x := 1, y ];
 var p2: Point := [ y := 2*3, x := 1 ];
 print("p1     : "); print(p1); print("\n");
 print("p2     : "); print(p2); print("\n");
