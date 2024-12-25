@@ -75,9 +75,9 @@ The following types are built directly into the language:
 
 User defined types can be declared in a DPL program. They are used to form more complex structures from basic types.
 
-| Type   | Declaration example      | Value example  | Description                                                   |
-| ------ | ------------------------ | -------------- | ------------------------------------------------------------- |
-| Object | `[x: number, y: number]` | `[x: 1, y: 2]` | Objects can be used to structure data into more complex bits. |
+| Type   | Declaration example      | Value example      | Description                                                                                                                                  |
+| ------ | ------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Object | `[x: number, y: number]` | `[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
 
 ### Function calls
 
@@ -203,6 +203,25 @@ constant PI: Number := "foo"; # Cannot assign expression of type `String`
 ```
 
 This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the constant type is inferred from the initializer.
+
+### Object composition
+
+Objects can be composed via object literals. These consist of a comma-separated list of expressions enclosed in `[]`-parenthesis:
+
+```bash
+# Fields can be assigned with assignments:
+var p1 := [ x := 1, y := 2 ];
+
+# If the fields exist as variables, they can be used directly
+var x := 1;
+var y := 2;
+var p2 := [ x, y ]; # is the same as p1
+
+# Fields cannot be modified after the objects have been created.
+# However, you can easily create new objects by spreading the old ones
+# and then overriding inidividual fields.
+var p3 := [ ..p2, x := 3 ];
+```
 
 ### Conditionals
 

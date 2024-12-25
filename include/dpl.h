@@ -127,6 +127,7 @@ typedef enum
     TOKEN_PIPE_PIPE,
 
     TOKEN_DOT,
+    TOKEN_DOT_DOT,
     TOKEN_COLON,
     TOKEN_COLON_EQUAL,
 
@@ -211,17 +212,9 @@ typedef struct
     DPL_Token value;
 } DPL_Ast_Literal;
 
-typedef struct
-{
-    DPL_Token name;
-    DPL_Token first;
-    DPL_Token last;
-    DPL_Ast_Node* expression;
-} DPL_Ast_ObjectLiteralField;
-
 typedef struct {
     size_t field_count;
-    DPL_Ast_ObjectLiteralField* fields;
+    DPL_Ast_Node** fields;
 } DPL_Ast_ObjectLiteral;
 
 typedef struct
@@ -345,7 +338,7 @@ typedef enum
     BOUND_NODE_CONDITIONAL,
     BOUND_NODE_LOGICAL_OPERATOR,
     BOUND_NODE_WHILE_LOOP,
-    BOUND_NODE_FIELD_ACCESS,
+    BOUND_NODE_LOAD_FIELD,
 } DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
@@ -408,7 +401,7 @@ typedef struct {
 typedef struct {
     DPL_Bound_Node* expression;
     size_t field_index;
-} DPL_Bound_FieldAccess;
+} DPL_Bound_LoadField;
 
 struct _DPL_Bound_Node
 {
@@ -425,7 +418,7 @@ struct _DPL_Bound_Node
         DPL_Bound_Conditional conditional;
         DPL_Bound_LogicalOperator logical_operator;
         DPL_Bound_WhileLoop while_loop;
-        DPL_Bound_FieldAccess field_access;
+        DPL_Bound_LoadField load_field;
     } as;
 };
 

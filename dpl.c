@@ -61,15 +61,16 @@ int main(int argc, char** argv) {
     dplv_run(&vm);
 
     if (vm.debug) {
-        printf("==[ DEBUG ]=============================\n");
-        printf("VM stack after execution:\n");
+        printf("\n================================================================\n");
+        printf("| VM stack after execution\n");
+        printf("================================================================\n");
         for (size_t i = 0; i < vm.stack_top; ++i) {
-            printf("* %zu: ", i);
+            printf("| #%02zu: ", i);
             dpl_value_print(vm.stack[i]);
             printf("\n");
         }
-        printf("Entries remaining in string table: %llu\n", MT_CAPACITY - vm.stack_memory.free_items.count);
-        printf("==[ /DEBUG ]============================\n");
+        printf("================================================================\n\n");
+        mt_print(&vm.stack_memory);
     }
 
     dplv_free(&vm);

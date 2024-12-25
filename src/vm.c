@@ -75,11 +75,9 @@ void _dplv_trace_stack(DPL_VirtualMachine *vm) {
 
 DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
-        return dpl_value_make_string(
-                   mt_sv_allocate_sv(&vm->stack_memory, value.as.string));
+        mt_sv_reference(&vm->stack_memory, value.as.string);
     } else if (value.kind == VALUE_OBJECT) {
-        return dpl_value_make_object(
-                   mt_allocate_data(&vm->stack_memory, value.as.object->data, value.as.object->length));
+        mt_reference(&vm->stack_memory, value.as.object);
     }
     return value;
 }
@@ -339,7 +337,9 @@ void dplv_run(DPL_VirtualMachine *vm)
         case INST_LOAD_FIELD: {
             uint8_t field_index = bs_read_u8(&program);
 
-            TOP0 = dpl_value_object_field(TOP0.as.object, field_index);
+            DPL_Value field_value = dplv_reference(vm, dpl_value_object_get_field(TOP0.as.object, field_index));
+            dplv_release(vm, TOP0);
+            TOP0 = field_value;
         }
         break;
         default:
