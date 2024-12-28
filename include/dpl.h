@@ -16,6 +16,10 @@ typedef struct _DPL DPL;
 #define DPL_HANDLES_CAPACITY 16
 #endif
 
+#ifndef DPL_MAX_INTERPOLATION
+#define DPL_MAX_INTERPOLATION 8
+#endif
+
 typedef uint16_t DPL_Handle;
 
 typedef struct {
@@ -143,6 +147,7 @@ typedef enum
     TOKEN_NUMBER,
     TOKEN_IDENTIFIER,
     TOKEN_STRING,
+    TOKEN_STRING_INTERPOLATION,
     TOKEN_TRUE,
     TOKEN_FALSE,
 
@@ -203,6 +208,7 @@ typedef enum
     AST_NODE_CONDITIONAL,
     AST_NODE_WHILE_LOOP,
     AST_NODE_FIELD_ACCESS,
+    AST_NODE_INTERPOLATION,
 } DPL_AstNodeKind;
 
 typedef struct _DPL_Ast_Node DPL_Ast_Node;
@@ -256,6 +262,12 @@ typedef struct
     size_t expression_count;
     DPL_Ast_Node** expressions;
 } DPL_Ast_Scope;
+
+typedef struct
+{
+    size_t expression_count;
+    DPL_Ast_Node** expressions;
+} DPL_Ast_Interpolation;
 
 typedef struct
 {
@@ -315,6 +327,7 @@ struct _DPL_Ast_Node
         DPL_Ast_Conditional conditional;
         DPL_Ast_WhileLoop while_loop;
         DPL_Ast_FieldAccess field_access;
+        DPL_Ast_Interpolation interpolation;
     } as;
 };
 
@@ -339,6 +352,7 @@ typedef enum
     BOUND_NODE_LOGICAL_OPERATOR,
     BOUND_NODE_WHILE_LOOP,
     BOUND_NODE_LOAD_FIELD,
+    BOUND_NODE_INTERPOLATION,
 } DPL_BoundNodeKind;
 
 typedef struct _DPL_Bound_Node DPL_Bound_Node;
@@ -403,6 +417,12 @@ typedef struct {
     size_t field_index;
 } DPL_Bound_LoadField;
 
+typedef struct
+{
+    DPL_Bound_Node** expressions;
+    size_t expressions_count;
+} DPL_Bound_Interpolation;
+
 struct _DPL_Bound_Node
 {
     DPL_BoundNodeKind kind;
@@ -419,6 +439,7 @@ struct _DPL_Bound_Node
         DPL_Bound_LogicalOperator logical_operator;
         DPL_Bound_WhileLoop while_loop;
         DPL_Bound_LoadField load_field;
+        DPL_Bound_Interpolation interpolation;
     } as;
 };
 
@@ -527,6 +548,8 @@ struct _DPL
     size_t column;
     DPL_Token first_token;
     DPL_Token peek_token;
+    int interpolation_brackets[DPL_MAX_INTERPOLATION];
+    int interpolation_depth;
 
     // Parser
     DPL_Ast_Tree tree;

@@ -223,6 +223,25 @@ var p2 := [ x, y ]; # is the same as p1
 var p3 := [ ..p2, x := 3 ];
 ```
 
+### String interpolation
+
+```bash
+# Simple interpolation of a mathematical expression
+print("1 + 2 = ${1 + 2}\n");
+
+# Using the `toString`-Function to make a custom type
+# interpolatable.
+type Person := [ firstname: String, lastname: String ];
+
+function toString(p: Person)
+    := "${p.firstname} ${p.lastname}";
+
+var p: Person := [ firstname := "John", lastname := "Doe"];
+print("p is ${p}\n");
+```
+
+Any string can embed arbitrary expressions via `${...}` placeholders. These are then evaluated at runtime and embedded in the resulting string. In order to make custom types interpolatable, you can declare a special `toString` function that converts the custom type to a `String`. The native types `Number`, `String` and `Boolean` can always be interpolated.
+
 ### Conditionals
 
 ```bash

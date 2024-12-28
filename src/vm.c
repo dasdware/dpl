@@ -86,6 +86,11 @@ void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
         mt_sv_release(&vm->stack_memory, value.as.string);
     } else if (value.kind == VALUE_OBJECT) {
+        if (mt_will_release(&vm->stack_memory, value.as.object)) {
+            for (size_t i = 0; i < dpl_value_object_field_count(value.as.object); ++i) {
+                dplv_release(vm, dpl_value_object_get_field(value.as.object, i));
+            }
+        }
         mt_release(&vm->stack_memory, value.as.object);
     }
 }
@@ -340,6 +345,22 @@ void dplv_run(DPL_VirtualMachine *vm)
             DPL_Value field_value = dplv_reference(vm, dpl_value_object_get_field(TOP0.as.object, field_index));
             dplv_release(vm, TOP0);
             TOP0 = field_value;
+        }
+        break;
+        case INST_INTERPOLATION: {
+            uint8_t count = bs_read_u8(&program);
+
+            str_t result = NULL;
+            for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i) {
+                str_append_length(result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
+            }
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_string(mt_sv_allocate_cstr(&vm->stack_memory, result));
+
+            str_free(result);
+
+            dplv_return(vm, count + 1, dplv_reference(vm, TOP0));
         }
         break;
         default:

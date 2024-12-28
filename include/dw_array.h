@@ -29,6 +29,9 @@ size_t da_size(void* array);
 #define da_empty(array) (da_size(array) == 0)
 #define da_some(array) (da_size(array) > 0)
 
+#define da_first(array) (array)[0]
+#define da_last(array) (array)[da_size((array)) - 1]
+
 void da_set_size(void *array, size_t new_size);
 void da_pop(void *array);
 #define da_clear(array) da_set_size(array,  0)
@@ -96,6 +99,16 @@ typedef da_array(char) str_t;
         (string)[len + count] = '\0';                               \
         ((DA_Header*) string)[-1].size += count;                    \
     } while(false)
+
+#define str_append_length(string, data, count)                      \
+    do {                                                            \
+        size_t len = str_length((string));                          \
+        _da_check_capacity((string), sizeof(*(string)), count + 1); \
+        memcpy((string) + len, (data), count * sizeof(*(string)));  \
+        (string)[len + count] = '\0';                               \
+        ((DA_Header*) string)[-1].size += count;                    \
+    } while(false)
+
 
 str_t str_new(const char* text);
 #define str_free(string) da_free(string)
