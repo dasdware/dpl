@@ -97,6 +97,16 @@ typedef da_array(char) str_t;
         ((DA_Header*) string)[-1].size += count;                    \
     } while(false)
 
+#define str_append_length(string, data, count)                      \
+    do {                                                            \
+        size_t len = str_length((string));                          \
+        _da_check_capacity((string), sizeof(*(string)), count + 1); \
+        memcpy((string) + len, (data), count * sizeof(*(string)));  \
+        (string)[len + count] = '\0';                               \
+        ((DA_Header*) string)[-1].size += count;                    \
+    } while(false)
+
+
 str_t str_new(const char* text);
 #define str_free(string) da_free(string)
 

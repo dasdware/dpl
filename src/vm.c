@@ -342,6 +342,22 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = field_value;
         }
         break;
+        case INST_INTERPOLATION: {
+            uint8_t count = bs_read_u8(&program);
+
+            str_t result = NULL;
+            for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i) {
+                str_append_length(result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
+            }
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_string(mt_sv_allocate_cstr(&vm->stack_memory, result));
+
+            str_free(result);
+
+            dplv_return(vm, count + 1, dplv_reference(vm, TOP0));
+        }
+        break;
         default:
             printf("\n=======================================\n");
             _dplv_trace_stack(vm);
