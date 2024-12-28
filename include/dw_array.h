@@ -29,6 +29,9 @@ size_t da_size(void* array);
 #define da_empty(array) (da_size(array) == 0)
 #define da_some(array) (da_size(array) > 0)
 
+#define da_first(array) (array)[0]
+#define da_last(array) (array)[da_size((array)) - 1]
+
 void da_set_size(void *array, size_t new_size);
 void da_pop(void *array);
 #define da_clear(array) da_set_size(array,  0)

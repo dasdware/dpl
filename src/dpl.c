@@ -997,6 +997,12 @@ DPL_Ast_Node* _dpla_create_node(DPL_Ast_Tree* tree, DPL_AstNodeKind kind, DPL_To
     return node;
 }
 
+DPL_Ast_Node* _dpla_create_literal(DPL_Ast_Tree* tree, DPL_Token token) {
+    DPL_Ast_Node* node = _dpla_create_node(tree, AST_NODE_LITERAL, token, token);
+    node->as.literal.value = token;
+    return node;
+}
+
 const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
     switch (kind) {
     case AST_NODE_LITERAL:
@@ -1477,12 +1483,7 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     case TOKEN_STRING:
     case TOKEN_TRUE:
     case TOKEN_FALSE:
-    {
-        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
-        node->as.literal.value = token;
-        return node;
-    }
-    break;
+        return _dpla_create_literal(&dpl->tree, token);
     case TOKEN_OPEN_PAREN: {
         DPL_Ast_Node* node = _dplp_parse_expression(dpl);
         node->first = token;
@@ -1540,14 +1541,9 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
     case TOKEN_STRING_INTERPOLATION: {
         da_array(DPL_Ast_Node*) tmp_parts = NULL;
 
-        DPL_Ast_Node* begin_literal = NULL;
         while (token.kind == TOKEN_STRING_INTERPOLATION) {
-            DPL_Ast_Node* literal = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
-            literal->as.literal.value = token;
-            da_add(tmp_parts, literal);
-
-            if (begin_literal == NULL) {
-                begin_literal = literal;
+            if (token.text.count > 3) {
+                da_add(tmp_parts, _dpla_create_literal(&dpl->tree, token));
             }
 
             DPL_Ast_Node* expression = _dplp_parse_expression(dpl);
@@ -1557,11 +1553,12 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         }
 
         _dplp_check_token(dpl, token, TOKEN_STRING);
-        DPL_Ast_Node* end_literal = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
-        end_literal->as.literal.value = token;
-        da_add(tmp_parts, end_literal);
+        if (token.text.count > 2) {
+            da_add(tmp_parts, _dpla_create_literal(&dpl->tree, token));
+        }
 
-        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_INTERPOLATION, begin_literal->first, end_literal->last);
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_INTERPOLATION,
+                                               da_first(tmp_parts)->first, da_last(tmp_parts)->last);
         _dplp_move_nodelist(dpl, tmp_parts, &node->as.interpolation.expression_count, &node->as.interpolation.expressions);
 
         return node;
