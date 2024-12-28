@@ -196,6 +196,11 @@ void dplp_write_loop(DPL_Program *program, size_t target)
     bb_write_u16(&program->code, jump);
 }
 
+void dplp_write_interpolation(DPL_Program *program, size_t count) {
+    dplp_write(program, INST_INTERPOLATION);
+    bb_write_u8(&program->code, count);
+}
+
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     switch (kind) {
     case INST_NOOP:
@@ -256,6 +261,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "CREATE_OBJECT";
     case INST_LOAD_FIELD:
         return "LOAD_FIELD";
+    case INST_INTERPOLATION:
+        return "INTERPOLATION";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -382,6 +389,11 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_JUMP_LOOP: {
         uint16_t offset = bs_read_u16(code);
         printf(" %u", offset);
+    }
+    break;
+    case INST_INTERPOLATION: {
+        uint8_t count = bs_read_u8(code);
+        printf(" %u", count);
     }
     break;
     default:

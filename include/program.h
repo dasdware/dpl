@@ -40,6 +40,7 @@ typedef enum
     INST_JUMP_LOOP,
     INST_CREATE_OBJECT,
     INST_LOAD_FIELD,
+    INST_INTERPOLATION,
 } DPL_Instruction_Kind;
 
 typedef struct {
@@ -93,6 +94,8 @@ void dplp_write_store_local(DPL_Program *program, size_t scope_index);
 size_t dplp_write_jump(DPL_Program *program, DPL_Instruction_Kind jump_kind);
 void dplp_patch_jump(DPL_Program *program, size_t offset);
 void dplp_write_loop(DPL_Program *program, size_t target);
+
+void dplp_write_interpolation(DPL_Program *program, size_t count);
 
 const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
 

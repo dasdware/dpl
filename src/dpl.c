@@ -482,6 +482,103 @@ void _dple_register(DPL *dpl, DPL_ExternalFunctions externals)
 
 // LEXER
 
+const char* _dpll_token_kind_name(DPL_TokenKind kind)
+{
+    switch (kind)
+    {
+    case TOKEN_NONE:
+        return "<none>";
+    case TOKEN_EOF:
+        return "<end of file>";
+    case TOKEN_NUMBER:
+        return "number literal";
+    case TOKEN_STRING:
+        return "string literal";
+    case TOKEN_STRING_INTERPOLATION:
+        return "string interpolation";
+    case TOKEN_TRUE:
+    case TOKEN_FALSE:
+        return "boolean literal";
+    case TOKEN_IDENTIFIER:
+        return "<identifier>";
+    case TOKEN_KEYWORD_CONSTANT:
+        return "keyword `constant`";
+    case TOKEN_KEYWORD_FUNCTION:
+        return "keyword `function`";
+    case TOKEN_KEYWORD_VAR:
+        return "keyword `var`";
+    case TOKEN_KEYWORD_IF:
+        return "keyword `if`";
+    case TOKEN_KEYWORD_ELSE:
+        return "keyword `else`";
+    case TOKEN_KEYWORD_WHILE:
+        return "keyword `while`";
+    case TOKEN_KEYWORD_TYPE:
+        return "keyword `type`";
+
+    case TOKEN_WHITESPACE:
+        return "<whitespace>";
+    case TOKEN_COMMENT:
+        return "<comment>";
+
+    case TOKEN_PLUS:
+        return "token `+`";
+    case TOKEN_MINUS:
+        return "token `-`";
+    case TOKEN_STAR:
+        return "token `*`";
+    case TOKEN_SLASH:
+        return "token `/`";
+
+    case TOKEN_LESS:
+        return "token `<`";
+    case TOKEN_LESS_EQUAL:
+        return "token `<=`";
+    case TOKEN_GREATER:
+        return "token `>`";
+    case TOKEN_GREATER_EQUAL:
+        return "token `>=`";
+    case TOKEN_EQUAL_EQUAL:
+        return "token `==`";
+    case TOKEN_BANG:
+        return "token `!`";
+    case TOKEN_BANG_EQUAL:
+        return "token `!=`";
+    case TOKEN_AND_AND:
+        return "token `&&`";
+    case TOKEN_PIPE_PIPE:
+        return "token `||`";
+
+    case TOKEN_DOT:
+        return "token `.`";
+    case TOKEN_DOT_DOT:
+        return "token `..`";
+    case TOKEN_COLON:
+        return "token `:`";
+    case TOKEN_COLON_EQUAL:
+        return "token `:=`";
+
+    case TOKEN_OPEN_PAREN:
+        return "token `(`";
+    case TOKEN_CLOSE_PAREN:
+        return "token `)`";
+    case TOKEN_OPEN_BRACE:
+        return "token `{`";
+    case TOKEN_CLOSE_BRACE:
+        return "token `}`";
+    case TOKEN_OPEN_BRACKET:
+        return "token `[`";
+    case TOKEN_CLOSE_BRACKET:
+        return "token `]`";
+    case TOKEN_COMMA:
+        return "token `,`";
+    case TOKEN_SEMICOLON:
+        return "token `;`";
+    default:
+        DW_UNIMPLEMENTED_MSG("%d", kind);
+    }
+}
+
 Nob_String_View _dpl_line_view(DPL* dpl, const char* line_start) {
     Nob_String_View line = nob_sv_from_parts(line_start, 0);
     while ((line.count < (size_t)((dpl->source.data + dpl->source.count) - line_start))
@@ -595,17 +692,21 @@ DPL_Location _dpll_current_location(DPL* dpl)
 
 DPL_Token _dpll_build_token(DPL* dpl, DPL_TokenKind kind)
 {
-    DPL_Token token = (DPL_Token) {
+    DPL_Token token = {
         .kind = kind,
         .location = dpl->token_start_location,
         .text = nob_sv_from_parts(
-                    dpl->source.data + dpl->token_start,
-                    dpl->position - dpl->token_start
-                ),
+            dpl->source.data + dpl->token_start,
+            dpl->position - dpl->token_start
+        ),
     };
 
     if (dpl->first_token.kind == TOKEN_NONE) {
         dpl->first_token = token;
+    }
+
+    if (dpl->debug) {
+        printf(LOC_Fmt" - %s: "SV_Fmt"\n", LOC_Arg(token.location), _dpll_token_kind_name(token.kind), SV_Arg(token.text));
     }
 
     return token;
@@ -613,11 +714,17 @@ DPL_Token _dpll_build_token(DPL* dpl, DPL_TokenKind kind)
 
 DPL_Token _dpll_build_empty_token(DPL* dpl, DPL_TokenKind kind)
 {
-    return (DPL_Token) {
+    DPL_Token token = {
         .kind = kind,
         .location = dpl->token_start_location,
         .text = SV_NULL,
     };
+
+    if (dpl->debug) {
+        printf(LOC_Fmt" - %s\n", LOC_Arg(token.location), _dpll_token_kind_name(token.kind));
+    }
+
+    return token;
 }
 
 bool _dpll_is_ident_begin(char c) {
@@ -626,6 +733,48 @@ bool _dpll_is_ident_begin(char c) {
 
 bool _dpll_is_ident(char c) {
     return c == '_' ||  isalnum(c);
+}
+
+DPL_Token _dpll_string(DPL* dpl) {
+    bool in_escape = false;
+    while (true) {
+        if (_dpll_is_eof(dpl)) {
+            DPL_LEXER_ERROR(dpl, "Unterminated string literal.");
+        }
+
+        if (_dpll_current(dpl) == '$') {
+            _dpll_advance(dpl);
+            if (_dpll_current(dpl) != '{') {
+                continue;
+            }
+
+            _dpll_advance(dpl);
+            DPL_Token token = _dpll_build_token(dpl, TOKEN_STRING_INTERPOLATION);
+            if (dpl->interpolation_depth < DPL_MAX_INTERPOLATION) {
+
+                dpl->interpolation_brackets[dpl->interpolation_depth] = 1;
+                dpl->interpolation_depth++;
+                return token;
+            }
+
+            DPL_TOKEN_ERROR(dpl, token, "String interpolation may nest only %d levels deep.", DPL_MAX_INTERPOLATION);
+        }
+
+        if (_dpll_current(dpl) == '"') {
+            if (!in_escape) {
+                _dpll_advance(dpl);
+                return _dpll_build_token(dpl, TOKEN_STRING);
+            }
+        }
+
+        if (!in_escape && _dpll_current(dpl) == '\\') {
+            in_escape = true;
+        } else {
+            in_escape = false;
+        }
+
+        _dpll_advance(dpl);
+    }
 }
 
 DPL_Token _dpll_next_token(DPL* dpl)
@@ -733,9 +882,19 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return _dpll_build_token(dpl, TOKEN_CLOSE_PAREN);
     case '{':
         _dpll_advance(dpl);
+        if (dpl->interpolation_depth > 0) {
+            dpl->interpolation_brackets[dpl->interpolation_depth - 1]++;
+        }
         return _dpll_build_token(dpl, TOKEN_OPEN_BRACE);
     case '}':
         _dpll_advance(dpl);
+        if (dpl->interpolation_depth > 0) {
+            dpl->interpolation_brackets[dpl->interpolation_depth - 1]--;
+            if (dpl->interpolation_brackets[dpl->interpolation_depth - 1] == 0) {
+                dpl->interpolation_depth--;
+                return _dpll_string(dpl);
+            }
+        }
         return _dpll_build_token(dpl, TOKEN_CLOSE_BRACE);
     case '[':
         _dpll_advance(dpl);
@@ -762,6 +921,9 @@ DPL_Token _dpll_next_token(DPL* dpl)
             _dpll_advance(dpl);
         }
         return _dpll_build_token(dpl, TOKEN_COMMENT);
+    case '"':
+        _dpll_advance(dpl);
+        return _dpll_string(dpl);
     }
 
     if (isdigit(_dpll_current(dpl)))
@@ -814,34 +976,6 @@ DPL_Token _dpll_next_token(DPL* dpl)
         return t;
     }
 
-
-    if (_dpll_current(dpl) == '"')
-    {
-        _dpll_advance(dpl);
-
-        bool in_escape = false;
-        while (true) {
-            if (_dpll_is_eof(dpl)) {
-                DPL_LEXER_ERROR(dpl, "Untermintated string literal.");
-            }
-
-            if (_dpll_current(dpl) == '"') {
-                if (!in_escape) {
-                    _dpll_advance(dpl);
-                    return _dpll_build_token(dpl, TOKEN_STRING);
-                }
-            }
-
-            if (!in_escape && _dpll_current(dpl) == '\\') {
-                in_escape = true;
-            } else {
-                in_escape = false;
-            }
-
-            _dpll_advance(dpl);
-        }
-    }
-
     DPL_LEXER_ERROR(dpl, "Invalid character '%c'.", _dpll_current(dpl));
 }
 
@@ -850,101 +984,6 @@ DPL_Token _dpll_peek_token(DPL *dpl) {
         dpl->peek_token = _dpll_next_token(dpl);
     }
     return dpl->peek_token;
-}
-
-const char* _dpll_token_kind_name(DPL_TokenKind kind)
-{
-    switch (kind)
-    {
-    case TOKEN_NONE:
-        return "<none>";
-    case TOKEN_EOF:
-        return "<end of file>";
-    case TOKEN_NUMBER:
-        return "number literal";
-    case TOKEN_STRING:
-        return "string literal";
-    case TOKEN_TRUE:
-    case TOKEN_FALSE:
-        return "boolean literal";
-    case TOKEN_IDENTIFIER:
-        return "<identifier>";
-    case TOKEN_KEYWORD_CONSTANT:
-        return "keyword `constant`";
-    case TOKEN_KEYWORD_FUNCTION:
-        return "keyword `function`";
-    case TOKEN_KEYWORD_VAR:
-        return "keyword `var`";
-    case TOKEN_KEYWORD_IF:
-        return "keyword `if`";
-    case TOKEN_KEYWORD_ELSE:
-        return "keyword `else`";
-    case TOKEN_KEYWORD_WHILE:
-        return "keyword `while`";
-    case TOKEN_KEYWORD_TYPE:
-        return "keyword `type`";
-
-    case TOKEN_WHITESPACE:
-        return "<whitespace>";
-    case TOKEN_COMMENT:
-        return "<comment>";
-
-    case TOKEN_PLUS:
-        return "token `+`";
-    case TOKEN_MINUS:
-        return "token `-`";
-    case TOKEN_STAR:
-        return "token `*`";
-    case TOKEN_SLASH:
-        return "token `/`";
-
-    case TOKEN_LESS:
-        return "token `<`";
-    case TOKEN_LESS_EQUAL:
-        return "token `<=`";
-    case TOKEN_GREATER:
-        return "token `>`";
-    case TOKEN_GREATER_EQUAL:
-        return "token `>=`";
-    case TOKEN_EQUAL_EQUAL:
-        return "token `==`";
-    case TOKEN_BANG:
-        return "token `!`";
-    case TOKEN_BANG_EQUAL:
-        return "token `!=`";
-    case TOKEN_AND_AND:
-        return "token `&&`";
-    case TOKEN_PIPE_PIPE:
-        return "token `||`";
-
-    case TOKEN_DOT:
-        return "token `.`";
-    case TOKEN_DOT_DOT:
-        return "token `..`";
-    case TOKEN_COLON:
-        return "token `:`";
-    case TOKEN_COLON_EQUAL:
-        return "token `:=`";
-
-    case TOKEN_OPEN_PAREN:
-        return "token `(`";
-    case TOKEN_CLOSE_PAREN:
-        return "token `)`";
-    case TOKEN_OPEN_BRACE:
-        return "token `{`";
-    case TOKEN_CLOSE_BRACE:
-        return "token `}`";
-    case TOKEN_OPEN_BRACKET:
-        return "token `[`";
-    case TOKEN_CLOSE_BRACKET:
-        return "token `]`";
-    case TOKEN_COMMA:
-        return "token `,`";
-    case TOKEN_SEMICOLON:
-        return "token `;`";
-    default:
-        DW_UNIMPLEMENTED_MSG("%d", kind);
-    }
 }
 
 // AST
@@ -986,6 +1025,8 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
         return "`while loop`";
     case AST_NODE_FIELD_ACCESS:
         return "`field access`";
+    case AST_NODE_INTERPOLATION:
+        return "`interpolation`";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1172,6 +1213,16 @@ void _dpla_print(DPL_Ast_Node* node, size_t level) {
         _dpla_print(while_loop.body, level + 2);
     }
     break;
+    case AST_NODE_INTERPOLATION: {
+        DPL_Ast_Interpolation interpolation = node->as.interpolation;
+        printf("\n");
+        for (size_t i = 0; i < interpolation.expression_count; ++i) {
+            _dpla_print_indent(level + 1);
+            printf("<expr #%zu>\n", i);
+            _dpla_print(interpolation.expressions[i], level + 2);
+        }
+        break;
+    }
     default: {
         printf("\n");
         break;
@@ -1482,6 +1533,37 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         return object_literal;
     }
     break;
+    case TOKEN_STRING_INTERPOLATION: {
+        da_array(DPL_Ast_Node*) tmp_parts = NULL;
+
+        DPL_Ast_Node* begin_literal = NULL;
+        while (token.kind == TOKEN_STRING_INTERPOLATION) {
+            DPL_Ast_Node* literal = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
+            literal->as.literal.value = token;
+            // literal->as.literal.value.kind = TOKEN_STRING;
+            da_add(tmp_parts, literal);
+
+            if (begin_literal == NULL) {
+                begin_literal = literal;
+            }
+
+            DPL_Ast_Node* expression = _dplp_parse_expression(dpl);
+            da_add(tmp_parts, expression);
+
+            token = _dplp_peek_token(dpl);
+        }
+
+        token = _dplp_expect_token(dpl, TOKEN_STRING);
+        DPL_Ast_Node* end_literal = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
+        end_literal->as.literal.value = token;
+        da_add(tmp_parts, end_literal);
+
+        DPL_Ast_Node* node = _dpla_create_node(&dpl->tree, AST_NODE_INTERPOLATION, begin_literal->first, end_literal->last);
+        _dplp_move_nodelist(dpl, tmp_parts, &node->as.interpolation.expression_count, &node->as.interpolation.expressions);
+
+        return node;
+    }
+    break;
     default: {
         DPL_TOKEN_ERROR(dpl, token, "Unexpected %s.", _dpll_token_kind_name(token.kind));
     }
@@ -1785,6 +1867,8 @@ const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
         return "BOUND_NODE_WHILE_LOOP";
     case BOUND_NODE_LOAD_FIELD:
         return "BOUND_NODE_LOAD_FIELD";
+    case BOUND_NODE_INTERPOLATION:
+        return "BOUND_NODE_INTERPOLATION";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -1958,13 +2042,8 @@ void _dplb_check_function_used(DPL* dpl, DPL_Symbol* symbol) {
 
 DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node);
 
-DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
+DPL_Bound_Node* _dplb_bind_unary_function_call(DPL* dpl, DPL_Bound_Node* operand, const char* function_name)
 {
-    DPL_Bound_Node* operand = _dplb_bind_node(dpl, node->as.unary.operand);
-    if (!operand) {
-        DPL_AST_ERROR(dpl, node, "Cannot bind operand of unary expression.");
-    }
-
     DPL_Handles argument_types = {0};
     _dpl_add_handle(&argument_types, operand->type_handle);
 
@@ -1999,10 +2078,64 @@ DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
         return bound_node;
     }
 
-    DPL_Type* operand_type = _dplt_find_by_handle(dpl, operand->type_handle);
-    DPL_Token operator_token = node->as.unary.operator;
-    DPL_AST_ERROR(dpl, node, "Cannot resolve function \"%s("SV_Fmt")\" for unary operator \""SV_Fmt"\".",
-                  function_name, SV_Arg(operand_type->name), SV_Arg(operator_token.text));
+    return NULL;
+}
+
+DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* function_name)
+{
+    DPL_Bound_Node* operand = _dplb_bind_node(dpl, node->as.unary.operand);
+    if (!operand) {
+        DPL_AST_ERROR(dpl, node, "Cannot bind operand of unary expression.");
+    }
+
+    DPL_Bound_Node* bound_unary = _dplb_bind_unary_function_call(dpl, operand, function_name);
+    if (!bound_unary) {
+        DPL_Type* operand_type = _dplt_find_by_handle(dpl, operand->type_handle);
+        DPL_Token operator_token = node->as.unary.operator;
+        DPL_AST_ERROR(dpl, node, "Cannot resolve function \"%s("SV_Fmt")\" for unary operator \""SV_Fmt"\".",
+                      function_name, SV_Arg(operand_type->name), SV_Arg(operator_token.text));
+    }
+
+    return bound_unary;
+
+    //        DPL_Handles argument_types = {0};
+    // _dpl_add_handle(&argument_types, operand->type_handle);
+
+    // DPL_Bound_Node* bound_node = NULL;
+
+    // DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
+    // if (function_symbol) {
+    //     DPL_Symbol_Function* f = &function_symbol->as.function;
+    //     _dplb_check_function_used(dpl, function_symbol);
+
+    //     bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+    //     bound_node->kind = BOUND_NODE_FUNCTIONCALL;
+    //     bound_node->type_handle = f->signature.returns;
+    //     bound_node->as.function_call.function_handle = f->function_handle;
+    // } else {
+    //     DPL_Function* function = _dplf_find_by_signature1(
+    //                                  dpl,
+    //                                  nob_sv_from_cstr(function_name),
+    //                                  operand->type_handle);
+    //     if (function) {
+    //         bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+    //         bound_node->kind = BOUND_NODE_FUNCTIONCALL;
+    //         bound_node->type_handle = function->signature.returns;
+    //         bound_node->as.function_call.function_handle = function->handle;
+    //     }
+    // }
+
+    // if (bound_node) {
+    //     da_array(DPL_Bound_Node*) temp_arguments = 0;
+    //     da_add(temp_arguments, operand);
+    //     _dplb_move_nodelist(dpl, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
+    //     return bound_node;
+    // }
+
+    // DPL_Type* operand_type = _dplt_find_by_handle(dpl, operand->type_handle);
+    // DPL_Token operator_token = node->as.unary.operator;
+    // DPL_AST_ERROR(dpl, node, "Cannot resolve function \"%s("SV_Fmt")\" for unary operator \""SV_Fmt"\".",
+    //               function_name, SV_Arg(operand_type->name), SV_Arg(operator_token.text));
 }
 
 
@@ -2143,13 +2276,14 @@ DPL_Bound_Node* _dplb_bind_scope(DPL* dpl, DPL_Ast_Node* node)
     return result_ctn;
 }
 
-Nob_String_View _dplb_unescape_string(DPL* dpl, Nob_String_View escaped_string) {
+Nob_String_View _dplb_unescape_string(DPL* dpl, Nob_String_View escaped_string,
+                                      size_t prefix_count, size_t postfix_count) {
     // unescape source string literal
-    char* unescaped_string = arena_alloc(&dpl->bound_tree.memory, sizeof(char) * (escaped_string.count - 2 + 1));
+    char* unescaped_string = arena_alloc(&dpl->bound_tree.memory, sizeof(char) * (escaped_string.count - (prefix_count + postfix_count) + 1));
     // -2 for quotes; +1 for terminating null byte
 
-    const char *source_pos = escaped_string.data + 1;
-    const char *source_end = escaped_string.data + escaped_string.count - 2;
+    const char *source_pos = escaped_string.data + prefix_count;
+    const char *source_end = escaped_string.data + (escaped_string.count - postfix_count - 1);
     char *target_pos = unescaped_string;
 
     while (source_pos <= source_end) {
@@ -2191,7 +2325,12 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         case TOKEN_STRING:
             return (DPL_Bound_Value) {
                 .type_handle = dpl->string_type_handle,
-                .as.string = _dplb_unescape_string(dpl, value.text),
+                .as.string = _dplb_unescape_string(dpl, value.text, 1, 1),
+            };
+        case TOKEN_STRING_INTERPOLATION:
+            return (DPL_Bound_Value) {
+                .type_handle = dpl->string_type_handle,
+                .as.string = _dplb_unescape_string(dpl, value.text, 1, 2),
             };
         case TOKEN_TRUE:
             return (DPL_Bound_Value) {
@@ -2512,7 +2651,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             bound_node->as.value = _dplb_fold_constant(dpl, node);
             return bound_node;
         }
-        case TOKEN_STRING: {
+        case TOKEN_STRING:
+        case TOKEN_STRING_INTERPOLATION: {
             DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             bound_node->kind = BOUND_NODE_VALUE;
             bound_node->type_handle = dpl->string_type_handle;
@@ -2904,8 +3044,35 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         return node;
     }
     break;
+    case AST_NODE_INTERPOLATION: {
+        da_array(DPL_Bound_Node*) bound_expressions = NULL;
+        for (size_t i = 0; i < node->as.interpolation.expression_count; ++i) {
+            DPL_Bound_Node* bound_expression = _dplb_bind_node(dpl, node->as.interpolation.expressions[i]);
+
+            if (bound_expression->type_handle != dpl->string_type_handle) {
+                DPL_Bound_Node* bound_expression_to_string = _dplb_bind_unary_function_call(dpl, bound_expression, "toString");
+                if (!bound_expression_to_string) {
+                    DPL_Type* operand_type = _dplt_find_by_handle(dpl, bound_expression->type_handle);
+                    DPL_AST_ERROR(dpl, node, "Cannot resolve function `toString("SV_Fmt")` for string interpolation.",
+                                  SV_Arg(operand_type->name));
+                }
+
+                bound_expression = bound_expression_to_string;
+            }
+
+            da_add(bound_expressions, bound_expression);
+        }
+
+        DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
+        node->kind = BOUND_NODE_INTERPOLATION;
+        node->type_handle = dpl->string_type_handle;
+        _dplb_move_nodelist(dpl, bound_expressions, &node->as.interpolation.expressions_count,
+                            &node->as.interpolation.expressions);
+        return node;
+    }
+    break;
     default:
-        DPL_AST_ERROR(dpl, node, "Cannot bind AST node of kind \"%s\".",
+        DPL_AST_ERROR(dpl, node, "Cannot bind %s expressions.",
                       _dpla_node_kind_name(node->kind));
     }
 
@@ -3071,6 +3238,19 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         printf(")\n");
     }
     break;
+    case BOUND_NODE_INTERPOLATION: {
+        printf("$interpolation(\n");
+
+        for (size_t i = 0; i < node->as.interpolation.expressions_count; ++i) {
+            _dplb_print(dpl, node->as.interpolation.expressions[i], level + 1);
+        }
+
+        for (size_t i = 0; i < level; ++i) {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
     default:
         DW_UNIMPLEMENTED_MSG("%s", _dplb_nodekind_name(node->kind));
     }
@@ -3205,6 +3385,15 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
         dplp_patch_jump(program, exit_jump);
     }
     break;
+    case BOUND_NODE_INTERPOLATION: {
+        size_t count = node->as.interpolation.expressions_count;
+        for (size_t i = 0; i < count; ++i) {
+            _dplg_generate(dpl, node->as.interpolation.expressions[i], program);
+        }
+
+        dplp_write_interpolation(program, count);
+    }
+    break;
     default:
         DW_UNIMPLEMENTED_MSG("`%s`", _dplb_nodekind_name(node->kind));
     }
@@ -3214,11 +3403,9 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
 
 void dpl_compile(DPL *dpl, DPL_Program* program)
 {
-    printf("parse\n");
     _dplp_parse(dpl);
     if (dpl->debug)
     {
-        printf("a_print\n");
         _dpla_print(dpl->tree.root, 0);
         printf("\n");
     }
