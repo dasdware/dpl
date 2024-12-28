@@ -1248,12 +1248,16 @@ DPL_Token _dplp_peek_token(DPL *dpl) {
     return _dpll_peek_token(dpl);
 }
 
+void _dplp_check_token(DPL *dpl, DPL_Token token, DPL_TokenKind kind) {
+    if (token.kind != kind) {
+        DPL_TOKEN_ERROR(dpl, token, "Unexpected %s, expected %s.",
+                        _dpll_token_kind_name(token.kind), _dpll_token_kind_name(kind));
+    }
+}
+
 DPL_Token _dplp_expect_token(DPL *dpl, DPL_TokenKind kind) {
     DPL_Token next_token = _dplp_next_token(dpl);
-    if (next_token.kind != kind) {
-        DPL_TOKEN_ERROR(dpl, next_token, "Unexpected %s, expected %s.",
-                        _dpll_token_kind_name(next_token.kind), _dpll_token_kind_name(kind));
-    }
+    _dplp_check_token(dpl, next_token, kind);
     return next_token;
 }
 
@@ -1540,7 +1544,6 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
         while (token.kind == TOKEN_STRING_INTERPOLATION) {
             DPL_Ast_Node* literal = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
             literal->as.literal.value = token;
-            // literal->as.literal.value.kind = TOKEN_STRING;
             da_add(tmp_parts, literal);
 
             if (begin_literal == NULL) {
@@ -1550,10 +1553,10 @@ DPL_Ast_Node* _dplp_parse_primary(DPL* dpl)
             DPL_Ast_Node* expression = _dplp_parse_expression(dpl);
             da_add(tmp_parts, expression);
 
-            token = _dplp_peek_token(dpl);
+            token = _dplp_next_token(dpl);
         }
 
-        token = _dplp_expect_token(dpl, TOKEN_STRING);
+        _dplp_check_token(dpl, token, TOKEN_STRING);
         DPL_Ast_Node* end_literal = _dpla_create_node(&dpl->tree, AST_NODE_LITERAL, token, token);
         end_literal->as.literal.value = token;
         da_add(tmp_parts, end_literal);
