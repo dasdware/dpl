@@ -47,6 +47,7 @@ void mt_free(DW_MemoryTable *table);
 
 DW_MemoryTable_Item* mt_allocate(DW_MemoryTable *table, size_t length);
 void mt_reference(DW_MemoryTable* table, DW_MemoryTable_Item* item);
+bool mt_will_release(DW_MemoryTable* table, DW_MemoryTable_Item* item);
 void mt_release(DW_MemoryTable* table, DW_MemoryTable_Item* item);
 DW_MemoryTable_Item* mt_allocate_data(DW_MemoryTable *table, const void* data, size_t length);
 
@@ -133,6 +134,12 @@ void mt_release(DW_MemoryTable* table, DW_MemoryTable_Item* item)
         rb_enqueue(table->free_items, item->handle);
         item->is_free = true;
     }
+}
+
+bool mt_will_release(DW_MemoryTable* table, DW_MemoryTable_Item* item)
+{
+    DW_UNUSED(table);
+    return item->ref_count == 1;
 }
 
 Nob_String_View mt_sv_allocate(DW_MemoryTable *table, size_t length)

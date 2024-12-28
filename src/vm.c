@@ -86,6 +86,11 @@ void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
     if (value.kind == VALUE_STRING) {
         mt_sv_release(&vm->stack_memory, value.as.string);
     } else if (value.kind == VALUE_OBJECT) {
+        if (mt_will_release(&vm->stack_memory, value.as.object)) {
+            for (size_t i = 0; i < dpl_value_object_field_count(value.as.object); ++i) {
+                dplv_release(vm, dpl_value_object_get_field(value.as.object, i));
+            }
+        }
         mt_release(&vm->stack_memory, value.as.object);
     }
 }
