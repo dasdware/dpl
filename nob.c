@@ -298,6 +298,78 @@ typedef struct {
     int count;
 } TestResults;
 
+void run_test_cmd(Nob_Cmd cmd, Nob_String_View test_filename, const char *test_outpath, bool record, TestResults *test_results)
+{
+    Nob_String_Builder output = {0};
+    if (!nob_cmd_capture_sync(cmd, &output))
+        exit(1);
+
+    if (record)
+    {
+        if (!nob_write_entire_file(test_outpath, output.items, output.count))
+            exit(1);
+    }
+    else
+    {
+        if (!nob_file_exists(test_outpath))
+        {
+            nob_log(NOB_ERROR, "Test output file `%s` does not exist.", test_outpath);
+            exit(1);
+        }
+
+        Nob_String_Builder expected_output = {0};
+        if (!nob_read_entire_file(test_outpath, &expected_output))
+            exit(1);
+
+        Nob_String_View output_view = nob_sv_from_parts(output.items, output.count);
+        Nob_String_View expected_output_view = nob_sv_from_parts(expected_output.items, expected_output.count);
+
+        size_t line_count = 0;
+        bool failed = false;
+        while (output_view.count > 0 && expected_output_view.count > 0)
+        {
+            Nob_String_View line = nob_sv_trim(nob_sv_chop_by_delim(&output_view, '\n'));
+            Nob_String_View expected_line = nob_sv_trim(nob_sv_chop_by_delim(&expected_output_view, '\n'));
+            line_count++;
+            if (!nob_sv_eq(line, expected_line))
+            {
+                nob_log(NOB_WARNING, "Failure in test `" SV_Fmt "`, line %zu:", SV_Arg(test_filename), line_count);
+                nob_log(NOB_WARNING, "  expected `" SV_Fmt "`,", SV_Arg(expected_line));
+                nob_log(NOB_WARNING, "       got `" SV_Fmt "`.", SV_Arg(line));
+                failed = true;
+                break;
+            }
+        }
+
+        if (!failed)
+        {
+            if (output_view.count > 0)
+            {
+                nob_log(NOB_WARNING, "Failure in test `" SV_Fmt "`: Actual output has too many lines.",
+                        SV_Arg(test_filename));
+                failed = true;
+            }
+            else if (expected_output_view.count > 0)
+            {
+                nob_log(NOB_WARNING, "Failure in test `" SV_Fmt "`: Actual output has too few lines.",
+                        SV_Arg(test_filename));
+                failed = true;
+            }
+        }
+
+        if (failed)
+        {
+            test_results->failures++;
+        }
+        else
+        {
+            test_results->successes++;
+        }
+
+        test_results->count++;
+    }
+}
+
 void run_test(Nob_String_View test_filename, bool record, TestResults *test_results)
 {
     if (!record && !test_results) {
@@ -311,111 +383,104 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
     nob_sb_append_sv(&test_filepath, test_filename);
     nob_sb_append_null(&test_filepath);
 
-    Nob_String_Builder test_dplppath = {0};
-    build_dplc_output(&test_dplppath, test_filepath.items);
-
     Nob_String_Builder test_outpath = {0};
     nob_sb_append_cstr(&test_outpath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
     nob_sb_append_sv(&test_outpath, test_filename);
     nob_sb_append_cstr(&test_outpath, ".out");
     nob_sb_append_null(&test_outpath);
 
-    Nob_Cmd cmd = {0};
+    Nob_String_View extension = nob_sv_last_part_by_delim(test_filename, '.');
+
+    if (nob_sv_eq(extension, nob_sv_from_cstr("dpl")))
     {
-        cmd.count = 0;
-        nob_cmd_append(&cmd, DPLC_OUTPUT);
-        nob_cmd_append(&cmd, "-o", test_dplppath.items);
-        nob_cmd_append(&cmd, test_filepath.items);
-        if (!nob_cmd_run_sync(cmd)) exit(1);
+        Nob_String_Builder test_dplppath = {0};
+        build_dplc_output(&test_dplppath, test_filepath.items);
 
-        cmd.count = 0;
-        nob_cmd_append(&cmd, DPL_OUTPUT);
-        nob_cmd_append(&cmd, test_dplppath.items);
-
-        Nob_String_Builder output = {0};
-        if (!nob_cmd_capture_sync(cmd, &output)) exit(1);
-
-        if (record) {
-            if (!nob_write_entire_file(test_outpath.items, output.items, output.count)) exit(1);
-        } else {
-            if (!nob_file_exists(test_outpath.items)) {
-                nob_log(NOB_ERROR, "Test output file `%s` does not exist.", test_outpath.items);
+        Nob_Cmd cmd = {0};
+        {
+            cmd.count = 0;
+            nob_cmd_append(&cmd, DPLC_OUTPUT);
+            nob_cmd_append(&cmd, "-o", test_dplppath.items);
+            nob_cmd_append(&cmd, test_filepath.items);
+            if (!nob_cmd_run_sync(cmd))
                 exit(1);
-            }
 
-            Nob_String_Builder expected_output = {0};
-            if (!nob_read_entire_file(test_outpath.items, &expected_output)) exit(1);
+            cmd.count = 0;
+            nob_cmd_append(&cmd, DPL_OUTPUT);
+            nob_cmd_append(&cmd, test_dplppath.items);
 
-            Nob_String_View output_view = nob_sv_from_parts(output.items, output.count);
-            Nob_String_View expected_output_view = nob_sv_from_parts(expected_output.items, expected_output.count);
-
-            size_t line_count = 0;
-            bool failed = false;
-            while (output_view.count > 0 && expected_output_view.count > 0) {
-                Nob_String_View line = nob_sv_trim(nob_sv_chop_by_delim(&output_view, '\n'));
-                Nob_String_View expected_line = nob_sv_trim(nob_sv_chop_by_delim(&expected_output_view, '\n'));
-                line_count++;
-                if (!nob_sv_eq(line, expected_line)) {
-                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`, line %zu:", SV_Arg(test_filename), line_count);
-                    nob_log(NOB_WARNING, "  expected `"SV_Fmt"`,", SV_Arg(expected_line));
-                    nob_log(NOB_WARNING, "       got `"SV_Fmt"`.", SV_Arg(line));
-                    failed = true;
-                    break;
-                }
-            }
-
-            if (!failed) {
-                if (output_view.count > 0) {
-                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`: Actual output has too many lines.",
-                            SV_Arg(test_filename));
-                    failed = true;
-                } else if (expected_output_view.count > 0) {
-                    nob_log(NOB_WARNING, "Failure in test `"SV_Fmt"`: Actual output has too few lines.",
-                            SV_Arg(test_filename));
-                    failed = true;
-                }
-            }
-
-            if (failed) {
-                test_results->failures++;
-            } else {
-                test_results->successes++;
-            }
-
-            test_results->count++;
+            run_test_cmd(cmd, test_filename, test_outpath.items, record, test_results);
         }
+        nob_cmd_free(cmd);
+
+        nob_sb_free(test_dplppath);
     }
-    nob_cmd_free(cmd);
+    else if (nob_sv_eq(extension, nob_sv_from_cstr("c")))
+    {
+        Nob_String_Builder test_exepath = {0};
+        nob_sb_append_cstr(&test_exepath, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
+        nob_sb_append_sv(&test_exepath, test_filename);
+        nob_sb_append_cstr(&test_exepath, ".exe");
+        nob_sb_append_null(&test_exepath);
+
+        Nob_Cmd cmd = {0};
+        nob_cmd_append(&cmd, "gcc");
+        nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
+        nob_cmd_append(&cmd, "-I./include/");
+        nob_cmd_append(&cmd,
+                       test_filepath.items,
+                       "./src/externals.c",
+                       "./src/program.c",
+                       "./src/value.c",
+                       "./src/vm.c",
+                       "./src/symbols.c");
+        nob_cmd_append(&cmd, "-lm");
+        nob_cmd_append(&cmd, "-o", test_exepath.items);
+        nob_cmd_run_sync(cmd);
+
+        cmd.count = 0;
+        nob_cmd_append(&cmd,
+                       test_exepath.items);
+
+        run_test_cmd(cmd, test_filename, test_outpath.items, record, test_results);
+
+        nob_cmd_free(cmd);
+        nob_sb_free(test_exepath);
+    }
 
     nob_sb_free(test_filepath);
-    nob_sb_free(test_dplppath);
     nob_sb_free(test_outpath);
 }
 
 void test(Nob_String_View program, int *argc, char ***argv)
 {
-    DIR* dfd;
-    if ((dfd = opendir("." NOB_PATH_DELIM_STR "tests")) == NULL) {
+    DIR *dfd;
+    if ((dfd = opendir("." NOB_PATH_DELIM_STR "tests")) == NULL)
+    {
         nob_log(NOB_ERROR, "Cannot iterate test files.");
         exit(1);
     }
 
     bool record = false;
 
-    if (*argc > 0) {
-        const char* arg = nob_shift_args(argc, argv);
-        if (strcmp(arg, "-r") == 0) {
+    if (*argc > 0)
+    {
+        const char *arg = nob_shift_args(argc, argv);
+        if (strcmp(arg, "-r") == 0)
+        {
             record = true;
         }
     }
     check_command_end(program, argc, argv, "test");
 
     TestResults test_results = {0};
-    struct dirent* dp;
-    while ((dp = readdir(dfd)) != NULL) {
+    struct dirent *dp;
+    while ((dp = readdir(dfd)) != NULL)
+    {
         Nob_String_View test_filename = nob_sv_from_cstr(dp->d_name);
         if ((test_filename.count > 0 && test_filename.data[0] == '.') ||
-                (test_filename.count >= 4 && memcmp(test_filename.data + test_filename.count - 4, ".out", 4) == 0)) {
+            (test_filename.count >= 4 && memcmp(test_filename.data + test_filename.count - 4, ".out", 4) == 0))
+        {
             continue;
         }
         run_test(test_filename, record, &test_results);
@@ -426,7 +491,8 @@ void test(Nob_String_View program, int *argc, char ***argv)
     nob_log(NOB_INFO, "Tests succeeded: %d", test_results.successes);
     nob_log(NOB_INFO, "   Tests failed: %d", test_results.failures);
 
-    if (test_results.failures > 0) exit(1);
+    if (test_results.failures > 0)
+        exit(1);
 }
 
 int main(int argc, char **argv)
@@ -434,9 +500,10 @@ int main(int argc, char **argv)
     NOB_GO_REBUILD_URSELF(argc, argv);
 
     Nob_String_View program = nob_sv_filename_of(nob_sv_shift_args(&argc, &argv));
-    printf(SV_Fmt" - Buildtool for dasd.ware Programming Language (DPL)\n", SV_Arg(program));
+    printf(SV_Fmt " - Buildtool for dasd.ware Programming Language (DPL)\n", SV_Arg(program));
 
-    if (argc == 0) {
+    if (argc == 0)
+    {
         nob_log(NOB_ERROR, "No command given. At least one command is needed.");
         usage(program, true);
         exit(1);
@@ -445,22 +512,32 @@ int main(int argc, char **argv)
     while (argc > 0)
     {
         Nob_String_View command = nob_sv_shift_args(&argc, &argv);
-        if (nob_sv_eq(command, COMMAND_BUILD)) {
+        if (nob_sv_eq(command, COMMAND_BUILD))
+        {
             build(program, &argc, &argv);
-        } else if (nob_sv_eq(command, COMMAND_CMD)) {
+        }
+        else if (nob_sv_eq(command, COMMAND_CMD))
+        {
             cmd(program, &argc, &argv);
-        } else if (nob_sv_eq(command, COMMAND_HELP)) {
+        }
+        else if (nob_sv_eq(command, COMMAND_HELP))
+        {
             help(program, &argc, &argv);
-        } else if (nob_sv_eq(command, COMMAND_RUN)) {
+        }
+        else if (nob_sv_eq(command, COMMAND_RUN))
+        {
             run(program, &argc, &argv);
-        } else if (nob_sv_eq(command, COMMAND_TEST)) {
+        }
+        else if (nob_sv_eq(command, COMMAND_TEST))
+        {
             test(program, &argc, &argv);
-        } else {
-            nob_log(NOB_ERROR, "Unknown command \""SV_Fmt"\".", SV_Arg(command));
+        }
+        else
+        {
+            nob_log(NOB_ERROR, "Unknown command \"" SV_Fmt "\".", SV_Arg(command));
             usage(program, true);
             exit(1);
         }
-
     }
 
     return 0;

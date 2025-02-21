@@ -1,0 +1,35 @@
+Found constant PI: Number successfully.
+Found argument bar: Boolean successfully.
+Cannot find symbol  `x`.
+Found variable x: String successfully.
+|   1 |  -1 | boundary |                                          | module                         | 
+|   2 |  -1 | type     | Number                                   | base: number                   | 
+|   3 |  -1 | type     | String                                   | base: string                   | 
+|   4 |  -1 | type     | Boolean                                  | base: boolean                  | 
+|   5 |  -1 | type     | None                                     | base: none                     | 
+|   6 |  -1 | function | negate(Number): Number                   | instruction: NEGATE            | 
+|   7 |  -1 | function | not(Boolean): Number                     | instruction: NOT               | 
+|   8 |  -1 | function | add(Number, Number): Number              | instruction: ADD               | 
+|   9 |  -1 | function | add(String, String): String              | instruction: ADD               | 
+|  10 |  -1 | function | subtract(Number, Number): Number         | instruction: SUBTRACT          | 
+|  11 |  -1 | function | multiply(Number, Number): Number         | instruction: MULTIPLY          | 
+|  12 |  -1 | function | divide(Number, Number): Number           | instruction: DIVIDE            | 
+|  13 |  -1 | function | less(Number, Number): Boolean            | instruction: LESS              | 
+|  14 |  -1 | function | lessEqual(Number, Number): Boolean       | instruction: LESS_EQUAL        | 
+|  15 |  -1 | function | greater(Number, Number): Boolean         | instruction: GREATER           | 
+|  16 |  -1 | function | greaterEqual(Number, Number): Boolean    | instruction: GREATER_EQUAL     | 
+|  17 |  -1 | function | equal(Number, Number): Boolean           | instruction: EQUAL             | 
+|  18 |  -1 | function | notEqual(Number, Number): Boolean        | instruction: NOT_EQUAL         | 
+|  19 |  -1 | function | equal(String, String): Boolean           | instruction: EQUAL             | 
+|  20 |  -1 | function | notEqual(String, String): Boolean        | instruction: NOT_EQUAL         | 
+|  21 |  -1 | function | equal(Boolean, Boolean): Boolean         | instruction: EQUAL             | 
+|  22 |  -1 | function | notEqual(Boolean, Boolean): Boolean      | instruction: NOT_EQUAL         | 
+|   1 |  -1 | boundary |                                          | scope                          | 
+|   2 |  -1 | constant | PI: Number                               | value: 3.141590                | 
+|   3 |   0 | variable | x: String                                | scope_index: 0                 | 
+|   4 |   0 | function | print(Number): Number                    | external: 0                    | 
+|   5 |   0 | function | print(String): String                    | external: 1                    | 
+|   6 |   0 | function | print(Boolean): Boolean                  | external: 2                    | 
+|   7 |   0 | function | length(String): Number                   | external: 3                    | 
+|   8 |   0 | function | toString(Number): String                 | external: 4                    | 
+|   9 |   0 | function | toString(Boolean): String                | external: 5                    | 

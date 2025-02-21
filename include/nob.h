@@ -157,6 +157,8 @@ bool nob_read_entire_file(const char *path, Nob_String_Builder *sb);
         nob_da_append_many(sb, s, n); \
     } while (0)
 
+void nob_sb_append_format(Nob_String_Builder *sb, const char *format, ...);
+
 // Append a single NULL character at the end of a string builder. So then you can
 // use it a NULL-terminated C string
 #define nob_sb_append_null(sb) nob_da_append_many(sb, "", 1)
@@ -393,6 +395,18 @@ int closedir(DIR *dirp);
 
 static size_t nob_temp_size = 0;
 static char nob_temp[NOB_TEMP_CAPACITY] = {0};
+
+static char nob_sb_append_format_buffer[1024] = {0};
+
+void nob_sb_append_format(Nob_String_Builder *sb, const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vsnprintf(nob_sb_append_format_buffer, NOB_ARRAY_LEN(nob_sb_append_format_buffer), format, args);
+    va_end(args);
+
+    nob_sb_append_cstr(sb, nob_sb_append_format_buffer);
+}
 
 bool nob_mkdir_if_not_exists(const char *path)
 {
