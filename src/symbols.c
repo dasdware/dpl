@@ -2,6 +2,8 @@
 
 #include <error.h>
 
+#include <dpl/utils.h>
+
 #define ABORT_IF_NULL(value) \
     if (value == NULL)       \
     {                        \
@@ -220,7 +222,7 @@ DPL_Symbol *dpl_symbols_push_type_base_cstr(DPL_SymbolStack *stack, const char *
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value)
 {
     // TODO: Extract base type names into #defines
-    DPL_Symbol *type = dpl_symbols_find_kind(stack, nob_sv_from_cstr("Number"), SYMBOL_TYPE);
+    DPL_Symbol *type = dpl_symbols_find_kind(stack, nob_sv_from_cstr(TYPENAME_NUMBER), SYMBOL_TYPE);
     ABORT_IF_NULL(type);
 
     DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_CONSTANT, name);
@@ -347,35 +349,35 @@ void dpl_symbols_init(DPL_SymbolStack *stack)
     dpl_symbols_push_boundary_cstr(stack, NULL, BOUNDARY_MODULE);
 
     // Base types
-    dpl_symbols_push_type_base_cstr(stack, "Number", TYPE_BASE_NUMBER);
-    dpl_symbols_push_type_base_cstr(stack, "String", TYPE_BASE_STRING);
-    dpl_symbols_push_type_base_cstr(stack, "Boolean", TYPE_BASE_BOOLEAN);
-    dpl_symbols_push_type_base_cstr(stack, "None", TYPE_BASE_NONE);
+    dpl_symbols_push_type_base_cstr(stack, TYPENAME_NUMBER, TYPE_BASE_NUMBER);
+    dpl_symbols_push_type_base_cstr(stack, TYPENAME_STRING, TYPE_BASE_STRING);
+    dpl_symbols_push_type_base_cstr(stack, TYPENAME_BOOLEAN, TYPE_BASE_BOOLEAN);
+    dpl_symbols_push_type_base_cstr(stack, TYPENAME_NONE, TYPE_BASE_NONE);
 
     // Operators on base types
 
     // unary operators
-    dpl_symbols_push_function_instruction_cstr(stack, "negate", "Number", DPL_ARG_TYPES(1, "Number"), INST_NEGATE);
-    dpl_symbols_push_function_instruction_cstr(stack, "not", "Number", DPL_ARG_TYPES(1, "Boolean"), INST_NOT);
+    dpl_symbols_push_function_instruction_cstr(stack, "negate", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER), INST_NEGATE);
+    dpl_symbols_push_function_instruction_cstr(stack, "not", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_BOOLEAN), INST_NOT);
 
     // binary operators
-    dpl_symbols_push_function_instruction_cstr(stack, "add", "Number", DPL_ARG_TYPES(2, "Number", "Number"), INST_ADD);
-    dpl_symbols_push_function_instruction_cstr(stack, "add", "String", DPL_ARG_TYPES(2, "String", "String"), INST_ADD);
-    dpl_symbols_push_function_instruction_cstr(stack, "subtract", "Number", DPL_ARG_TYPES(2, "Number", "Number"), INST_SUBTRACT);
-    dpl_symbols_push_function_instruction_cstr(stack, "multiply", "Number", DPL_ARG_TYPES(2, "Number", "Number"), INST_MULTIPLY);
-    dpl_symbols_push_function_instruction_cstr(stack, "divide", "Number", DPL_ARG_TYPES(2, "Number", "Number"), INST_DIVIDE);
+    dpl_symbols_push_function_instruction_cstr(stack, "add", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_ADD);
+    dpl_symbols_push_function_instruction_cstr(stack, "add", TYPENAME_STRING, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_ADD);
+    dpl_symbols_push_function_instruction_cstr(stack, "subtract", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_SUBTRACT);
+    dpl_symbols_push_function_instruction_cstr(stack, "multiply", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_MULTIPLY);
+    dpl_symbols_push_function_instruction_cstr(stack, "divide", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_DIVIDE);
 
     // comparison operators
-    dpl_symbols_push_function_instruction_cstr(stack, "less", "Boolean", DPL_ARG_TYPES(2, "Number", "Number"), INST_LESS);
-    dpl_symbols_push_function_instruction_cstr(stack, "lessEqual", "Boolean", DPL_ARG_TYPES(2, "Number", "Number"), INST_LESS_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "greater", "Boolean", DPL_ARG_TYPES(2, "Number", "Number"), INST_GREATER);
-    dpl_symbols_push_function_instruction_cstr(stack, "greaterEqual", "Boolean", DPL_ARG_TYPES(2, "Number", "Number"), INST_GREATER_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "equal", "Boolean", DPL_ARG_TYPES(2, "Number", "Number"), INST_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", "Boolean", DPL_ARG_TYPES(2, "Number", "Number"), INST_NOT_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "equal", "Boolean", DPL_ARG_TYPES(2, "String", "String"), INST_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", "Boolean", DPL_ARG_TYPES(2, "String", "String"), INST_NOT_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "equal", "Boolean", DPL_ARG_TYPES(2, "Boolean", "Boolean"), INST_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", "Boolean", DPL_ARG_TYPES(2, "Boolean", "Boolean"), INST_NOT_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "less", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_LESS);
+    dpl_symbols_push_function_instruction_cstr(stack, "lessEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_LESS_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "greater", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_GREATER);
+    dpl_symbols_push_function_instruction_cstr(stack, "greaterEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_GREATER_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_NOT_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_NOT_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_EQUAL);
+    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_NOT_EQUAL);
 }
 
 void dpl_symbols_free(DPL_SymbolStack *stack)

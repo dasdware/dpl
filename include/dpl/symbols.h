@@ -6,9 +6,6 @@
 
 #include <program.h>
 
-#define DPL_ARG_TYPES(n, ...) \
-    n, (const char *[n]) { __VA_ARGS__ }
-
 typedef struct DPL_Symbol DPL_Symbol;
 
 typedef enum
@@ -54,6 +51,11 @@ typedef enum
 
     COUNT_SYMBOL_TYPE_BASE_KINDS,
 } DPL_Symbol_Type_Base_Kind;
+
+#define TYPENAME_NUMBER "Number"
+#define TYPENAME_STRING "String"
+#define TYPENAME_BOOLEAN "Boolean"
+#define TYPENAME_NONE "None"
 
 typedef struct
 {
