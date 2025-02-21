@@ -38,9 +38,9 @@ typedef struct {
 
 typedef enum
 {
-    TYPE_NAME,
-    TYPE_FUNCTION,
-    TYPE_OBJECT,
+    TYPE_NAME_,
+    TYPE_FUNCTION_,
+    TYPE_OBJECT_,
 } DPL_Type_Kind;
 
 typedef struct {
@@ -452,20 +452,20 @@ typedef struct
 
 // SYMBOL STACK
 
-typedef DPL_Bound_Value DPL_Symbol_Constant;
+typedef DPL_Bound_Value DPL_Symbol_Constant_;
 
 typedef enum {
-    SYMBOL_CONSTANT,
-    SYMBOL_VAR,
-    SYMBOL_FUNCTION,
-    SYMBOL_ARGUMENT,
-    SYMBOL_TYPE,
-} DPL_SymbolKind;
+    SYMBOL_CONSTANT_,
+    SYMBOL_VAR_,
+    SYMBOL_FUNCTION_,
+    SYMBOL_ARGUMENT_,
+    SYMBOL_TYPE_,
+} DPL_SymbolKind_;
 
 typedef struct {
     DPL_Handle type_handle;
     size_t scope_index;
-} DPL_Symbol_Var;
+} DPL_Symbol_Var_;
 
 typedef struct {
     DPL_Signature signature;
@@ -473,21 +473,21 @@ typedef struct {
     bool used;
     DPL_Handle user_handle;
     DPL_Handle function_handle;
-} DPL_Symbol_Function;
+} DPL_Symbol_Function_;
 
 typedef struct {
-    DPL_SymbolKind kind;
+    DPL_SymbolKind_ kind;
     Nob_String_View name;
     union {
-        DPL_Symbol_Constant constant;
-        DPL_Symbol_Var var;
-        DPL_Symbol_Var argument;
-        DPL_Symbol_Function function;
+        DPL_Symbol_Constant_ constant;
+        DPL_Symbol_Var_ var;
+        DPL_Symbol_Var_ argument;
+        DPL_Symbol_Function_ function;
         DPL_Type* type;
     } as;
-} DPL_Symbol;
+} DPL_Symbol_;
 
-typedef da_array(DPL_Symbol) DPL_Symbols;
+typedef da_array(DPL_Symbol_) DPL_Symbols;
 
 typedef da_array(size_t) DPL_Frames;
 
@@ -495,7 +495,7 @@ typedef struct {
     DPL_Symbols symbols;
     DPL_Frames frames;
     size_t bottom;
-} DPL_SymbolStack;
+} DPL_SymbolStack_;
 
 
 // SCOPE STACK
@@ -555,7 +555,7 @@ struct _DPL
     DPL_Ast_Tree tree;
 
     // Binder
-    DPL_SymbolStack symbol_stack;
+    DPL_SymbolStack_ symbol_stack;
     DPL_ScopeStack scope_stack;
     DPL_BoundTree bound_tree;
 

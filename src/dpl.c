@@ -260,7 +260,7 @@ DPL_Type* _dplt_find_by_signature(DPL* dpl, DPL_Handles* arguments, DPL_Handle r
     for (size_t i = 0;  i < da_size(dpl->types); ++i)
     {
         DPL_Type *type = &dpl->types[i];
-        if (type->kind == TYPE_FUNCTION
+        if (type->kind == TYPE_FUNCTION_
                 && _dpl_handles_equal(&type->as.function.arguments, arguments)
                 && type->as.function.returns == returns)
         {
@@ -276,7 +276,7 @@ DPL_Type* _dplt_find_by_object_query(DPL* dpl, DPL_TypeObjectQuery query)
     for (size_t i = 0;  i < da_size(dpl->types); ++i)
     {
         DPL_Type *type = &dpl->types[i];
-        if (type->kind == TYPE_OBJECT && type->as.object.field_count == da_size(query)) {
+        if (type->kind == TYPE_OBJECT_ && type->as.object.field_count == da_size(query)) {
             bool is_match = true;
             for (size_t j = 0; j < type->as.object.field_count; ++j) {
                 if (!nob_sv_eq(query[j].name, type->as.object.fields[j].name)) {
@@ -334,14 +334,14 @@ void _dplt_print(FILE* out, DPL* dpl, DPL_Type* type)
     fprintf(out, SV_Fmt, SV_Arg(type->name));
 
     switch (type->kind) {
-    case TYPE_FUNCTION:
+    case TYPE_FUNCTION_:
         fprintf(out, "[");
         _dpl_print_signature(out, dpl, &type->as.function);
         fprintf(out, "]");
         break;
-    case TYPE_NAME:
+    case TYPE_NAME_:
         break;
-    case TYPE_OBJECT:
+    case TYPE_OBJECT_:
         break;
     default:
         DW_UNIMPLEMENTED_MSG("%d", type->kind);
@@ -1040,10 +1040,10 @@ const char* _dpla_node_kind_name(DPL_AstNodeKind kind) {
 
 void _dpla_build_type_name(DPL_Ast_Type* ast_type, Nob_String_Builder* sb) {
     switch (ast_type->kind) {
-    case TYPE_NAME:
+    case TYPE_NAME_:
         nob_sb_append_sv(sb, ast_type->as.name.text);
         break;
-    case TYPE_OBJECT: {
+    case TYPE_OBJECT_: {
         nob_sb_append_cstr(sb, "[");
         for (size_t i = 0; i < ast_type->as.object.field_count; ++i) {
             if (i > 0) {
@@ -1283,7 +1283,7 @@ DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
         _dplp_next_token(dpl);
 
         DPL_Ast_Type* name_type = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Type));
-        name_type->kind = TYPE_NAME;
+        name_type->kind = TYPE_NAME_;
         name_type->first = type_begin;
         name_type->last = type_begin;
         name_type->as.name = type_begin;
@@ -1326,7 +1326,7 @@ DPL_Ast_Type* _dplp_parse_type(DPL* dpl) {
         }
 
         DPL_Ast_Type* object_type = arena_alloc(&dpl->tree.memory, sizeof(DPL_Ast_Type));
-        object_type->kind = TYPE_OBJECT;
+        object_type->kind = TYPE_OBJECT_;
         object_type->first = type_begin;
         object_type->last = _dplp_peek_token(dpl);
         object_type->as.object.field_count = da_size(tmp_fields);
@@ -1875,18 +1875,18 @@ const char* _dplb_nodekind_name(DPL_BoundNodeKind kind) {
 }
 
 void _dplb_symbols_begin_scope(DPL* dpl) {
-    DPL_SymbolStack* s = &dpl->symbol_stack;
+    DPL_SymbolStack_* s = &dpl->symbol_stack;
     da_add(s->frames, da_size(s->symbols));
 }
 
 void _dplb_symbols_end_scope(DPL* dpl) {
-    DPL_SymbolStack* s = &dpl->symbol_stack;
+    DPL_SymbolStack_* s = &dpl->symbol_stack;
     da_pop(s->frames);
     da_set_size(s->symbols, s->frames[da_size(s->frames)]);
 }
 
-DPL_Symbol* _dplb_symbols_lookup(DPL* dpl, Nob_String_View name) {
-    DPL_SymbolStack* s = &dpl->symbol_stack;
+DPL_Symbol_* _dplb_symbols_lookup(DPL* dpl, Nob_String_View name) {
+    DPL_SymbolStack_* s = &dpl->symbol_stack;
     for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
         if (nob_sv_eq(s->symbols[i - 1].name, name)) {
             return &s->symbols[i - 1];
@@ -1895,11 +1895,11 @@ DPL_Symbol* _dplb_symbols_lookup(DPL* dpl, Nob_String_View name) {
     return NULL;
 }
 
-DPL_Symbol* _dplb_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Handles* arguments) {
-    DPL_SymbolStack* s = &dpl->symbol_stack;
+DPL_Symbol_* _dplb_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Handles* arguments) {
+    DPL_SymbolStack_* s = &dpl->symbol_stack;
     for (size_t i = da_size(s->symbols); i > s->bottom; --i) {
-        DPL_Symbol* sym = &s->symbols[i - 1];
-        if (sym->kind == SYMBOL_FUNCTION && nob_sv_eq(sym->name, name)
+        DPL_Symbol_* sym = &s->symbols[i - 1];
+        if (sym->kind == SYMBOL_FUNCTION_ && nob_sv_eq(sym->name, name)
                 && _dpl_handles_equal(&sym->as.function.signature.arguments, arguments)) {
             return &s->symbols[i - 1];
         }
@@ -1907,13 +1907,13 @@ DPL_Symbol* _dplb_symbols_lookup_function(DPL* dpl, Nob_String_View name, DPL_Ha
     return NULL;
 }
 
-const char* _dplb_symbols_kind_name(DPL_SymbolKind kind) {
+const char* _dplb_symbols_kind_name(DPL_SymbolKind_ kind) {
     switch (kind) {
-    case SYMBOL_CONSTANT:
+    case SYMBOL_CONSTANT_:
         return "constant";
-    case SYMBOL_VAR:
+    case SYMBOL_VAR_:
         return "variable";
-    case SYMBOL_ARGUMENT:
+    case SYMBOL_ARGUMENT_:
         return "argument";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
@@ -1968,8 +1968,8 @@ DPL_Type* _dplb_bind_type(DPL* dpl, DPL_Ast_Type* ast_type) {
     DPL_Type* result = NULL;
     Nob_String_View type_name = nob_sv_from_cstr(strdup(_dpla_type_name(ast_type)));
 
-    DPL_Symbol* s = _dplb_symbols_lookup(dpl, type_name);
-    if (s && s->kind == SYMBOL_TYPE) {
+    DPL_Symbol_* s = _dplb_symbols_lookup(dpl, type_name);
+    if (s && s->kind == SYMBOL_TYPE_) {
         nob_return_defer(s->as.type);
     }
 
@@ -1979,7 +1979,7 @@ DPL_Type* _dplb_bind_type(DPL* dpl, DPL_Ast_Type* ast_type) {
         nob_return_defer(cached_type);
     }
 
-    if (ast_type->kind == TYPE_OBJECT) {
+    if (ast_type->kind == TYPE_OBJECT_) {
         DPL_Ast_TypeObject object_type = ast_type->as.object;
 
         DPL_TypeField* fields = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_TypeField) * object_type.field_count);
@@ -1996,7 +1996,7 @@ DPL_Type* _dplb_bind_type(DPL* dpl, DPL_Ast_Type* ast_type) {
 
         DPL_Type new_object_type = {
             .name = _dpl_arena_svcpy(&dpl->bound_tree.memory, type_name),
-            .kind = TYPE_OBJECT,
+            .kind = TYPE_OBJECT_,
             .as.object.field_count = object_type.field_count,
             .as.object.fields = fields,
         };
@@ -2015,8 +2015,8 @@ void _dplg_generate_call_userfunction(DPL* dpl, DPL_Program* program, void* data
     dplp_write_call_user(program, uf->arity, uf->begin_ip);
 }
 
-void _dplb_check_function_used(DPL* dpl, DPL_Symbol* symbol) {
-    DPL_Symbol_Function* f = &symbol->as.function;
+void _dplb_check_function_used(DPL* dpl, DPL_Symbol_* symbol) {
+    DPL_Symbol_Function_* f = &symbol->as.function;
     if (!f->used) {
         f->used = true;
         f->user_handle = da_size(dpl->user_functions);
@@ -2049,9 +2049,9 @@ DPL_Bound_Node* _dplb_bind_unary_function_call(DPL* dpl, DPL_Bound_Node* operand
 
     DPL_Bound_Node* bound_node = NULL;
 
-    DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
+    DPL_Symbol_* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
     if (function_symbol) {
-        DPL_Symbol_Function* f = &function_symbol->as.function;
+        DPL_Symbol_Function_* f = &function_symbol->as.function;
         _dplb_check_function_used(dpl, function_symbol);
 
         bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
@@ -2103,9 +2103,9 @@ DPL_Bound_Node* _dplb_bind_unary(DPL* dpl, DPL_Ast_Node* node, const char* funct
 
     // DPL_Bound_Node* bound_node = NULL;
 
-    // DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
+    // DPL_Symbol_* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
     // if (function_symbol) {
-    //     DPL_Symbol_Function* f = &function_symbol->as.function;
+    //     DPL_Symbol_Function_* f = &function_symbol->as.function;
     //     _dplb_check_function_used(dpl, function_symbol);
 
     //     bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
@@ -2156,9 +2156,9 @@ DPL_Bound_Node* _dplb_bind_binary(DPL* dpl, DPL_Ast_Node* node, const char* func
 
     DPL_Bound_Node* bound_node = NULL;
 
-    DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
+    DPL_Symbol_* function_symbol = _dplb_symbols_lookup_function(dpl, nob_sv_from_cstr(function_name), &argument_types);
     if (function_symbol) {
-        DPL_Symbol_Function* f = &function_symbol->as.function;
+        DPL_Symbol_Function_* f = &function_symbol->as.function;
         _dplb_check_function_used(dpl, function_symbol);
 
         bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
@@ -2213,9 +2213,9 @@ DPL_Bound_Node* _dplb_bind_function_call(DPL* dpl, DPL_Ast_Node* node)
     _dplb_move_nodelist(dpl, temp_arguments, &result_ctn->as.function_call.arguments_count,
                         &result_ctn->as.function_call.arguments);
 
-    DPL_Symbol* function_symbol = _dplb_symbols_lookup_function(dpl, fc.name.text, &argument_types);
+    DPL_Symbol_* function_symbol = _dplb_symbols_lookup_function(dpl, fc.name.text, &argument_types);
     if (function_symbol) {
-        DPL_Symbol_Function* f = &function_symbol->as.function;
+        DPL_Symbol_Function_* f = &function_symbol->as.function;
         _dplb_check_function_used(dpl, function_symbol);
 
         result_ctn->as.function_call.function_handle = f->function_handle;
@@ -2426,12 +2426,12 @@ DPL_Bound_Value _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
     break;
     case AST_NODE_SYMBOL: {
         Nob_String_View symbol_name = node->as.symbol.text;
-        DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, symbol_name);
+        DPL_Symbol_* symbol = _dplb_symbols_lookup(dpl, symbol_name);
         if (!symbol) {
             DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: unknown symbol `"SV_Fmt"`.", SV_Arg(symbol_name));
         }
 
-        if (symbol->kind != SYMBOL_CONSTANT) {
+        if (symbol->kind != SYMBOL_CONSTANT_) {
             DPL_TOKEN_ERROR(dpl, node->as.symbol, "Cannot fold constant: symbol `"SV_Fmt"` does not resolve to a constant value.", SV_Arg(symbol_name));
         }
 
@@ -2525,7 +2525,7 @@ DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
             DPL_Bound_Node* bound_temporary = _dplb_bind_node(dpl, field->as.unary.operand);
             bound_temporary->persistent = true;
             DPL_Type* bound_temporary_type = _dplt_find_by_handle(dpl, bound_temporary->type_handle);
-            if (bound_temporary_type->kind != TYPE_OBJECT) {
+            if (bound_temporary_type->kind != TYPE_OBJECT_) {
                 DPL_AST_ERROR(dpl, field, "Only object expressions can be spread for composing objects.");
             }
             da_add(temporaries, bound_temporary);
@@ -2592,7 +2592,7 @@ DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
 
         DPL_Type new_object_type = {
             .name = _dpl_arena_strcpy(&dpl->bound_tree.memory, type_name_builder.items),
-            .kind = TYPE_OBJECT,
+            .kind = TYPE_OBJECT_,
             .as.object.field_count = da_size(type_query),
             .as.object.fields = new_object_type_fields,
         };
@@ -2681,7 +2681,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         DPL_Bound_Node* bound_expression = _dplb_bind_node(dpl, node->as.field_access.expression);
 
         DPL_Type* expression_type = _dplt_find_by_handle(dpl, bound_expression->type_handle);
-        if (!expression_type || expression_type->kind != TYPE_OBJECT) {
+        if (!expression_type || expression_type->kind != TYPE_OBJECT_) {
             DPL_AST_ERROR(dpl, node->as.field_access.expression, "Can access fields only for object types.");
         }
 
@@ -2788,8 +2788,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         DPL_Ast_Declaration* decl = &node->as.declaration;
 
         if (decl->keyword.kind == TOKEN_KEYWORD_CONSTANT) {
-            DPL_Symbol s = {
-                .kind = SYMBOL_CONSTANT,
+            DPL_Symbol_ s = {
+                .kind = SYMBOL_CONSTANT_,
                 .name = decl->name.text,
                 .as.constant =  _dplb_fold_constant(dpl, decl->initialization),
             };
@@ -2803,8 +2803,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             _dplb_check_assignment(dpl, "variable", node, expression->type_handle);
 
             DPL_Scope* current_scope = _dplb_scopes_current(dpl);
-            DPL_Symbol s = {
-                .kind = SYMBOL_VAR,
+            DPL_Symbol_ s = {
+                .kind = SYMBOL_VAR_,
                 .name = decl->name.text,
                 .as.var = {
                     .type_handle = expression->type_handle,
@@ -2820,8 +2820,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         } else if (decl->keyword.kind == TOKEN_KEYWORD_TYPE) {
             DPL_Type* bound_type = _dplb_bind_type(dpl, decl->type);
 
-            DPL_Symbol s = {
-                .kind = SYMBOL_TYPE,
+            DPL_Symbol_ s = {
+                .kind = SYMBOL_TYPE_,
                 .name = decl->name.text,
                 .as.type = bound_type,
             };
@@ -2835,14 +2835,14 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
     }
     break;
     case AST_NODE_SYMBOL: {
-        DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, node->as.symbol.text);
+        DPL_Symbol_* symbol = _dplb_symbols_lookup(dpl, node->as.symbol.text);
         if (!symbol) {
             DPL_AST_ERROR(dpl, node, "Cannot resolve symbol `"SV_Fmt"` in current scope.",
                           SV_Arg(node->as.symbol.text));
         }
 
         switch (symbol->kind) {
-        case SYMBOL_CONSTANT: {
+        case SYMBOL_CONSTANT_: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             node->kind = BOUND_NODE_VALUE;
             node->type_handle = symbol->as.constant.type_handle;
@@ -2850,7 +2850,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             return node;
         }
         break;
-        case SYMBOL_VAR: {
+        case SYMBOL_VAR_: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             node->kind = BOUND_NODE_VARREF;
             node->type_handle = symbol->as.var.type_handle;
@@ -2858,7 +2858,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             return node;
         }
         break;
-        case SYMBOL_ARGUMENT: {
+        case SYMBOL_ARGUMENT_: {
             DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             node->kind = BOUND_NODE_ARGREF;
             node->type_handle = symbol->as.argument.type_handle;
@@ -2879,12 +2879,12 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
         }
 
         Nob_String_View symbol_name = node->as.assignment.target->as.symbol.text;
-        DPL_Symbol* symbol = _dplb_symbols_lookup(dpl, symbol_name);
+        DPL_Symbol_* symbol = _dplb_symbols_lookup(dpl, symbol_name);
         if (!symbol) {
             DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot find symbol `"SV_Fmt"`.",
                           SV_Arg(symbol_name));
         }
-        if (symbol->kind != SYMBOL_VAR) {
+        if (symbol->kind != SYMBOL_VAR_) {
             DPL_AST_ERROR(dpl, node->as.assignment.target, "Cannot assign to %s `"SV_Fmt"`.",
                           _dplb_symbols_kind_name(symbol->kind), SV_Arg(symbol_name));
         }
@@ -2930,8 +2930,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Scope* current_scope = _dplb_scopes_current(dpl);
         for (size_t i = 0; i < function->signature.argument_count; ++i) {
-            DPL_Symbol arg_symbol = {
-                .kind = SYMBOL_ARGUMENT,
+            DPL_Symbol_ arg_symbol = {
+                .kind = SYMBOL_ARGUMENT_,
                 .name = function->signature.arguments[i].name.text,
                 .as.argument = {
                     .scope_index = i,
@@ -2967,8 +2967,8 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
             signature.returns = bound_body->type_handle;
         }
 
-        DPL_Symbol s = {
-            .kind = SYMBOL_FUNCTION,
+        DPL_Symbol_ s = {
+            .kind = SYMBOL_FUNCTION_,
             .name = function->name.text,
             .as.function = {
                 .signature = signature,
@@ -3132,7 +3132,7 @@ void _dplb_print(DPL* dpl, DPL_Bound_Node* node, size_t level) {
         } else {
             if (!type) {
                 printf("<unknown>");
-            } else if (type->kind == TYPE_OBJECT) {
+            } else if (type->kind == TYPE_OBJECT_) {
                 DPL_Bound_Object object = node->as.value.as.object;
                 printf("[\n");
 
@@ -3270,7 +3270,7 @@ void _dplg_generate(DPL* dpl, DPL_Bound_Node* node, DPL_Program* program) {
             dplp_write_push_boolean(program, node->as.value.as.boolean);
         } else {
             DPL_Type* type = _dplt_find_by_handle(dpl, node->type_handle);
-            if (type->kind == TYPE_OBJECT) {
+            if (type->kind == TYPE_OBJECT_) {
                 DPL_Bound_Object object = node->as.value.as.object;
                 for (size_t i = 0; i < object.field_count; ++i) {
                     _dplg_generate(dpl, object.fields[i].expression, program);
