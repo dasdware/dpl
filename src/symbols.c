@@ -10,6 +10,15 @@
         return NULL;         \
     }
 
+#define STACK_FOREACH_BEGIN(stack, it) \
+    if (stack->entries_count > 0) { \
+        for (size_t __ ## it ## _iterator = stack->entries_count; __ ## it ## _iterator > 0; --__ ## it ## _iterator) { \
+            DPL_Symbol* it = stack->entries[__ ## it ## _iterator - 1];
+
+#define STACK_FOREACH_END \
+        } \
+    }
+
 const char *SYMBOL_KIND_NAMES[COUNT_SYMBOL_KINDS] = {
     [SYMBOL_BOUNDARY] = "boundary",
     [SYMBOL_TYPE] = "type",
@@ -21,6 +30,11 @@ const char *SYMBOL_KIND_NAMES[COUNT_SYMBOL_KINDS] = {
 
 static_assert(COUNT_SYMBOL_KINDS == 6,
               "Count of symbol kinds has changed, please update symbol kind names map.");
+
+const char* dpl_symbols_kind_name(DPL_Symbol_Kind kind)
+{
+    return SYMBOL_KIND_NAMES[kind];
+}
 
 const char *SYMBOL_BOUNDARY_KIND_NAMES[COUNT_SYMBOL_BOUNDARY_KINDS] = {
     [BOUNDARY_MODULE] = "module",
@@ -54,26 +68,22 @@ const char *dpl_symbols_last_error()
 
 DPL_Symbol *dpl_symbols_find(DPL_SymbolStack *stack, Nob_String_View name)
 {
-    if (stack->entries_count > 0)
-    {
-        bool function_boundary_crossed = false;
-        for (int i = stack->entries_count - 1; i >= 0; --i)
+    bool function_boundary_crossed = false;
+
+    STACK_FOREACH_BEGIN(stack, candidate)
+        if (nob_sv_eq(candidate->name, name))
         {
-            DPL_Symbol *candidate = stack->entries[i];
-            if (nob_sv_eq(candidate->name, name))
+            if (function_boundary_crossed && (candidate->kind == SYMBOL_ARGUMENT || candidate->kind == SYMBOL_VAR))
             {
-                if (function_boundary_crossed && (candidate->kind == SYMBOL_ARGUMENT || candidate->kind == SYMBOL_VAR))
-                {
-                    break;
-                }
-                return candidate;
+                break;
             }
-            else if (candidate->kind == SYMBOL_BOUNDARY && candidate->as.boundary == BOUNDARY_FUNCTION)
-            {
-                function_boundary_crossed = true;
-            }
+            return candidate;
         }
-    }
+        else if (candidate->kind == SYMBOL_BOUNDARY && candidate->as.boundary == BOUNDARY_FUNCTION)
+        {
+            function_boundary_crossed = true;
+        }
+    STACK_FOREACH_END
 
     error_sb.count = 0;
     nob_sb_append_cstr(&error_sb, "Cannot find symbol ");
@@ -113,6 +123,88 @@ DPL_Symbol *dpl_symbols_find_kind_cstr(DPL_SymbolStack *stack, const char *name,
 {
     return dpl_symbols_find_kind(stack, nob_sv_from_cstr(name), kind);
 }
+
+DPL_Symbol *dpl_symbols_find_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query)
+{
+    STACK_FOREACH_BEGIN(stack, symbol)
+        if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_OBJECT) {
+            continue;
+        }
+
+        DPL_Symbol_Type_Object* object_type = &symbol->as.type.as.object;
+        if (object_type->field_count == da_size(query)) {
+            bool is_match = true;
+            for (size_t j = 0; j < object_type->field_count; ++j) {
+                if (!nob_sv_eq(query[j].name, object_type->fields[j].name)) {
+                    is_match = false;
+                    break;
+                }
+                if (query[j].type != object_type->fields[j].type) {
+                    is_match = false;
+                    break;
+                }
+            }
+            if (is_match) {
+                return symbol;
+            }
+        }
+    STACK_FOREACH_END
+
+    // TODO: Prepare error message(?)
+    return NULL;
+}
+
+DPL_Symbol* dpl_symbols_find_function(DPL_SymbolStack* stack,
+    Nob_String_View name, size_t arguments_count, DPL_Symbol** arguments)
+{
+    STACK_FOREACH_BEGIN(stack, candidate)
+        if (candidate->kind != SYMBOL_FUNCTION || !nob_sv_eq(candidate->name, name)
+                || arguments_count != candidate->as.function.signature.argument_count) {
+            continue;
+        }
+
+        bool is_match = true;
+        DPL_Symbol_Function* f = &candidate->as.function;
+        for (size_t i = 0; i < arguments_count; ++i) {
+            if (f->signature.arguments[i] != arguments[i]) {
+                is_match = false;
+                break;
+            }
+        }
+
+        if (is_match) {
+            return candidate;
+        }
+    STACK_FOREACH_END
+
+    return NULL;
+}
+
+DPL_Symbol* dpl_symbols_find_function1(DPL_SymbolStack *stack,
+                                       Nob_String_View name, DPL_Symbol* arg0)
+{
+    return dpl_symbols_find_function(stack, name, 1, (DPL_Symbol*[]) { arg0 });
+}
+
+DPL_Symbol* dpl_symbols_find_function1_cstr(DPL_SymbolStack *stack,
+                                             const char* name, DPL_Symbol* arg0)
+{
+    return dpl_symbols_find_function1(stack, nob_sv_from_cstr(name), arg0);
+}
+
+
+DPL_Symbol* dpl_symbols_find_function2(DPL_SymbolStack *stack,
+                                       Nob_String_View name, DPL_Symbol* arg0, DPL_Symbol* arg1)
+{
+    return  dpl_symbols_find_function(stack, name, 2, (DPL_Symbol*[]) { arg0, arg1 });
+}
+
+DPL_Symbol* dpl_symbols_find_function2_cstr(DPL_SymbolStack *stack,
+                                             const char* name, DPL_Symbol* arg0, DPL_Symbol* arg1)
+{
+    return dpl_symbols_find_function2(stack, nob_sv_from_cstr(name), arg0, arg1);
+}
+
 
 Nob_String_View dpl_symbols_alloc_sv(DPL_SymbolStack *stack, const char *value)
 {
@@ -219,6 +311,39 @@ DPL_Symbol *dpl_symbols_push_type_base_cstr(DPL_SymbolStack *stack, const char *
     return symbol;
 }
 
+DPL_Symbol* dpl_symbols_push_type_object_cstr(DPL_SymbolStack *stack, const char *name, size_t field_count)
+{
+    DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_TYPE, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.type = (DPL_Symbol_Type) {
+        .kind = TYPE_OBJECT,
+        .as.object = {
+            .field_count = field_count,
+            .fields = arena_alloc(&stack->memory, sizeof(DPL_Symbol_Type_ObjectField) * field_count),
+        }
+    };
+    return symbol;
+}
+
+DPL_Symbol* dpl_symbols_push_type_alias(DPL_SymbolStack* stack, Nob_String_View name, DPL_Symbol* type) 
+{
+    DPL_Symbol *symbol = dpl_symbols_push(stack, SYMBOL_TYPE, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.type = (DPL_Symbol_Type) {
+        .kind = TYPE_ALIAS,
+        .as.alias = type,
+    };
+    return symbol;
+}
+
+bool dpl_symbols_is_type_base(DPL_Symbol* symbol, DPL_Symbol_Type_Base_Kind kind) {
+    return symbol->kind == SYMBOL_TYPE
+        && symbol->as.type.kind == TYPE_BASE
+        && symbol->as.type.as.base == kind;
+}
+
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value)
 {
     // TODO: Extract base type names into #defines
@@ -231,6 +356,18 @@ DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const 
     symbol->as.constant = (DPL_Symbol_Constant){
         .type = type,
         .as.number = value,
+    };
+    return symbol;
+}
+
+DPL_Symbol *dpl_symbols_push_argument(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type)
+{
+    DPL_Symbol *symbol = dpl_symbols_push(stack, SYMBOL_ARGUMENT, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.argument = (DPL_Symbol_Var){
+        .type = type,
+        .scope_index = symbol->stack_index,
     };
     return symbol;
 }
@@ -248,6 +385,18 @@ DPL_Symbol *dpl_symbols_push_argument_cstr(DPL_SymbolStack *stack, const char *n
     ABORT_IF_NULL(symbol);
 
     symbol->as.argument = (DPL_Symbol_Var){
+        .type = type,
+        .scope_index = symbol->stack_index,
+    };
+    return symbol;
+}
+
+DPL_Symbol *dpl_symbols_push_var(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type)
+{
+    DPL_Symbol *symbol = dpl_symbols_push(stack, SYMBOL_VAR, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.var = (DPL_Symbol_Var){
         .type = type,
         .scope_index = symbol->stack_index,
     };
@@ -338,6 +487,29 @@ DPL_Symbol *dpl_symbols_push_function_external_cstr(DPL_SymbolStack *stack, cons
     return symbol;
 }
 
+DPL_Symbol *dpl_symbols_push_function_user(DPL_SymbolStack *stack, Nob_String_View  name, size_t argument_count)
+{
+    DPL_Symbol *symbol = dpl_symbols_push(stack, SYMBOL_FUNCTION, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.function = (DPL_Symbol_Function) {
+        .kind = FUNCTION_USER,
+        .signature = {
+            .argument_count = argument_count,
+            .arguments = arena_alloc(&stack->memory, sizeof(DPL_Symbol*) * argument_count),
+            .returns = NULL
+        },
+        .as.user_function = {
+            .body = NULL,
+            .function_handle = 0,
+            .used = false,
+            .user_handle = 0,
+        }
+    };
+    return symbol;
+}
+
+
 void dpl_symbols_init(DPL_SymbolStack *stack)
 {
     if (stack->entries_capacity == 0)
@@ -347,37 +519,6 @@ void dpl_symbols_init(DPL_SymbolStack *stack)
     stack->entries = arena_alloc(&stack->memory, stack->entries_capacity * sizeof(*stack->entries));
 
     dpl_symbols_push_boundary_cstr(stack, NULL, BOUNDARY_MODULE);
-
-    // Base types
-    dpl_symbols_push_type_base_cstr(stack, TYPENAME_NUMBER, TYPE_BASE_NUMBER);
-    dpl_symbols_push_type_base_cstr(stack, TYPENAME_STRING, TYPE_BASE_STRING);
-    dpl_symbols_push_type_base_cstr(stack, TYPENAME_BOOLEAN, TYPE_BASE_BOOLEAN);
-    dpl_symbols_push_type_base_cstr(stack, TYPENAME_NONE, TYPE_BASE_NONE);
-
-    // Operators on base types
-
-    // unary operators
-    dpl_symbols_push_function_instruction_cstr(stack, "negate", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER), INST_NEGATE);
-    dpl_symbols_push_function_instruction_cstr(stack, "not", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_BOOLEAN), INST_NOT);
-
-    // binary operators
-    dpl_symbols_push_function_instruction_cstr(stack, "add", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_ADD);
-    dpl_symbols_push_function_instruction_cstr(stack, "add", TYPENAME_STRING, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_ADD);
-    dpl_symbols_push_function_instruction_cstr(stack, "subtract", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_SUBTRACT);
-    dpl_symbols_push_function_instruction_cstr(stack, "multiply", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_MULTIPLY);
-    dpl_symbols_push_function_instruction_cstr(stack, "divide", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_DIVIDE);
-
-    // comparison operators
-    dpl_symbols_push_function_instruction_cstr(stack, "less", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_LESS);
-    dpl_symbols_push_function_instruction_cstr(stack, "lessEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_LESS_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "greater", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_GREATER);
-    dpl_symbols_push_function_instruction_cstr(stack, "greaterEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_GREATER_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_NOT_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_NOT_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_EQUAL);
-    dpl_symbols_push_function_instruction_cstr(stack, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_NOT_EQUAL);
 }
 
 void dpl_symbols_free(DPL_SymbolStack *stack)

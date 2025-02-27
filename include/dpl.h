@@ -5,6 +5,7 @@
 #include "dw_array.h"
 #include "nob.h"
 
+#include <dpl/symbols.h>
 #include "externals.h"
 #include "program.h"
 
@@ -12,84 +13,9 @@
 
 typedef struct _DPL DPL;
 
-#ifndef DPL_HANDLES_CAPACITY
-#define DPL_HANDLES_CAPACITY 16
-#endif
-
 #ifndef DPL_MAX_INTERPOLATION
 #define DPL_MAX_INTERPOLATION 8
 #endif
-
-typedef uint16_t DPL_Handle;
-
-typedef struct {
-    DPL_Handle items[DPL_HANDLES_CAPACITY];
-    uint8_t count;
-} DPL_Handles;
-
-typedef struct {
-    DPL_Handles arguments;
-    DPL_Handle returns;
-} DPL_Signature;
-
-// CATALOG
-
-/// TYPES
-
-typedef enum
-{
-    TYPE_NAME_,
-    TYPE_FUNCTION_,
-    TYPE_OBJECT_,
-} DPL_Type_Kind;
-
-typedef struct {
-    Nob_String_View name;
-    DPL_Handle type;
-} DPL_TypeField;
-
-typedef da_array(DPL_TypeField) DPL_TypeObjectQuery;
-
-typedef struct {
-    size_t field_count;
-    DPL_TypeField* fields;
-} DPL_TypeObject;
-
-typedef struct
-{
-    Nob_String_View name;
-    DPL_Handle handle;
-    size_t hash;
-
-    DPL_Type_Kind kind;
-    union {
-        void* base;
-        DPL_Signature function;
-        DPL_TypeObject object;
-    } as;
-} DPL_Type;
-
-typedef da_array(DPL_Type) DPL_Types;
-
-/// FUNCTIONS
-
-typedef void (*DPL_Generator_Callback)(DPL* dpl, DPL_Program *, void *);
-
-typedef struct
-{
-    DPL_Generator_Callback callback;
-    void *user_data;
-} DPL_Generator;
-
-typedef struct
-{
-    DPL_Handle handle;
-    Nob_String_View name;
-    DPL_Signature signature;
-    DPL_Generator generator;
-} DPL_Function;
-
-typedef da_array(DPL_Function) DPL_Functions;
 
 // LOCATION
 
@@ -184,7 +110,7 @@ typedef struct {
 } DPL_Ast_TypeObject;
 
 typedef struct DPL_Ast_Type {
-    DPL_Type_Kind kind;
+    DPL_Symbol_Type_Kind kind;
     DPL_Token first;
     DPL_Token last;
     union {
@@ -342,7 +268,8 @@ typedef struct
 
 typedef enum
 {
-    BOUND_NODE_VALUE = 0,
+    BOUND_NODE_VALUE,
+    BOUND_NODE_OBJECT,
     BOUND_NODE_FUNCTIONCALL,
     BOUND_NODE_SCOPE,
     BOUND_NODE_VARREF,
@@ -367,19 +294,9 @@ typedef struct {
     DPL_Bound_ObjectField* fields;
 } DPL_Bound_Object;
 
-typedef struct {
-    DPL_Handle type_handle;
-    union {
-        double number;
-        Nob_String_View string;
-        bool boolean;
-        DPL_Bound_Object object;
-    } as;
-} DPL_Bound_Value;
-
 typedef struct
 {
-    DPL_Handle function_handle;
+    DPL_Symbol* function;
     DPL_Bound_Node** arguments;
     size_t arguments_count;
 } DPL_Bound_FunctionCall;
@@ -426,10 +343,11 @@ typedef struct
 struct _DPL_Bound_Node
 {
     DPL_BoundNodeKind kind;
-    DPL_Handle type_handle;
+    DPL_Symbol* type;
     bool persistent;
     union {
-        DPL_Bound_Value value;
+        DPL_Symbol_Constant value;
+        DPL_Bound_Object object;
         DPL_Bound_FunctionCall function_call;
         DPL_Bound_Scope scope;
         size_t varref;
@@ -450,68 +368,10 @@ typedef struct
 } DPL_BoundTree;
 
 
-// SYMBOL STACK
-
-typedef DPL_Bound_Value DPL_Symbol_Constant_;
-
-typedef enum {
-    SYMBOL_CONSTANT_,
-    SYMBOL_VAR_,
-    SYMBOL_FUNCTION_,
-    SYMBOL_ARGUMENT_,
-    SYMBOL_TYPE_,
-} DPL_SymbolKind_;
-
-typedef struct {
-    DPL_Handle type_handle;
-    size_t scope_index;
-} DPL_Symbol_Var_;
-
-typedef struct {
-    DPL_Signature signature;
-    DPL_Bound_Node* body;
-    bool used;
-    DPL_Handle user_handle;
-    DPL_Handle function_handle;
-} DPL_Symbol_Function_;
-
-typedef struct {
-    DPL_SymbolKind_ kind;
-    Nob_String_View name;
-    union {
-        DPL_Symbol_Constant_ constant;
-        DPL_Symbol_Var_ var;
-        DPL_Symbol_Var_ argument;
-        DPL_Symbol_Function_ function;
-        DPL_Type* type;
-    } as;
-} DPL_Symbol_;
-
-typedef da_array(DPL_Symbol_) DPL_Symbols;
-
-typedef da_array(size_t) DPL_Frames;
-
-typedef struct {
-    DPL_Symbols symbols;
-    DPL_Frames frames;
-    size_t bottom;
-} DPL_SymbolStack_;
-
-
-// SCOPE STACK
-
-typedef struct {
-    size_t offset;
-    size_t count;
-} DPL_Scope;
-
-typedef da_array(DPL_Scope) DPL_ScopeStack;
-
-
 // USER FUNCTIONS
 
 typedef struct {
-    DPL_Handle function_handle;
+    DPL_Symbol* function;
     size_t begin_ip;
     size_t arity;
     DPL_Bound_Node* body;
@@ -526,14 +386,8 @@ struct _DPL
     // Configuration
     bool debug;
 
-    // Catalogs
-    DPL_Types types;
-    DPL_Handle number_type_handle;
-    DPL_Handle string_type_handle;
-    DPL_Handle boolean_type_handle;
-    DPL_Handle none_type_handle;
-
-    DPL_Functions functions;
+    // Symbol stack
+    DPL_SymbolStack symbols;
 
     // Common
     Nob_String_View file_name;
@@ -555,8 +409,6 @@ struct _DPL
     DPL_Ast_Tree tree;
 
     // Binder
-    DPL_SymbolStack_ symbol_stack;
-    DPL_ScopeStack scope_stack;
     DPL_BoundTree bound_tree;
 
     // Generator

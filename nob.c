@@ -62,6 +62,7 @@ void build_dplc(bool debug_build) {
                    "./src/dpl.c",
                    "./src/externals.c",
                    "./src/program.c",
+                   "./src/symbols.c",
                    "./src/value.c",
                    "./src/vm.c",
                    "./dplc.c",
