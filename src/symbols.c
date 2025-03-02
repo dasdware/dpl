@@ -124,7 +124,24 @@ DPL_Symbol *dpl_symbols_find_kind_cstr(DPL_SymbolStack *stack, const char *name,
     return dpl_symbols_find_kind(stack, nob_sv_from_cstr(name), kind);
 }
 
-DPL_Symbol *dpl_symbols_find_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query)
+DPL_Symbol *dpl_symbols_find_type_base(DPL_SymbolStack* stack, DPL_Symbol_Type_Base_Kind kind)
+{
+    STACK_FOREACH_BEGIN(stack, symbol)
+        if (symbol->kind == SYMBOL_TYPE && symbol->as.type.kind == TYPE_BASE && symbol->as.type.as.base == kind) {
+            return symbol;
+        }
+    STACK_FOREACH_END
+
+    error_sb.count = 0;
+    nob_sb_append_cstr(&error_sb, "Cannot find base type `");
+    nob_sb_append_cstr(&error_sb, SYMBOL_TYPE_BASE_KIND_NAMES[kind]);
+    nob_sb_append_cstr(&error_sb, "`.");
+    nob_sb_append_null(&error_sb);
+
+    return NULL;
+}
+
+DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query)
 {
     STACK_FOREACH_BEGIN(stack, symbol)
         if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_OBJECT) {
@@ -346,8 +363,7 @@ bool dpl_symbols_is_type_base(DPL_Symbol* symbol, DPL_Symbol_Type_Base_Kind kind
 
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value)
 {
-    // TODO: Extract base type names into #defines
-    DPL_Symbol *type = dpl_symbols_find_kind(stack, nob_sv_from_cstr(TYPENAME_NUMBER), SYMBOL_TYPE);
+    DPL_Symbol *type = dpl_symbols_find_type_number(stack);
     ABORT_IF_NULL(type);
 
     DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_CONSTANT, name);

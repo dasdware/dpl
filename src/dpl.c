@@ -1809,27 +1809,27 @@ DPL_Symbol_Constant _dplb_fold_constant(DPL* dpl, DPL_Ast_Node* node) {
         switch (value.kind) {
         case TOKEN_NUMBER:
             return (DPL_Symbol_Constant) {
-                .type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_NUMBER, SYMBOL_TYPE),
+                .type = dpl_symbols_find_type_number(&dpl->symbols),
                 .as.number = atof(nob_temp_sv_to_cstr(value.text)),
             };
         case TOKEN_STRING:
             return (DPL_Symbol_Constant) {
-                .type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_STRING, SYMBOL_TYPE),
+                .type = dpl_symbols_find_type_string(&dpl->symbols),
                 .as.string = _dplb_unescape_string(dpl, value.text, 1, 1),
             };
         case TOKEN_STRING_INTERPOLATION:
             return (DPL_Symbol_Constant) {
-                .type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_STRING, SYMBOL_TYPE),
+                .type = dpl_symbols_find_type_string(&dpl->symbols),
                 .as.string = _dplb_unescape_string(dpl, value.text, 1, 2),
             };
         case TOKEN_TRUE:
             return (DPL_Symbol_Constant) {
-                .type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_BOOLEAN, SYMBOL_TYPE),
+                .type = dpl_symbols_find_type_boolean(&dpl->symbols),
                 .as.boolean = true,
             };
         case TOKEN_FALSE:
             return (DPL_Symbol_Constant) {
-                .type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_BOOLEAN, SYMBOL_TYPE),
+                .type = dpl_symbols_find_type_boolean(&dpl->symbols),
                 .as.boolean = false,
             };
         default:
@@ -2064,7 +2064,7 @@ DPL_Bound_Node* _dplb_bind_object_literal(DPL* dpl, DPL_Ast_Node* node) {
         }
     }
 
-    DPL_Symbol* bound_type = dpl_symbols_find_object_query(&dpl->symbols, type_query);
+    DPL_Symbol* bound_type = dpl_symbols_find_type_object_query(&dpl->symbols, type_query);
     if (!bound_type) {
         Nob_String_Builder type_name_builder = {0};
         nob_sb_append_cstr(&type_name_builder, "[");
@@ -2230,7 +2230,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
             DPL_Bound_Node* bound_node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
             bound_node->kind = BOUND_NODE_LOGICAL_OPERATOR;
-            bound_node->type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_BOOLEAN, SYMBOL_TYPE);
+            bound_node->type = dpl_symbols_find_type_boolean(&dpl->symbols);
             bound_node->as.logical_operator.operator = node->as.binary.operator;
             bound_node->as.logical_operator.lhs = lhs;
             bound_node->as.logical_operator.rhs = rhs;
@@ -2401,7 +2401,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, conditional.condition);
         if (!dpl_symbols_is_type_base(bound_condition->type, TYPE_BASE_BOOLEAN)) {
-            DPL_Symbol* boolean_type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_BOOLEAN, SYMBOL_TYPE);
+            DPL_Symbol* boolean_type = dpl_symbols_find_type_boolean(&dpl->symbols);
 
             DPL_AST_ERROR(dpl, conditional.condition,
                           "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
@@ -2429,7 +2429,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* bound_condition = _dplb_bind_node(dpl, while_loop.condition);
         if (!dpl_symbols_is_type_base(bound_condition->type, TYPE_BASE_BOOLEAN)) {
-            DPL_Symbol* boolean_type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_BOOLEAN, SYMBOL_TYPE);
+            DPL_Symbol* boolean_type = dpl_symbols_find_type_boolean(&dpl->symbols);
 
             DPL_AST_ERROR(dpl, while_loop.condition,
                           "Condition operand type `"SV_Fmt"` does not match type `"SV_Fmt"`.",
@@ -2469,7 +2469,7 @@ DPL_Bound_Node* _dplb_bind_node(DPL* dpl, DPL_Ast_Node* node)
 
         DPL_Bound_Node* node = arena_alloc(&dpl->bound_tree.memory, sizeof(DPL_Bound_Node));
         node->kind = BOUND_NODE_INTERPOLATION;
-        node->type = dpl_symbols_find_kind_cstr(&dpl->symbols, TYPENAME_STRING, SYMBOL_TYPE);
+        node->type = dpl_symbols_find_type_string(&dpl->symbols);
         _dplb_move_nodelist(dpl, bound_expressions, &node->as.interpolation.expressions_count,
                             &node->as.interpolation.expressions);
         return node;
