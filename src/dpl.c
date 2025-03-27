@@ -82,7 +82,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     }
 
     // lexer initialization
-    dpl->current_line = dpl->source.data;
+    dpl->lexer.current_line = dpl->lexer.source.data;
 }
 
 void dpl_free(DPL *dpl)
@@ -95,611 +95,6 @@ void dpl_free(DPL *dpl)
 
     // bound tree freeing
     arena_free(&dpl->bound_tree.memory);
-}
-
-// CATALOGS
-
-/// TYPES
-
-size_t _dplt_hash(Nob_String_View sv)
-{
-    size_t hash = 5381;
-    while (sv.count > 0)
-    {
-        int c = *sv.data;
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-        sv.data++;
-        sv.count--;
-    }
-
-    return hash;
-}
-
-// LEXER
-
-const char *_dpll_token_kind_name(DPL_TokenKind kind)
-{
-    switch (kind)
-    {
-    case TOKEN_NONE:
-        return "<none>";
-    case TOKEN_EOF:
-        return "<end of file>";
-    case TOKEN_NUMBER:
-        return "number literal";
-    case TOKEN_STRING:
-        return "string literal";
-    case TOKEN_STRING_INTERPOLATION:
-        return "string interpolation";
-    case TOKEN_TRUE:
-    case TOKEN_FALSE:
-        return "boolean literal";
-    case TOKEN_IDENTIFIER:
-        return "<identifier>";
-    case TOKEN_KEYWORD_CONSTANT:
-        return "keyword `constant`";
-    case TOKEN_KEYWORD_FUNCTION:
-        return "keyword `function`";
-    case TOKEN_KEYWORD_VAR:
-        return "keyword `var`";
-    case TOKEN_KEYWORD_IF:
-        return "keyword `if`";
-    case TOKEN_KEYWORD_ELSE:
-        return "keyword `else`";
-    case TOKEN_KEYWORD_WHILE:
-        return "keyword `while`";
-    case TOKEN_KEYWORD_TYPE:
-        return "keyword `type`";
-
-    case TOKEN_WHITESPACE:
-        return "<whitespace>";
-    case TOKEN_COMMENT:
-        return "<comment>";
-
-    case TOKEN_PLUS:
-        return "token `+`";
-    case TOKEN_MINUS:
-        return "token `-`";
-    case TOKEN_STAR:
-        return "token `*`";
-    case TOKEN_SLASH:
-        return "token `/`";
-
-    case TOKEN_LESS:
-        return "token `<`";
-    case TOKEN_LESS_EQUAL:
-        return "token `<=`";
-    case TOKEN_GREATER:
-        return "token `>`";
-    case TOKEN_GREATER_EQUAL:
-        return "token `>=`";
-    case TOKEN_EQUAL_EQUAL:
-        return "token `==`";
-    case TOKEN_BANG:
-        return "token `!`";
-    case TOKEN_BANG_EQUAL:
-        return "token `!=`";
-    case TOKEN_AND_AND:
-        return "token `&&`";
-    case TOKEN_PIPE_PIPE:
-        return "token `||`";
-
-    case TOKEN_DOT:
-        return "token `.`";
-    case TOKEN_DOT_DOT:
-        return "token `..`";
-    case TOKEN_COLON:
-        return "token `:`";
-    case TOKEN_COLON_EQUAL:
-        return "token `:=`";
-
-    case TOKEN_OPEN_PAREN:
-        return "token `(`";
-    case TOKEN_CLOSE_PAREN:
-        return "token `)`";
-    case TOKEN_OPEN_BRACE:
-        return "token `{`";
-    case TOKEN_CLOSE_BRACE:
-        return "token `}`";
-    case TOKEN_OPEN_BRACKET:
-        return "token `[`";
-    case TOKEN_CLOSE_BRACKET:
-        return "token `]`";
-    case TOKEN_COMMA:
-        return "token `,`";
-    case TOKEN_SEMICOLON:
-        return "token `;`";
-    default:
-        DW_UNIMPLEMENTED_MSG("%d", kind);
-    }
-}
-
-Nob_String_View _dpl_line_view(DPL *dpl, const char *line_start)
-{
-    Nob_String_View line = nob_sv_from_parts(line_start, 0);
-    while ((line.count < (size_t)((dpl->source.data + dpl->source.count) - line_start)) && *(line.data + line.count) != '\n' && *(line.data + line.count) != '\0')
-    {
-        line.count++;
-    }
-
-    return line;
-}
-
-void _dpll_print_token(FILE *f, DPL *dpl, DPL_Token token)
-{
-    Nob_String_View line_view = _dpl_line_view(dpl, token.location.line_start);
-
-    fprintf(f, "%3zu| " SV_Fmt "\n", token.location.line + 1, SV_Arg(line_view));
-    fprintf(f, "   | ");
-
-    for (size_t i = 0; i < token.location.column; ++i)
-    {
-        fprintf(f, " ");
-    }
-    fprintf(f, "^");
-    if (token.text.count > 1)
-    {
-        for (size_t i = 0; i < token.text.count - 1; ++i)
-        {
-            fprintf(f, "~");
-        }
-    }
-    fprintf(f, "\n");
-}
-
-void _dpll_print_token_range(FILE *out, DPL *dpl, DPL_Token first, DPL_Token last)
-{
-    const char *line = first.location.line_start;
-    for (size_t line_num = first.location.line; line_num <= last.location.line; ++line_num)
-    {
-        Nob_String_View line_view = _dpl_line_view(dpl, line);
-        fprintf(out, "%3zu| " SV_Fmt "\n", line_num + 1, SV_Arg(line_view));
-        fprintf(out, "   | ");
-
-        size_t start_column = 0;
-        if (line_num == first.location.line)
-        {
-            start_column = first.location.column;
-        }
-
-        size_t end_column = line_view.count;
-        if (line_num == last.location.line)
-        {
-            end_column = last.location.column + last.text.count;
-        }
-
-        for (size_t i = 0; i < start_column; ++i)
-        {
-            fprintf(out, " ");
-        }
-
-        size_t length = end_column - start_column;
-        if (line_num == first.location.line)
-        {
-            fprintf(out, "^");
-            if (length > 0)
-            {
-                length--;
-            }
-        }
-
-        if (length > 1)
-        {
-            for (size_t i = 0; i < length - 1; ++i)
-            {
-                fprintf(out, "~");
-            }
-            if (line_num == last.location.line)
-            {
-                fprintf(out, "^");
-            }
-            else
-            {
-                fprintf(out, "~");
-            }
-        }
-        fprintf(out, "\n");
-
-        line += line_view.count + 1;
-    }
-}
-
-void _dpll_advance(DPL *dpl)
-{
-    dpl->position++;
-    dpl->column++;
-}
-
-bool _dpll_is_eof(DPL *dpl)
-{
-    return (dpl->position >= dpl->source.count);
-}
-
-char _dpll_current(DPL *dpl)
-{
-    return *(dpl->source.data + dpl->position);
-}
-
-bool _dpll_match(DPL *dpl, char c)
-{
-    if (_dpll_current(dpl) == c)
-    {
-        _dpll_advance(dpl);
-        return true;
-    }
-    return false;
-}
-
-DPL_Location _dpll_current_location(DPL *dpl)
-{
-    return (DPL_Location){
-        .file_name = dpl->file_name,
-        .line = dpl->line,
-        .column = dpl->column,
-        .line_start = dpl->current_line,
-    };
-}
-
-DPL_Token _dpll_build_token(DPL *dpl, DPL_TokenKind kind)
-{
-    DPL_Token token = {
-        .kind = kind,
-        .location = dpl->token_start_location,
-        .text = nob_sv_from_parts(
-            dpl->source.data + dpl->token_start,
-            dpl->position - dpl->token_start),
-    };
-
-    if (dpl->first_token.kind == TOKEN_NONE)
-    {
-        dpl->first_token = token;
-    }
-
-    if (dpl->debug)
-    {
-        printf(LOC_Fmt " - %s: " SV_Fmt "\n", LOC_Arg(token.location), _dpll_token_kind_name(token.kind), SV_Arg(token.text));
-    }
-
-    return token;
-}
-
-DPL_Token _dpll_build_empty_token(DPL *dpl, DPL_TokenKind kind)
-{
-    DPL_Token token = {
-        .kind = kind,
-        .location = dpl->token_start_location,
-        .text = SV_NULL,
-    };
-
-    if (dpl->debug)
-    {
-        printf(LOC_Fmt " - %s\n", LOC_Arg(token.location), _dpll_token_kind_name(token.kind));
-    }
-
-    return token;
-}
-
-bool _dpll_is_ident_begin(char c)
-{
-    return c == '_' || isalpha(c);
-}
-
-bool _dpll_is_ident(char c)
-{
-    return c == '_' || isalnum(c);
-}
-
-DPL_Token _dpll_string(DPL *dpl)
-{
-    bool in_escape = false;
-    while (true)
-    {
-        if (_dpll_is_eof(dpl))
-        {
-            DPL_Lexer lexer = {
-                .first_token = dpl->first_token,
-                .position = dpl->position,
-                .source = dpl->source,
-                .token_start = dpl->token_start,
-                .token_start_location = dpl->token_start_location,
-            };
-            DPL_LEXER_ERROR(&lexer, "Unterminated string literal.");
-            dpl->token_start = lexer.token_start;
-        }
-
-        if (_dpll_current(dpl) == '$')
-        {
-            _dpll_advance(dpl);
-            if (_dpll_current(dpl) != '{')
-            {
-                continue;
-            }
-
-            _dpll_advance(dpl);
-            DPL_Token token = _dpll_build_token(dpl, TOKEN_STRING_INTERPOLATION);
-            if (dpl->interpolation_depth < DPL_MAX_INTERPOLATION)
-            {
-
-                dpl->interpolation_brackets[dpl->interpolation_depth] = 1;
-                dpl->interpolation_depth++;
-                return token;
-            }
-
-            DPL_TOKEN_ERROR(dpl->source, token, "String interpolation may nest only %d levels deep.", DPL_MAX_INTERPOLATION);
-        }
-
-        if (_dpll_current(dpl) == '"')
-        {
-            if (!in_escape)
-            {
-                _dpll_advance(dpl);
-                return _dpll_build_token(dpl, TOKEN_STRING);
-            }
-        }
-
-        if (!in_escape && _dpll_current(dpl) == '\\')
-        {
-            in_escape = true;
-        }
-        else
-        {
-            in_escape = false;
-        }
-
-        _dpll_advance(dpl);
-    }
-}
-
-DPL_Token _dpll_next_token(DPL *dpl)
-{
-    if (dpl->peek_token.kind != TOKEN_NONE)
-    {
-        DPL_Token peeked = dpl->peek_token;
-        dpl->peek_token = (DPL_Token){
-            0};
-        return peeked;
-    }
-
-    dpl->token_start = dpl->position;
-    dpl->token_start_location = _dpll_current_location(dpl);
-
-    if (_dpll_is_eof(dpl))
-    {
-        return _dpll_build_empty_token(dpl, TOKEN_EOF);
-    }
-
-    if (isspace(_dpll_current(dpl)))
-    {
-        while (!_dpll_is_eof(dpl) && isspace(_dpll_current(dpl)))
-        {
-            if (_dpll_current(dpl) == '\n')
-            {
-                dpl->position++;
-                dpl->line++;
-                dpl->column = 0;
-                dpl->current_line = dpl->source.data + dpl->position;
-            }
-            else
-            {
-                _dpll_advance(dpl);
-            }
-        }
-        return _dpll_build_token(dpl, TOKEN_WHITESPACE);
-    }
-
-    switch (_dpll_current(dpl))
-    {
-    case '+':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_PLUS);
-    case '-':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_MINUS);
-    case '*':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_STAR);
-    case '/':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_SLASH);
-    case '.':
-        _dpll_advance(dpl);
-        if (_dpll_match(dpl, '.'))
-        {
-            return _dpll_build_token(dpl, TOKEN_DOT_DOT);
-        }
-        return _dpll_build_token(dpl, TOKEN_DOT);
-    case ':':
-        _dpll_advance(dpl);
-        if (_dpll_match(dpl, '='))
-        {
-            return _dpll_build_token(dpl, TOKEN_COLON_EQUAL);
-        }
-        return _dpll_build_token(dpl, TOKEN_COLON);
-    case '<':
-        _dpll_advance(dpl);
-        if (_dpll_match(dpl, '='))
-        {
-            return _dpll_build_token(dpl, TOKEN_LESS_EQUAL);
-        }
-        return _dpll_build_token(dpl, TOKEN_LESS);
-    case '>':
-        _dpll_advance(dpl);
-        if (_dpll_match(dpl, '='))
-        {
-            return _dpll_build_token(dpl, TOKEN_GREATER_EQUAL);
-        }
-        return _dpll_build_token(dpl, TOKEN_GREATER);
-    case '=':
-        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '='))
-        {
-            _dpll_advance(dpl);
-            _dpll_advance(dpl);
-            return _dpll_build_token(dpl, TOKEN_EQUAL_EQUAL);
-        }
-        break;
-    case '&':
-        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '&'))
-        {
-            _dpll_advance(dpl);
-            _dpll_advance(dpl);
-            return _dpll_build_token(dpl, TOKEN_AND_AND);
-        }
-        break;
-    case '|':
-        if ((dpl->position < dpl->source.count - 2) && (dpl->source.data[dpl->position + 1] == '|'))
-        {
-            _dpll_advance(dpl);
-            _dpll_advance(dpl);
-            return _dpll_build_token(dpl, TOKEN_PIPE_PIPE);
-        }
-        break;
-    case '!':
-        _dpll_advance(dpl);
-        if (_dpll_match(dpl, '='))
-        {
-            return _dpll_build_token(dpl, TOKEN_BANG_EQUAL);
-        }
-        return _dpll_build_token(dpl, TOKEN_BANG);
-    case '(':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_OPEN_PAREN);
-    case ')':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_CLOSE_PAREN);
-    case '{':
-        _dpll_advance(dpl);
-        if (dpl->interpolation_depth > 0)
-        {
-            dpl->interpolation_brackets[dpl->interpolation_depth - 1]++;
-        }
-        return _dpll_build_token(dpl, TOKEN_OPEN_BRACE);
-    case '}':
-        _dpll_advance(dpl);
-        if (dpl->interpolation_depth > 0)
-        {
-            dpl->interpolation_brackets[dpl->interpolation_depth - 1]--;
-            if (dpl->interpolation_brackets[dpl->interpolation_depth - 1] == 0)
-            {
-                dpl->interpolation_depth--;
-                return _dpll_string(dpl);
-            }
-        }
-        return _dpll_build_token(dpl, TOKEN_CLOSE_BRACE);
-    case '[':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_OPEN_BRACKET);
-    case ']':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_CLOSE_BRACKET);
-    case ',':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_COMMA);
-    case ';':
-        _dpll_advance(dpl);
-        return _dpll_build_token(dpl, TOKEN_SEMICOLON);
-    case '#':
-        _dpll_advance(dpl);
-        while (!_dpll_is_eof(dpl))
-        {
-            if (_dpll_current(dpl) == '\n')
-            {
-                dpl->position++;
-                dpl->line++;
-                dpl->column = 0;
-                dpl->current_line = dpl->source.data + dpl->position;
-                return _dpll_build_token(dpl, TOKEN_COMMENT);
-            }
-            _dpll_advance(dpl);
-        }
-        return _dpll_build_token(dpl, TOKEN_COMMENT);
-    case '"':
-        _dpll_advance(dpl);
-        return _dpll_string(dpl);
-    }
-
-    if (isdigit(_dpll_current(dpl)))
-    {
-        // integral part
-        while (!_dpll_is_eof(dpl) && isdigit(_dpll_current(dpl)))
-            _dpll_advance(dpl);
-
-        if ((dpl->position >= dpl->source.count - 1) || *(dpl->source.data + dpl->position) != '.' || !isdigit(*(dpl->source.data + dpl->position + 1)))
-        {
-            return _dpll_build_token(dpl, TOKEN_NUMBER);
-        }
-        _dpll_advance(dpl); // skip the '.'
-
-        // fractional part
-        while (!_dpll_is_eof(dpl) && isdigit(_dpll_current(dpl)))
-            _dpll_advance(dpl);
-
-        return _dpll_build_token(dpl, TOKEN_NUMBER);
-    }
-
-    if (_dpll_is_ident_begin(_dpll_current(dpl)))
-    {
-        while (!_dpll_is_eof(dpl) && _dpll_is_ident(_dpll_current(dpl)))
-            _dpll_advance(dpl);
-
-        DPL_Token t = _dpll_build_token(dpl, TOKEN_IDENTIFIER);
-        if (nob_sv_eq(t.text, nob_sv_from_cstr("constant")))
-        {
-            t.kind = TOKEN_KEYWORD_CONSTANT;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("function")))
-        {
-            t.kind = TOKEN_KEYWORD_FUNCTION;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("var")))
-        {
-            t.kind = TOKEN_KEYWORD_VAR;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("if")))
-        {
-            t.kind = TOKEN_KEYWORD_IF;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("else")))
-        {
-            t.kind = TOKEN_KEYWORD_ELSE;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("true")))
-        {
-            t.kind = TOKEN_TRUE;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("while")))
-        {
-            t.kind = TOKEN_KEYWORD_WHILE;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("false")))
-        {
-            t.kind = TOKEN_FALSE;
-        }
-        else if (nob_sv_eq(t.text, nob_sv_from_cstr("type")))
-        {
-            t.kind = TOKEN_KEYWORD_TYPE;
-        }
-
-        return t;
-    }
-
-    DPL_Lexer lexer = {
-        .first_token = dpl->first_token,
-        .position = dpl->position,
-        .source = dpl->source,
-        .token_start = dpl->token_start,
-        .token_start_location = dpl->token_start_location,
-    };
-    DPL_LEXER_ERROR(&lexer, "Invalid character '%c'.", _dpll_current(dpl));
-    dpl->token_start = lexer.token_start;
-}
-
-DPL_Token _dpll_peek_token(DPL *dpl)
-{
-    if (dpl->peek_token.kind == TOKEN_NONE)
-    {
-        dpl->peek_token = _dpll_next_token(dpl);
-    }
-    return dpl->peek_token;
 }
 
 // AST
@@ -791,7 +186,7 @@ const char *_dpla_type_name(DPL_Ast_Type *ast_type)
     static char result[256];
     if (!ast_type)
     {
-        return _dpll_token_kind_name(TOKEN_NONE);
+        return dpl_lexer_token_kind_name(TOKEN_NONE);
     }
     Nob_String_Builder sb = {0};
     _dpla_build_type_name(ast_type, &sb);
@@ -825,13 +220,13 @@ void _dpla_print(DPL_Ast_Node *node, size_t level)
     {
     case AST_NODE_UNARY:
     {
-        printf(" [%s]\n", _dpll_token_kind_name(node->as.unary.operator.kind));
+        printf(" [%s]\n", dpl_lexer_token_kind_name(node->as.unary.operator.kind));
         _dpla_print(node->as.unary.operand, level + 1);
         break;
     }
     case AST_NODE_BINARY:
     {
-        printf(" [%s]\n", _dpll_token_kind_name(node->as.binary.operator.kind));
+        printf(" [%s]\n", dpl_lexer_token_kind_name(node->as.binary.operator.kind));
         _dpla_print(node->as.binary.left, level + 1);
         _dpla_print(node->as.binary.right, level + 1);
         break;
@@ -839,7 +234,7 @@ void _dpla_print(DPL_Ast_Node *node, size_t level)
     case AST_NODE_LITERAL:
     case AST_NODE_SYMBOL:
     {
-        printf(" [%s: " SV_Fmt "]\n", _dpll_token_kind_name(node->as.literal.value.kind), SV_Arg(node->as.literal.value.text));
+        printf(" [%s: " SV_Fmt "]\n", dpl_lexer_token_kind_name(node->as.literal.value.kind), SV_Arg(node->as.literal.value.text));
         break;
     }
     case AST_NODE_OBJECT_LITERAL:
@@ -872,7 +267,7 @@ void _dpla_print(DPL_Ast_Node *node, size_t level)
     case AST_NODE_FUNCTIONCALL:
     {
         DPL_Ast_FunctionCall call = node->as.function_call;
-        printf(" [%s: " SV_Fmt "]\n", _dpll_token_kind_name(call.name.kind), SV_Arg(call.name.text));
+        printf(" [%s: " SV_Fmt "]\n", dpl_lexer_token_kind_name(call.name.kind), SV_Arg(call.name.text));
         for (size_t i = 0; i < call.argument_count; ++i)
         {
             _dpla_print_indent(level + 1);
@@ -896,7 +291,7 @@ void _dpla_print(DPL_Ast_Node *node, size_t level)
     case AST_NODE_DECLARATION:
     {
         DPL_Ast_Declaration declaration = node->as.declaration;
-        printf(" [%s " SV_Fmt ": %s]\n", _dpll_token_kind_name(declaration.keyword.kind), SV_Arg(declaration.name.text), _dpla_type_name(declaration.type));
+        printf(" [%s " SV_Fmt ": %s]\n", dpl_lexer_token_kind_name(declaration.keyword.kind), SV_Arg(declaration.name.text), _dpla_type_name(declaration.type));
         _dpla_print_indent(level + 1);
         printf("<initialization>\n");
         _dpla_print(declaration.initialization, level + 2);
@@ -919,7 +314,7 @@ void _dpla_print(DPL_Ast_Node *node, size_t level)
     case AST_NODE_FUNCTION:
     {
         DPL_Ast_Function function = node->as.function;
-        printf(" [%s " SV_Fmt ": (", _dpll_token_kind_name(function.keyword.kind), SV_Arg(function.name.text));
+        printf(" [%s " SV_Fmt ": (", dpl_lexer_token_kind_name(function.keyword.kind), SV_Arg(function.name.text));
         for (size_t i = 0; i < function.signature.argument_count; ++i)
         {
             if (i > 0)
@@ -991,30 +386,30 @@ void _dpla_print(DPL_Ast_Node *node, size_t level)
 
 void _dplp_skip_whitespace(DPL *dpl)
 {
-    while (_dpll_peek_token(dpl).kind == TOKEN_WHITESPACE || _dpll_peek_token(dpl).kind == TOKEN_COMMENT)
+    while (dpl_lexer_peek_token(&dpl->lexer).kind == TOKEN_WHITESPACE || dpl_lexer_peek_token(&dpl->lexer).kind == TOKEN_COMMENT)
     {
-        _dpll_next_token(dpl);
+        dpl_lexer_next_token(&dpl->lexer);
     }
 }
 
 DPL_Token _dplp_next_token(DPL *dpl)
 {
     _dplp_skip_whitespace(dpl);
-    return _dpll_next_token(dpl);
+    return dpl_lexer_next_token(&dpl->lexer);
 }
 
 DPL_Token _dplp_peek_token(DPL *dpl)
 {
     _dplp_skip_whitespace(dpl);
-    return _dpll_peek_token(dpl);
+    return dpl_lexer_peek_token(&dpl->lexer);
 }
 
 void _dplp_check_token(DPL *dpl, DPL_Token token, DPL_TokenKind kind)
 {
     if (token.kind != kind)
     {
-        DPL_TOKEN_ERROR(dpl->source, token, "Unexpected %s, expected %s.",
-                        _dpll_token_kind_name(token.kind), _dpll_token_kind_name(kind));
+        DPL_TOKEN_ERROR(dpl->lexer.source, token, "Unexpected %s, expected %s.",
+                        dpl_lexer_token_kind_name(token.kind), dpl_lexer_token_kind_name(kind));
     }
 }
 
@@ -1074,7 +469,7 @@ DPL_Ast_Type *_dplp_parse_type(DPL *dpl)
             {
                 if (nob_sv_eq(tmp_fields[i].name.text, name.text))
                 {
-                    DPL_AST_ERROR_WITH_NOTE(dpl->source,
+                    DPL_AST_ERROR_WITH_NOTE(dpl->lexer.source,
                                             &tmp_fields[i], "Previous declaration was here.",
                                             &field, "Duplicate field `" SV_Fmt "` in object type.", SV_Arg(name.text));
                 }
@@ -1103,8 +498,8 @@ DPL_Ast_Type *_dplp_parse_type(DPL *dpl)
         return object_type;
     }
     default:
-        DPL_TOKEN_ERROR(dpl->source, type_begin, "Invalid %s in type reference, expected %s.", _dpll_token_kind_name(type_begin.kind),
-                        _dpll_token_kind_name(TOKEN_IDENTIFIER));
+        DPL_TOKEN_ERROR(dpl->lexer.source, type_begin, "Invalid %s in type reference, expected %s.", dpl_lexer_token_kind_name(type_begin.kind),
+                        dpl_lexer_token_kind_name(TOKEN_IDENTIFIER));
     }
 }
 
@@ -1368,7 +763,7 @@ DPL_Ast_Node *_dplp_parse_primary(DPL *dpl)
     break;
     default:
     {
-        DPL_TOKEN_ERROR(dpl->source, token, "Unexpected %s.", _dpll_token_kind_name(token.kind));
+        DPL_TOKEN_ERROR(dpl->lexer.source, token, "Unexpected %s.", dpl_lexer_token_kind_name(token.kind));
     }
     }
 }
@@ -1408,7 +803,7 @@ DPL_Ast_Node *_dplp_parse_dot(DPL *dpl)
         }
         else
         {
-            DPL_AST_ERROR(dpl->source, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
+            DPL_AST_ERROR(dpl->lexer.source, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
         }
 
         operator_candidate = _dplp_peek_token(dpl);
@@ -1613,11 +1008,11 @@ DPL_Ast_Node *_dplp_parse_assignment(DPL *dpl)
     {
         if (target->kind == AST_NODE_FIELD_ACCESS)
         {
-            DPL_AST_ERROR(dpl->source, target, "Object fields cannot be assigned directly. Instead, you can compose a new object from the old one.");
+            DPL_AST_ERROR(dpl->lexer.source, target, "Object fields cannot be assigned directly. Instead, you can compose a new object from the old one.");
         }
         else if (target->kind != AST_NODE_SYMBOL)
         {
-            DPL_AST_ERROR(dpl->source, target, "`%s` is not a valid assignment target.",
+            DPL_AST_ERROR(dpl->lexer.source, target, "`%s` is not a valid assignment target.",
                           _dpla_node_kind_name(target->kind));
         }
 
@@ -1644,9 +1039,9 @@ DPL_Ast_Node *_dplp_parse_scope(DPL *dpl, DPL_Token opening_token, DPL_TokenKind
     DPL_Token closing_token_candidate = _dplp_peek_token(dpl);
     if (closing_token_candidate.kind == closing_token_kind)
     {
-        DPL_TOKEN_ERROR(dpl->source, closing_token_candidate,
+        DPL_TOKEN_ERROR(dpl->lexer.source, closing_token_candidate,
                         "Unexpected %s. Expected at least one expression in scope.",
-                        _dpll_token_kind_name(closing_token_kind));
+                        dpl_lexer_token_kind_name(closing_token_kind));
     }
 
     da_array(DPL_Ast_Node *) expressions = _dplp_parse_expressions(dpl, TOKEN_SEMICOLON, closing_token_kind, true);
@@ -1664,7 +1059,7 @@ DPL_Ast_Node *_dplp_parse_scope(DPL *dpl, DPL_Token opening_token, DPL_TokenKind
 
 void _dplp_parse(DPL *dpl)
 {
-    dpl->tree.root = _dplp_parse_scope(dpl, dpl->first_token, TOKEN_EOF);
+    dpl->tree.root = _dplp_parse_scope(dpl, dpl->lexer.first_token, TOKEN_EOF);
 }
 
 // COMPILATION PROCESS
@@ -1680,7 +1075,7 @@ void dpl_compile(DPL *dpl, DPL_Program *program)
 
     DPL_Binding binding = (DPL_Binding){
         .memory = &dpl->bound_tree.memory,
-        .source = dpl->source,
+        .source = dpl->lexer.source,
         .symbols = &dpl->symbols,
         .user_functions = 0,
     };

@@ -20,17 +20,6 @@
         exit(1);                                                      \
     } while (false)
 
-#define DPL_LEXER_ERROR(lexer, format, ...)                                   \
-    do                                                                        \
-    {                                                                         \
-        DPL_Token error_token = dpl_lexer_build_token((lexer), TOKEN_NONE);   \
-        DW_ERROR_MSG(LOC_Fmt ": ERROR: ", LOC_Arg(error_token.location));     \
-        DW_ERROR_MSG(format, ##__VA_ARGS__);                                  \
-        DW_ERROR_MSG("\n");                                                   \
-        dpl_lexer_print_token((lexer)->source, DW_ERROR_STREAM, error_token); \
-        exit(1);                                                              \
-    } while (false)
-
 // LOCATION
 
 typedef struct
@@ -128,6 +117,7 @@ const char *dpl_lexer_token_kind_name(DPL_TokenKind kind);
 void dpl_lexer_print_token(Nob_String_View source, FILE *f, DPL_Token token);
 void dpl_lexer_print_token_range(Nob_String_View source, FILE *out, DPL_Token first, DPL_Token last);
 
-DPL_Token dpl_lexer_build_token(DPL_Lexer *lexer, DPL_TokenKind kind);
+DPL_Token dpl_lexer_next_token(DPL_Lexer *lexer);
+DPL_Token dpl_lexer_peek_token(DPL_Lexer *lexer);
 
 #endif

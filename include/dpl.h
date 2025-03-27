@@ -45,21 +45,8 @@ struct _DPL
     // Symbol stack
     DPL_SymbolStack symbols;
 
-    // Common
-    Nob_String_View file_name;
-    Nob_String_View source;
-
     // Lexer
-    size_t position;
-    size_t token_start;
-    DPL_Location token_start_location;
-    const char *current_line;
-    size_t line;
-    size_t column;
-    DPL_Token first_token;
-    DPL_Token peek_token;
-    int interpolation_brackets[DPL_MAX_INTERPOLATION];
-    int interpolation_depth;
+    DPL_Lexer lexer;
 
     // Parser
     DPL_Ast_Tree tree;
