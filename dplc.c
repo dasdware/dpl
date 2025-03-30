@@ -33,7 +33,10 @@ int main(int argc, char **argv)
     DPL_ExternalFunctions externals = {0};
     dple_init(&externals);
 
+    Arena memory = {0};
+
     DPL dpl = {0};
+    dpl.memory = &memory;
 
     const char *source_filename = NULL;
     const char *output_filename = NULL;
@@ -69,11 +72,12 @@ int main(int argc, char **argv)
         output_filename = nob_temp_change_file_ext(source_filename, "dplp");
     }
 
+    dpl.file_name = nob_sv_from_cstr(source_filename);
+
     Nob_String_Builder source = {0};
     nob_read_entire_file(source_filename, &source);
+    dpl.source = nob_sv_from_parts(source.items, source.count);
 
-    dpl.lexer.file_name = nob_sv_from_cstr(source_filename);
-    dpl.lexer.source = nob_sv_from_parts(source.items, source.count);
     dpl_init(&dpl, externals);
 
     DPL_Program compiled_program = {0};
@@ -85,6 +89,8 @@ int main(int argc, char **argv)
     dpl_free(&dpl);
     dple_free(&externals);
     nob_da_free(source);
+
+    arena_free(&memory);
 
 #ifdef DPL_LEAKCHECK
     stb_leakcheck_dumpmem();

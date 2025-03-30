@@ -178,6 +178,12 @@ struct _DPL_Ast_Node
     } as;
 };
 
+typedef struct
+{
+    Arena *memory;
+    DPL_Lexer *lexer;
+} DPL_Parser;
+
 #define DPL_AST_ERROR(source, node, format, ...)                                             \
     do                                                                                       \
     {                                                                                        \
@@ -202,5 +208,8 @@ struct _DPL_Ast_Node
     } while (false)
 
 const char *dpl_parse_nodekind_name(DPL_AstNodeKind kind);
+void dpl_parse_print(DPL_Ast_Node *node, size_t level);
+
+DPL_Ast_Node *dpl_parse(DPL_Parser *parser);
 
 #endif
