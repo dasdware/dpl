@@ -19,60 +19,63 @@
 #define TARGET_DPLC nob_sv_from_cstr("dplc")
 #define TARGET_DPL nob_sv_from_cstr("dpl")
 
-
 void usage(Nob_String_View program, bool help_hint)
 {
     printf(
         "\n"
-        "Usage:\n"
-        SV_Fmt" command [parameters] [-- command [parameters]]*\n",
-        SV_Arg(program)
-    );
+        "Usage:\n" SV_Fmt " command [parameters] [-- command [parameters]]*\n",
+        SV_Arg(program));
 
     if (help_hint)
     {
         printf(
             "\n"
             "Use the following command for further details:\n"
-            " "SV_Fmt" help\n",
-            SV_Arg(program)
-        );
+            " " SV_Fmt " help\n",
+            SV_Arg(program));
     }
 }
 
-void check_command_end(Nob_String_View program, int *argc, char ***argv, const char* command)
+void check_command_end(Nob_String_View program, int *argc, char ***argv, const char *command)
 {
-    if (*argc > 0 && !nob_sv_eq(nob_sv_shift_args(argc, argv), COMMAND_DELIM)) {
+    if (*argc > 0 && !nob_sv_eq(nob_sv_shift_args(argc, argv), COMMAND_DELIM))
+    {
         nob_log(NOB_ERROR, "Additional arguments to command `%s` are not allowed.", command);
         usage(program, true);
         exit(1);
     }
 }
 
-void build_dplc(bool debug_build) {
+void build_dplc(bool debug_build)
+{
     Nob_Cmd cmd = {0};
     cmd.count = 0;
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
-    if (debug_build) {
+    if (debug_build)
+    {
         nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
     }
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
+                   "./src/binding.c",
                    "./src/externals.c",
+                   "./src/generator.c",
+                   "./src/lexer.c",
+                   "./src/parser.c",
                    "./src/program.c",
                    "./src/symbols.c",
                    "./src/value.c",
                    "./src/vm.c",
-                   "./dplc.c",
-                  );
+                   "./dplc.c", );
     nob_cmd_append(&cmd, "-lm");
     nob_cmd_append(&cmd, "-o", DPLC_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
-    if (!success) {
+    if (!success)
+    {
         exit(1);
     }
 }
@@ -84,7 +87,8 @@ void build_dpl(bool debug_build)
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
-    if (debug_build) {
+    if (debug_build)
+    {
         nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
     }
     nob_cmd_append(&cmd,
@@ -92,13 +96,13 @@ void build_dpl(bool debug_build)
                    "./src/externals.c",
                    "./src/value.c",
                    "./src/vm.c",
-                   "./dpl.c",
-                  );
+                   "./dpl.c", );
     nob_cmd_append(&cmd, "-lm");
     nob_cmd_append(&cmd, "-o", DPL_OUTPUT);
 
     bool success = nob_cmd_run_sync(cmd);
-    if (!success) {
+    if (!success)
+    {
         exit(1);
     }
 
@@ -111,14 +115,18 @@ void build(Nob_String_View program, int *argc, char ***argv)
 
     bool have_built = false;
     bool debug_build = false;
-    while (*argc > 0) {
+    while (*argc > 0)
+    {
         Nob_String_View target = nob_sv_shift_args(argc, argv);
-        if (nob_sv_eq(target, COMMAND_DELIM)) {
+        if (nob_sv_eq(target, COMMAND_DELIM))
+        {
             break;
         }
 
-        if (nob_sv_eq(target, nob_sv_from_cstr("--debug"))) {
-            if (have_built) {
+        if (nob_sv_eq(target, nob_sv_from_cstr("--debug")))
+        {
+            if (have_built)
+            {
                 nob_log(NOB_ERROR, "Flag --debug cannot be set after a target has already been built.\n", target);
                 usage(program, true);
                 exit(1);
@@ -127,20 +135,26 @@ void build(Nob_String_View program, int *argc, char ***argv)
             continue;
         }
 
-        if (nob_sv_eq(target, TARGET_DPLC)) {
+        if (nob_sv_eq(target, TARGET_DPLC))
+        {
             build_dplc(debug_build);
             have_built = true;
-        } else if (nob_sv_eq(target, TARGET_DPL)) {
+        }
+        else if (nob_sv_eq(target, TARGET_DPL))
+        {
             build_dpl(debug_build);
             have_built = true;
-        } else {
-            nob_log(NOB_ERROR, "Unknown build target \""SV_Fmt"\".\n", target);
+        }
+        else
+        {
+            nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", target);
             usage(program, true);
             exit(1);
         }
     }
 
-    if (!have_built) {
+    if (!have_built)
+    {
         build_dplc(debug_build);
         build_dpl(debug_build);
     }
@@ -152,26 +166,34 @@ void cmd(Nob_String_View program, int *argc, char ***argv)
     cmd.count = 0;
 
     Nob_String_View target = nob_sv_shift_args(argc, argv);
-    if (nob_sv_eq(target, TARGET_DPLC)) {
+    if (nob_sv_eq(target, TARGET_DPLC))
+    {
         nob_cmd_append(&cmd, DPLC_OUTPUT);
-    } else if (nob_sv_eq(target, TARGET_DPL)) {
+    }
+    else if (nob_sv_eq(target, TARGET_DPL))
+    {
         nob_cmd_append(&cmd, DPL_OUTPUT);
-    } else {
-        nob_log(NOB_ERROR, "Unknown build target \""SV_Fmt"\".\n", target);
+    }
+    else
+    {
+        nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", target);
         usage(program, true);
         exit(1);
     }
 
-    while (*argc > 0) {
-        const char* arg = nob_shift_args(argc, argv);
-        if (nob_sv_eq(nob_sv_from_cstr(arg), COMMAND_DELIM)) {
+    while (*argc > 0)
+    {
+        const char *arg = nob_shift_args(argc, argv);
+        if (nob_sv_eq(nob_sv_from_cstr(arg), COMMAND_DELIM))
+        {
             break;
         }
         nob_cmd_append(&cmd, arg);
     }
 
     bool success = nob_cmd_run_sync(cmd);
-    if (!success) {
+    if (!success)
+    {
         exit(1);
     }
 
@@ -206,19 +228,19 @@ void help(Nob_String_View program, int *argc, char ***argv)
         "\n"
         "Examples:\n"
         "* Show this help:\n"
-        "    "SV_Fmt" help\n"
+        "    " SV_Fmt " help\n"
         "* Build all executables and then compile and run the arithmetics.dpl\n"
         "  example:\n"
-        "    "SV_Fmt" build -- run examples/arithmetics.dpl\n"
+        "    " SV_Fmt " build -- run examples/arithmetics.dpl\n"
         "* Build the compiler and the virtual machine, run the compiler and\n"
         "  then the virtual machine on the compiled file:\n"
-        "    "SV_Fmt" build dplc dpl -- cmd dplc examples/arithmetics.dpl --\n"
+        "    " SV_Fmt " build dplc dpl -- cmd dplc examples/arithmetics.dpl --\n"
         "      cmd dpl examples/arithmetics.dplp\n",
-        SV_Arg(program), SV_Arg(program), SV_Arg(program)
-    );
+        SV_Arg(program), SV_Arg(program), SV_Arg(program));
 }
 
-void build_dplc_output(Nob_String_Builder* output_path, const char* dpl_file) {
+void build_dplc_output(Nob_String_Builder *output_path, const char *dpl_file)
+{
     Nob_String_View input_file = nob_sv_filename_of(nob_sv_from_cstr(dpl_file));
     nob_sb_append_cstr(output_path, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
     nob_sb_append_sv(output_path, input_file);
@@ -228,7 +250,8 @@ void build_dplc_output(Nob_String_Builder* output_path, const char* dpl_file) {
 
 void run(Nob_String_View program, int *argc, char ***argv)
 {
-    if (*argc == 0) {
+    if (*argc == 0)
+    {
         nob_log(NOB_ERROR, "No program provided for command `run`.");
         usage(program, true);
         exit(1);
@@ -237,13 +260,19 @@ void run(Nob_String_View program, int *argc, char ***argv)
     bool debug = false;
     bool trace = false;
 
-    const char* program_or_flag = nob_shift_args(argc, argv);
-    while (*argc > 0) {
-        if (strcmp(program_or_flag, "-d") == 0) {
+    const char *program_or_flag = nob_shift_args(argc, argv);
+    while (*argc > 0)
+    {
+        if (strcmp(program_or_flag, "-d") == 0)
+        {
             debug = true;
-        } else if (strcmp(program_or_flag, "-t") == 0) {
+        }
+        else if (strcmp(program_or_flag, "-t") == 0)
+        {
             trace = true;
-        } else {
+        }
+        else
+        {
             break;
         }
 
@@ -259,14 +288,16 @@ void run(Nob_String_View program, int *argc, char ***argv)
         cmd.count = 0;
 
         nob_cmd_append(&cmd, DPLC_OUTPUT);
-        if (debug) {
+        if (debug)
+        {
             nob_cmd_append(&cmd, "-d");
         }
         nob_cmd_append(&cmd, "-o", output_path.items);
         nob_cmd_append(&cmd, program_or_flag);
 
         bool success = nob_cmd_run_sync(cmd);
-        if (!success) {
+        if (!success)
+        {
             exit(1);
         }
     }
@@ -275,16 +306,19 @@ void run(Nob_String_View program, int *argc, char ***argv)
         cmd.count = 0;
 
         nob_cmd_append(&cmd, DPL_OUTPUT);
-        if (debug) {
+        if (debug)
+        {
             nob_cmd_append(&cmd, "-d");
         }
-        if (trace) {
+        if (trace)
+        {
             nob_cmd_append(&cmd, "-t");
         }
         nob_cmd_append(&cmd, output_path.items);
 
         bool success = nob_cmd_run_sync(cmd);
-        if (!success) {
+        if (!success)
+        {
             exit(1);
         }
     }
@@ -293,7 +327,8 @@ void run(Nob_String_View program, int *argc, char ***argv)
     nob_sb_free(output_path);
 }
 
-typedef struct {
+typedef struct
+{
     int successes;
     int failures;
     int count;
@@ -373,11 +408,12 @@ void run_test_cmd(Nob_Cmd cmd, Nob_String_View test_filename, const char *test_o
 
 void run_test(Nob_String_View test_filename, bool record, TestResults *test_results)
 {
-    if (!record && !test_results) {
+    if (!record && !test_results)
+    {
         nob_log(NOB_ERROR, "Cannot perform tests: neither `record` nor `test_results` is set.");
         exit(1);
     }
-    nob_log(NOB_INFO, "Test: "SV_Fmt, SV_Arg(test_filename));
+    nob_log(NOB_INFO, "Test: " SV_Fmt, SV_Arg(test_filename));
 
     Nob_String_Builder test_filepath = {0};
     nob_sb_append_cstr(&test_filepath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
