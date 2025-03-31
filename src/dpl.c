@@ -25,7 +25,7 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 
     // unary operators
     dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "negate", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER), INST_NEGATE);
-    dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "not", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_BOOLEAN), INST_NOT);
+    dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "not", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN), INST_NOT);
 
     // binary operators
     dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "add", TYPENAME_NUMBER, DPL_ARGS(TYPENAME_NUMBER, TYPENAME_NUMBER), INST_ADD);

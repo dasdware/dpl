@@ -1007,7 +1007,7 @@ DPL_Bound_Node *dpl_bind_function(DPL_Binding *binding, DPL_Ast_Node *node)
 
     if (function->signature.type)
     {
-        DPL_Symbol *return_type = dpl_bind_type(binding, function->signature.type);
+        DPL_Symbol *return_type = dpl_bind_resolve_type_alias(dpl_bind_type(binding, function->signature.type));
         if (!return_type)
         {
             DPL_AST_ERROR(binding->source, function->signature.type,

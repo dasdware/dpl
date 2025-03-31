@@ -87,7 +87,7 @@ typedef struct
         DPL_Symbol_Type_Base_Kind base;
         DPL_Symbol_Type_Object object;
         DPL_Symbol_Type_Signature function;
-        DPL_Symbol* alias;
+        DPL_Symbol *alias;
     } as;
 } DPL_Symbol_Type;
 
@@ -190,7 +190,7 @@ typedef struct
 
 // API
 
-const char* dpl_symbols_kind_name(DPL_Symbol_Kind kind);
+const char *dpl_symbols_kind_name(DPL_Symbol_Kind kind);
 
 void dpl_symbols_init(DPL_SymbolStack *stack);
 void dpl_symbols_free(DPL_SymbolStack *stack);
@@ -200,17 +200,17 @@ DPL_Symbol *dpl_symbols_find(DPL_SymbolStack *stack, Nob_String_View name);
 DPL_Symbol *dpl_symbols_find_cstr(DPL_SymbolStack *stack, const char *name);
 DPL_Symbol *dpl_symbols_find_kind(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol_Kind kind);
 DPL_Symbol *dpl_symbols_find_kind_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol_Kind kind);
-DPL_Symbol *dpl_symbols_find_type_base(DPL_SymbolStack* stack, DPL_Symbol_Type_Base_Kind kind);
+DPL_Symbol *dpl_symbols_find_type_base(DPL_SymbolStack *stack, DPL_Symbol_Type_Base_Kind kind);
 #define dpl_symbols_find_type_number(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_NUMBER)
 #define dpl_symbols_find_type_string(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_STRING)
 #define dpl_symbols_find_type_boolean(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_BOOLEAN)
 #define dpl_symbols_find_type_none(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_NONE)
 DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query);
-DPL_Symbol* dpl_symbols_find_function(DPL_SymbolStack* stack, Nob_String_View name, size_t arguments_count, DPL_Symbol** arguments);
-DPL_Symbol* dpl_symbols_find_function1(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol* arg0);
-DPL_Symbol* dpl_symbols_find_function1_cstr(DPL_SymbolStack *stack, const char* name, DPL_Symbol* arg0);
-DPL_Symbol* dpl_symbols_find_function2(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol* arg0, DPL_Symbol* arg1);
-DPL_Symbol* dpl_symbols_find_function2_cstr(DPL_SymbolStack *stack, const char* name, DPL_Symbol* arg0, DPL_Symbol* arg1);
+DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack, Nob_String_View name, size_t arguments_count, DPL_Symbol **arguments);
+DPL_Symbol *dpl_symbols_find_function1(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *arg0);
+DPL_Symbol *dpl_symbols_find_function1_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0);
+DPL_Symbol *dpl_symbols_find_function2(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *arg0, DPL_Symbol *arg1);
+DPL_Symbol *dpl_symbols_find_function2_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0, DPL_Symbol *arg1);
 
 // Common
 DPL_Symbol *dpl_symbols_push(DPL_SymbolStack *stack, DPL_Symbol_Kind kind, Nob_String_View name);
@@ -223,9 +223,9 @@ bool dpl_symbols_pop_boundary(DPL_SymbolStack *stack);
 // Types
 DPL_Symbol *dpl_symbols_push_type_base_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol_Type_Base_Kind base_kind);
 DPL_Symbol *dpl_symbols_push_type_object_cstr(DPL_SymbolStack *stack, const char *name, size_t field_count);
-DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack* stack, Nob_String_View name, DPL_Symbol* type);
+DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type);
 
-bool dpl_symbols_is_type_base(DPL_Symbol* symbol, DPL_Symbol_Type_Base_Kind kind);
+bool dpl_symbols_is_type_base(DPL_Symbol *symbol, DPL_Symbol_Type_Base_Kind kind);
 
 // Constants
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value);
@@ -237,7 +237,7 @@ DPL_Symbol *dpl_symbols_push_function_instruction_cstr(DPL_SymbolStack *stack,
 DPL_Symbol *dpl_symbols_push_function_external_cstr(DPL_SymbolStack *stack,
                                                     const char *name, const char *return_type, size_t argument_count, const char **argument_types,
                                                     size_t index);
-        DPL_Symbol *dpl_symbols_push_function_user(DPL_SymbolStack *stack, Nob_String_View  name, size_t argument_count);
+DPL_Symbol *dpl_symbols_push_function_user(DPL_SymbolStack *stack, Nob_String_View name, size_t argument_count);
 
 // Variables
 DPL_Symbol *dpl_symbols_push_var(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type);
