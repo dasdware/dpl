@@ -15,11 +15,12 @@ const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
     [AST_NODE_FUNCTION] = "AST_NODE_FUNCTION",
     [AST_NODE_CONDITIONAL] = "AST_NODE_CONDITIONAL",
     [AST_NODE_WHILE_LOOP] = "AST_NODE_WHILE_LOOP",
+    [AST_NODE_FOR_LOOP] = "AST_NODE_FOR_LOOP",
     [AST_NODE_FIELD_ACCESS] = "AST_NODE_FIELD_ACCESS",
     [AST_NODE_INTERPOLATION] = "AST_NODE_INTERPOLATION",
 };
 
-static_assert(COUNT_AST_NODE_KINDS == 14,
+static_assert(COUNT_AST_NODE_KINDS == 15,
               "Count of ast node kinds has changed, please update bound node kind names map.");
 
 const char *dpl_parse_nodekind_name(DPL_AstNodeKind kind)
@@ -268,6 +269,23 @@ void dpl_parse_print(DPL_Ast_Node *node, size_t level)
         dpl_parse_print_indent(level + 1);
         printf("<body>\n");
         dpl_parse_print(while_loop.body, level + 2);
+    }
+    break;
+    case AST_NODE_FOR_LOOP:
+    {
+        DPL_Ast_ForLoop for_loop = node->as.for_loop;
+        printf("\n");
+
+        dpl_parse_print_indent(level + 1);
+        printf("<variable_name: " SV_Fmt ">\n", SV_Arg(for_loop.variable_name.text));
+
+        dpl_parse_print_indent(level + 1);
+        printf("<iterator_initializer>\n");
+        dpl_parse_print(for_loop.iterator_initializer, level + 2);
+
+        dpl_parse_print_indent(level + 1);
+        printf("<body>\n");
+        dpl_parse_print(for_loop.body, level + 2);
     }
     break;
     case AST_NODE_INTERPOLATION:
@@ -892,6 +910,24 @@ DPL_Ast_Node *dpl_parse_conditional_or_loop(DPL_Parser *parser)
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_WHILE_LOOP, keyword_candidate, body->last);
         new_expression->as.while_loop.condition = condition;
         new_expression->as.while_loop.body = body;
+        return new_expression;
+    }
+    else if (keyword_candidate.kind == TOKEN_KEYWORD_FOR)
+    {
+        dpl_parse_next_token(parser);
+
+        dpl_parse_expect_token(parser, TOKEN_OPEN_PAREN);
+        dpl_parse_expect_token(parser, TOKEN_KEYWORD_VAR);
+        DPL_Token variable_name = dpl_parse_expect_token(parser, TOKEN_IDENTIFIER);
+        dpl_parse_expect_token(parser, TOKEN_KEYWORD_IN);
+        DPL_Ast_Node *iterator_initializer = dpl_parse_expression(parser);
+        dpl_parse_expect_token(parser, TOKEN_CLOSE_PAREN);
+        DPL_Ast_Node *body = dpl_parse_expression(parser);
+
+        DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_FOR_LOOP, keyword_candidate, body->last);
+        new_expression->as.for_loop.variable_name = variable_name;
+        new_expression->as.for_loop.iterator_initializer = iterator_initializer;
+        new_expression->as.for_loop.body = body;
         return new_expression;
     }
 
