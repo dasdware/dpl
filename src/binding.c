@@ -389,6 +389,11 @@ static DPL_Symbol *dpl_bind_resolve_type_alias(DPL_Symbol *type)
     return type;
 }
 
+static bool dpl_bind_type_assignable(DPL_Symbol *from, DPL_Symbol *to)
+{
+    return dpl_bind_resolve_type_alias(from) == dpl_bind_resolve_type_alias(to);
+}
+
 static void dpl_bind_check_assignment(DPL_Binding *binding, const char *what, DPL_Ast_Node *node, DPL_Symbol *expression_type)
 {
     DPL_Ast_Declaration *decl = &node->as.declaration;
@@ -401,16 +406,14 @@ static void dpl_bind_check_assignment(DPL_Binding *binding, const char *what, DP
     if (decl->type)
     {
         DPL_Symbol *declared_type = dpl_bind_type(binding, decl->type);
-        DPL_Symbol *resolved_declared_type = dpl_bind_resolve_type_alias(declared_type);
-        if (!resolved_declared_type)
+        if (!declared_type)
         {
             DPL_AST_ERROR(binding->source, decl->type,
                           "Unknown type `%s` in declaration of %s `" SV_Fmt "`.",
                           dpl_bind_type_name(decl->type), what, SV_Arg(decl->name.text));
         }
 
-        DPL_Symbol *resolved_expression_type = dpl_bind_resolve_type_alias(expression_type);
-        if (resolved_expression_type != resolved_declared_type)
+        if (!dpl_bind_type_assignable(expression_type, declared_type))
         {
             DPL_AST_ERROR(binding->source, node,
                           "Cannot assign expression of type `" SV_Fmt "` to %s `" SV_Fmt "` of type `" SV_Fmt "`.",
@@ -1086,10 +1089,155 @@ DPL_Bound_Node *dpl_bind_while_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     //       This should change in the future, where they can yield optional values or
     //       arrays.
     DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_WHILE_LOOP,
-                                                        dpl_symbols_find_type_boolean(binding->symbols));
+                                                        dpl_symbols_find_type_none(binding->symbols));
     bound_node->as.while_loop.condition = bound_condition;
     bound_node->as.while_loop.body = bound_body;
     return bound_node;
+}
+
+DPL_Bound_Node *dpl_bind_create_scope(DPL_Binding *binding, size_t expression_count, DPL_Bound_Node **expressions)
+{
+    if (expression_count == 0)
+    {
+        return NULL;
+    }
+
+    DPL_Bound_Node *scope = dpl_bind_allocate_node(binding, BOUND_NODE_SCOPE, expressions[expression_count - 1]->type);
+    scope->as.scope.expressions_count = expression_count;
+    scope->as.scope.expressions = arena_alloc(binding->memory, sizeof(DPL_Bound_Node *) * expression_count);
+    memcpy(scope->as.scope.expressions, expressions, sizeof(DPL_Bound_Node *) * expression_count);
+
+    return scope;
+}
+
+DPL_Bound_Node *dpl_bind_create_assignment(DPL_Binding *binding, DPL_Symbol *var, DPL_Bound_Node *expression, bool persistent)
+{
+    DPL_Bound_Node *assignment = dpl_bind_allocate_node(binding, BOUND_NODE_ASSIGNMENT, expression->type);
+    assignment->as.assignment.scope_index = var->as.var.scope_index;
+    assignment->as.assignment.expression = expression;
+    assignment->persistent = persistent;
+    return assignment;
+}
+
+DPL_Bound_Node *dpl_bind_create_varref(DPL_Binding *binding, DPL_Symbol *var)
+{
+    DPL_Bound_Node *varref = dpl_bind_allocate_node(binding, BOUND_NODE_VARREF, var->as.var.type);
+    varref->as.varref = var->as.var.scope_index;
+    return varref;
+}
+
+DPL_Bound_Node *dpl_bind_create_load_field(DPL_Binding *binding, DPL_Bound_Node *expression, size_t field_index)
+{
+    DPL_Symbol *resolved_type = dpl_bind_resolve_type_alias(expression->type);
+
+    DPL_Bound_Node *load_field = dpl_bind_allocate_node(binding, BOUND_NODE_LOAD_FIELD, resolved_type->as.type.as.object.fields[field_index].type);
+    load_field->as.load_field.expression = expression;
+    load_field->as.load_field.field_index = field_index;
+    return load_field;
+}
+
+DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node *condition, DPL_Bound_Node *body)
+{
+    DPL_Bound_Node *while_loop = dpl_bind_allocate_node(binding, BOUND_NODE_WHILE_LOOP, dpl_symbols_find_type_none(binding->symbols));
+    while_loop->as.while_loop.condition = condition;
+    while_loop->as.while_loop.body = body;
+    return while_loop;
+}
+
+DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
+{
+
+    DPL_Ast_ForLoop *for_loop = &node->as.for_loop;
+
+    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+
+    DPL_Bound_Node *bound_iterator_initializer = dpl_bind_node(binding, for_loop->iterator_initializer);
+    DPL_Symbol *iterator_type = bound_iterator_initializer->type;
+
+    DPL_Symbol *resolved_iterator_type = dpl_bind_resolve_type_alias(iterator_type);
+    if (resolved_iterator_type->as.type.kind != TYPE_OBJECT)
+    {
+        DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
+                      "Only objects can be used as iterators in for loops.");
+    }
+
+    DPL_Symbol_Type_Object *object_type = &resolved_iterator_type->as.type.as.object;
+    bool have_finished = false;
+    DPL_Symbol *value_type = NULL;
+    size_t finished_index;
+    size_t current_index;
+    for (size_t i = 0; i < object_type->field_count; ++i)
+    {
+        if (nob_sv_eq(object_type->fields[i].name, nob_sv_from_cstr("finished")) && dpl_symbols_is_type_base(object_type->fields[i].type, TYPE_BASE_BOOLEAN))
+        {
+            have_finished = true;
+            finished_index = i;
+        }
+        else if (nob_sv_eq(object_type->fields[i].name, nob_sv_from_cstr("current")))
+        {
+            value_type = object_type->fields[i].type;
+            current_index = i;
+        }
+    }
+    if (!have_finished || !value_type)
+    {
+        DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
+                      "Iterator in for loop needs a field `current` and a field `finished` of type `Boolean`.");
+    }
+
+    DPL_Symbol *next_function = dpl_symbols_find_function1_cstr(binding->symbols, "next", iterator_type);
+    if (!next_function || (next_function->as.function.signature.returns != iterator_type))
+    {
+        DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
+                      "Iterator in for loop needs a function `next(" SV_Fmt "): " SV_Fmt "`.",
+                      SV_Arg(iterator_type->name),
+                      SV_Arg(iterator_type->name));
+    }
+
+    DPL_Symbol *iterator_var = dpl_symbols_push_var(binding->symbols, SV_NULL, iterator_type);
+    DPL_Bound_Node *init_assignment = bound_iterator_initializer;
+    init_assignment->persistent = true;
+
+    DPL_Bound_Node *while_condition = dpl_bind_unary_function_call(
+        binding,
+        dpl_bind_create_load_field(
+            binding,
+            dpl_bind_create_varref(binding, iterator_var),
+            finished_index),
+        "not");
+
+    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+
+    dpl_symbols_push_var(binding->symbols, for_loop->variable_name.text, value_type);
+    DPL_Bound_Node *current_assignment = dpl_bind_create_load_field(
+        binding,
+        dpl_bind_create_varref(binding, iterator_var),
+        current_index);
+    current_assignment->persistent = true;
+
+    DPL_Bound_Node *inner_body = dpl_bind_node(binding, for_loop->body);
+
+    DPL_Bound_Node *next_assignment = dpl_bind_create_assignment(
+        binding,
+        iterator_var,
+        dpl_bind_unary_function_call(
+            binding,
+            dpl_bind_create_varref(binding, iterator_var),
+            "next"),
+        false);
+
+    dpl_symbols_pop_boundary(binding->symbols);
+
+    DPL_Bound_Node *while_loop = dpl_bind_create_while_loop(
+        binding,
+        while_condition,
+        dpl_bind_create_scope(binding, DPL_BOUND_NODES(current_assignment, inner_body, next_assignment)));
+
+    DPL_Bound_Node *scope = dpl_bind_create_scope(binding, DPL_BOUND_NODES(init_assignment, while_loop));
+
+    dpl_symbols_pop_boundary(binding->symbols);
+
+    return scope;
 }
 
 DPL_Bound_Node *dpl_bind_interpolation(DPL_Binding *binding, DPL_Ast_Node *node)
@@ -1152,6 +1300,8 @@ DPL_Bound_Node *dpl_bind_node(DPL_Binding *binding, DPL_Ast_Node *node)
         return dpl_bind_conditional(binding, node);
     case AST_NODE_WHILE_LOOP:
         return dpl_bind_while_loop(binding, node);
+    case AST_NODE_FOR_LOOP:
+        return dpl_bind_for_loop(binding, node);
     case AST_NODE_INTERPOLATION:
         return dpl_bind_interpolation(binding, node);
     default:

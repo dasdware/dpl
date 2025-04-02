@@ -1,0 +1,27 @@
+type RangeIterator := 
+    [ finished: Boolean, current: Number, to: Number ];
+
+function range(from: Number, to: Number): RangeIterator := 
+    [ finished := from >= to, current := from, to ];
+
+function next(iterator: RangeIterator): RangeIterator := {
+        var current := iterator.current + 1;
+        [ ..iterator, finished := current >= iterator.to, current ]
+    };
+
+function print(iterator: RangeIterator) :=
+    print("[finished: ${iterator.finished}, current: ${iterator.current}, to: ${iterator.to}]\n");
+
+for (var i in range(0, 8))
+   print("${i}\n");
+
+# The above loop produces exactly the same code as:
+{
+    var __it := range(0, 8);
+    while (!(__it.finished)) {
+        var i := __it.current;
+
+        print("${i}\n");
+        __it := __it.next();
+    }
+}
