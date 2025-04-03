@@ -1121,6 +1121,64 @@ DPL_Bound_Node *dpl_bind_while_loop(DPL_Binding *binding, DPL_Ast_Node *node)
         dpl_bind_node(binding, while_loop->body));
 }
 
+typedef struct
+{
+    size_t finished_index;
+    size_t current_index;
+    DPL_Symbol *value_type;
+    DPL_Symbol *next_function;
+} DPL_Binding_ResolvedIterator;
+
+bool dpl_bind_resolve_iterator(DPL_Binding *binding, DPL_Symbol *type, DPL_Binding_ResolvedIterator *iterator)
+{
+    if (type->as.type.kind != TYPE_OBJECT)
+    {
+        return false;
+    }
+
+    DPL_Symbol_Type_Object *object_type = &type->as.type.as.object;
+
+    bool have_finished = false;
+    bool have_current = false;
+    for (size_t i = 0; i < object_type->field_count; ++i)
+    {
+        if (nob_sv_eq(object_type->fields[i].name, nob_sv_from_cstr("finished")) && dpl_symbols_is_type_base(object_type->fields[i].type, TYPE_BASE_BOOLEAN))
+        {
+            have_finished = true;
+            if (iterator)
+            {
+                iterator->finished_index = i;
+            }
+        }
+        else if (nob_sv_eq(object_type->fields[i].name, nob_sv_from_cstr("current")))
+        {
+            have_current = true;
+            if (iterator)
+            {
+                iterator->value_type = object_type->fields[i].type;
+                iterator->current_index = i;
+            }
+        }
+    }
+    if (!have_finished || !have_current)
+    {
+        return false;
+    }
+
+    DPL_Symbol *next_function = dpl_symbols_find_function1_cstr(binding->symbols, "next", type);
+    if (!next_function || (next_function->as.function.signature.returns != type))
+    {
+        return false;
+    }
+
+    if (iterator)
+    {
+        iterator->next_function = next_function;
+    }
+
+    return true;
+}
+
 DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
 {
 
@@ -1131,44 +1189,28 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     DPL_Bound_Node *bound_iterator_initializer = dpl_bind_node(binding, for_loop->iterator_initializer);
     DPL_Symbol *iterator_type = bound_iterator_initializer->type;
 
-    DPL_Symbol *resolved_iterator_type = dpl_bind_resolve_type_alias(iterator_type);
-    if (resolved_iterator_type->as.type.kind != TYPE_OBJECT)
+    DPL_Binding_ResolvedIterator iterator;
+    if (!dpl_bind_resolve_iterator(binding, iterator_type, &iterator))
     {
-        DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
-                      "Only objects can be used as iterators in for loops.");
-    }
-
-    DPL_Symbol_Type_Object *object_type = &resolved_iterator_type->as.type.as.object;
-    bool have_finished = false;
-    DPL_Symbol *value_type = NULL;
-    size_t finished_index;
-    size_t current_index;
-    for (size_t i = 0; i < object_type->field_count; ++i)
-    {
-        if (nob_sv_eq(object_type->fields[i].name, nob_sv_from_cstr("finished")) && dpl_symbols_is_type_base(object_type->fields[i].type, TYPE_BASE_BOOLEAN))
+        DPL_Symbol *iterator_function = dpl_symbols_find_function1_cstr(binding->symbols, "iterator", iterator_type);
+        if (iterator_function && dpl_bind_resolve_iterator(binding, iterator_function->as.function.signature.returns, &iterator))
         {
-            have_finished = true;
-            finished_index = i;
+            bound_iterator_initializer = dpl_bind_unary_function_call(binding, bound_iterator_initializer, "iterator");
+            iterator_type = bound_iterator_initializer->type;
         }
-        else if (nob_sv_eq(object_type->fields[i].name, nob_sv_from_cstr("current")))
+        else
         {
-            value_type = object_type->fields[i].type;
-            current_index = i;
+            DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
+                          "Expression in for loop cannot be resolved  to an iterator.\n"
+                          "   | Iterator type `I` for values of type `V` needs:\n"
+                          "   |  * to be an object\n"
+                          "   |  * have a field `finished` of type `" TYPENAME_BOOLEAN "`\n"
+                          "   |  * have a field `current` of type `V`\n"
+                          "   |  * a function `next(I): I`\n"
+                          "   | Alternatively, you can declare a function `iterator(" SV_Fmt "): I`, that yields an appropriate iterator.\n"
+                          "   +",
+                          SV_Arg(iterator_type->name));
         }
-    }
-    if (!have_finished || !value_type)
-    {
-        DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
-                      "Iterator in for loop needs a field `current` and a field `finished` of type `Boolean`.");
-    }
-
-    DPL_Symbol *next_function = dpl_symbols_find_function1_cstr(binding->symbols, "next", iterator_type);
-    if (!next_function || (next_function->as.function.signature.returns != iterator_type))
-    {
-        DPL_AST_ERROR(binding->source, for_loop->iterator_initializer,
-                      "Iterator in for loop needs a function `next(" SV_Fmt "): " SV_Fmt "`.",
-                      SV_Arg(iterator_type->name),
-                      SV_Arg(iterator_type->name));
     }
 
     DPL_Symbol *iterator_var = dpl_symbols_push_var(binding->symbols, SV_NULL, iterator_type);
@@ -1180,16 +1222,16 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
         dpl_bind_create_load_field(
             binding,
             dpl_bind_create_varref(binding, iterator_var),
-            finished_index),
+            iterator.finished_index),
         "not");
 
     dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
 
-    dpl_symbols_push_var(binding->symbols, for_loop->variable_name.text, value_type);
+    dpl_symbols_push_var(binding->symbols, for_loop->variable_name.text, iterator.value_type);
     DPL_Bound_Node *current_assignment = dpl_bind_create_load_field(
         binding,
         dpl_bind_create_varref(binding, iterator_var),
-        current_index);
+        iterator.current_index);
     current_assignment->persistent = true;
 
     DPL_Bound_Node *inner_body = dpl_bind_node(binding, for_loop->body);
