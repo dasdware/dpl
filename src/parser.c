@@ -745,15 +745,35 @@ DPL_Ast_Node *dpl_parse_unary(DPL_Parser *parser)
     return dpl_parse_dot(parser);
 }
 
-DPL_Ast_Node *dpl_parse_multiplicative(DPL_Parser *parser)
+DPL_Ast_Node *dpl_parse_range(DPL_Parser *parser)
 {
     DPL_Ast_Node *expression = dpl_parse_unary(parser);
+
+    DPL_Token operator_candidate = dpl_parse_peek_token(parser);
+    if (operator_candidate.kind == TOKEN_DOT_DOT)
+    {
+        dpl_parse_next_token(parser);
+        DPL_Ast_Node *rhs = dpl_parse_unary(parser);
+
+        DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
+        new_expression->as.binary.left = expression;
+        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.right = rhs;
+        expression = new_expression;
+    }
+
+    return expression;
+}
+
+DPL_Ast_Node *dpl_parse_multiplicative(DPL_Parser *parser)
+{
+    DPL_Ast_Node *expression = dpl_parse_range(parser);
 
     DPL_Token operator_candidate = dpl_parse_peek_token(parser);
     while (operator_candidate.kind == TOKEN_STAR || operator_candidate.kind == TOKEN_SLASH)
     {
         dpl_parse_next_token(parser);
-        DPL_Ast_Node *rhs = dpl_parse_unary(parser);
+        DPL_Ast_Node *rhs = dpl_parse_range(parser);
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;

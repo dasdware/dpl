@@ -232,6 +232,55 @@ DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node 
     return while_loop;
 }
 
+DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) fields)
+{
+    size_t field_count = da_size(fields);
+
+    DPL_Symbol_Type_ObjectQuery type_query = NULL;
+    for (size_t i = 0; i < field_count; ++i)
+    {
+        da_add(
+            type_query,
+            ((DPL_Symbol_Type_ObjectField){
+                .name = fields[i].name,
+                .type = fields[i].expression->type,
+            }));
+    }
+
+    DPL_Symbol *bound_type = dpl_symbols_find_type_object_query(binding->symbols, type_query);
+    if (!bound_type)
+    {
+        Nob_String_Builder type_name_builder = {0};
+        nob_sb_append_cstr(&type_name_builder, "[");
+        for (size_t i = 0; i < da_size(type_query); ++i)
+        {
+            if (i > 0)
+            {
+                nob_sb_append_cstr(&type_name_builder, ", ");
+            }
+            nob_sb_append_sv(&type_name_builder, type_query[i].name);
+            nob_sb_append_cstr(&type_name_builder, ": ");
+            nob_sb_append_sv(&type_name_builder, type_query[i].type->name);
+        }
+        nob_sb_append_cstr(&type_name_builder, "]");
+        nob_sb_append_null(&type_name_builder);
+
+        bound_type = dpl_symbols_push_type_object_cstr(binding->symbols, type_name_builder.items, da_size(type_query));
+        memcpy(bound_type->as.type.as.object.fields, type_query, sizeof(DPL_Symbol_Type_ObjectField) * da_size(type_query));
+
+        nob_sb_free(type_name_builder);
+    }
+    da_free(type_query);
+
+    DPL_Bound_Node *object_literal = dpl_bind_allocate_node(binding, BOUND_NODE_OBJECT, bound_type);
+    object_literal->as.object.field_count = field_count;
+    object_literal->as.object.fields = arena_alloc(binding->memory, sizeof(DPL_Bound_ObjectField) * field_count);
+    memcpy(object_literal->as.object.fields, fields, sizeof(DPL_Bound_ObjectField) * field_count);
+    da_free(fields);
+
+    return object_literal;
+}
+
 static void dpl_bind_move_nodelist(DPL_Binding *binding, da_array(DPL_Bound_Node *) list, size_t *target_count, DPL_Bound_Node ***target_items)
 {
     *target_count = da_size(list);
@@ -633,21 +682,16 @@ static int dpl_bind_object_literal_compare_fields(void const *a, void const *b)
     return nob_sv_cmp(((DPL_Bound_ObjectField *)a)->name, ((DPL_Bound_ObjectField *)b)->name);
 }
 
-int dpl_bind_object_literal_compare_query(void const *a, void const *b)
-{
-    return nob_sv_cmp(((DPL_Symbol_Type_ObjectField *)a)->name, ((DPL_Symbol_Type_ObjectField *)b)->name);
-}
-
-void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) * tmp_bound_fields,
-                                       DPL_Symbol_Type_ObjectQuery *type_query, Nob_String_View field_name, DPL_Bound_Node *field_expression)
+void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) * fields,
+                                       Nob_String_View field_name, DPL_Bound_Node *field_expression)
 {
     DW_UNUSED(binding);
 
-    for (size_t i = 0; i < da_size(*tmp_bound_fields); ++i)
+    for (size_t i = 0; i < da_size(*fields); ++i)
     {
-        if (nob_sv_eq((*tmp_bound_fields)[i].name, field_name))
+        if (nob_sv_eq((*fields)[i].name, field_name))
         {
-            (*tmp_bound_fields)[i].expression = field_expression;
+            (*fields)[i].expression = field_expression;
             return;
         }
     }
@@ -656,19 +700,8 @@ void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_
         .name = field_name,
         .expression = field_expression,
     };
-    da_add(*tmp_bound_fields, bound_field);
-    qsort(*tmp_bound_fields,
-          da_size(*tmp_bound_fields), sizeof(**tmp_bound_fields),
-          dpl_bind_object_literal_compare_fields);
-
-    DPL_Symbol_Type_ObjectField query_field = {
-        .name = bound_field.name,
-        .type = bound_field.expression->type,
-    };
-    da_add(*type_query, query_field);
-    qsort(*type_query,
-          da_size(*type_query), sizeof(**type_query),
-          dpl_bind_object_literal_compare_query);
+    da_add(*fields, bound_field);
+    qsort(*fields, da_size(*fields), sizeof(**fields), dpl_bind_object_literal_compare_fields);
 }
 
 DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node)
@@ -677,7 +710,6 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
 
     DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
     da_array(DPL_Bound_ObjectField) tmp_bound_fields = NULL;
-    DPL_Symbol_Type_ObjectQuery type_query = NULL;
     da_array(DPL_Bound_Node *) temporaries = NULL;
     for (size_t i = 0; i < object_literal.field_count; ++i)
     {
@@ -686,7 +718,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
         {
             DPL_Ast_Assignment *assignment = &object_literal.fields[i]->as.assignment;
             dpl_bind_object_literal_add_field(
-                binding, &tmp_bound_fields, &type_query,
+                binding, &tmp_bound_fields,
                 assignment->target->as.symbol.text,
                 dpl_bind_node(binding, assignment->expression));
         }
@@ -708,7 +740,6 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
                 dpl_bind_object_literal_add_field(
                     binding,
                     &tmp_bound_fields,
-                    &type_query,
                     bound_object_type.fields[i].name,
                     dpl_bind_create_load_field(
                         binding,
@@ -719,7 +750,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
         else if (field->kind == AST_NODE_SYMBOL)
         {
             dpl_bind_object_literal_add_field(
-                binding, &tmp_bound_fields, &type_query,
+                binding, &tmp_bound_fields,
                 field->as.symbol.text,
                 dpl_bind_node(binding, field));
         }
@@ -731,39 +762,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
         }
     }
 
-    DPL_Symbol *bound_type = dpl_symbols_find_type_object_query(binding->symbols, type_query);
-    if (!bound_type)
-    {
-        Nob_String_Builder type_name_builder = {0};
-        nob_sb_append_cstr(&type_name_builder, "[");
-        for (size_t i = 0; i < da_size(type_query); ++i)
-        {
-            if (i > 0)
-            {
-                nob_sb_append_cstr(&type_name_builder, ", ");
-            }
-            nob_sb_append_sv(&type_name_builder, type_query[i].name);
-            nob_sb_append_cstr(&type_name_builder, ": ");
-            nob_sb_append_sv(&type_name_builder, type_query[i].type->name);
-        }
-        nob_sb_append_cstr(&type_name_builder, "]");
-        nob_sb_append_null(&type_name_builder);
-
-        bound_type = dpl_symbols_push_type_object_cstr(binding->symbols, type_name_builder.items, da_size(type_query));
-        memcpy(bound_type->as.type.as.object.fields, type_query, sizeof(DPL_Symbol_Type_ObjectField) * da_size(type_query));
-
-        nob_sb_free(type_name_builder);
-    }
-    da_free(type_query);
-
-    DPL_Bound_ObjectField *bound_fields = arena_alloc(binding->memory, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
-    memcpy(bound_fields, tmp_bound_fields, sizeof(DPL_Bound_ObjectField) * da_size(tmp_bound_fields));
-
-    DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_OBJECT, bound_type);
-    bound_node->as.object.field_count = da_size(tmp_bound_fields);
-    bound_node->as.object.fields = bound_fields;
-
-    da_free(tmp_bound_fields);
+    DPL_Bound_Node *bound_node = dpl_bind_create_object_literal_move(binding, tmp_bound_fields);
 
     dpl_symbols_pop_boundary(binding->symbols);
 
@@ -901,6 +900,24 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
         bound_node->as.logical_operator.lhs = lhs;
         bound_node->as.logical_operator.rhs = rhs;
         return bound_node;
+    }
+    case TOKEN_DOT_DOT:
+    {
+        DPL_Bound_Node *lhs = dpl_bind_node(binding, node->as.binary.left);
+        if (!lhs)
+        {
+            DPL_AST_ERROR(binding->source, node, "Cannot bind left-hand side of binary expression.");
+        }
+        DPL_Bound_Node *rhs = dpl_bind_node(binding, node->as.binary.right);
+        if (!rhs)
+        {
+            DPL_AST_ERROR(binding->source, node, "Cannot bind right-hand side of binary expression.");
+        }
+
+        da_array(DPL_Bound_ObjectField) bound_fields = NULL;
+        dpl_bind_object_literal_add_field(binding, &bound_fields, nob_sv_from_cstr("from"), lhs);
+        dpl_bind_object_literal_add_field(binding, &bound_fields, nob_sv_from_cstr("to"), rhs);
+        return dpl_bind_create_object_literal_move(binding, bound_fields);
     }
     default:
         break;
