@@ -59,6 +59,9 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
         case FUNCTION_EXTERNAL:
             dplp_write_call_external(program, f.function->as.function.as.external_function);
             break;
+        case FUNCTION_INTRINSIC:
+            dplp_write_call_intrinsic(program, f.function->as.function.as.intrinsic_function);
+            break;
         case FUNCTION_USER:
         {
             DPL_Binding_UserFunction *uf = &generator->user_functions[f.function->as.function.as.user_function.user_handle];

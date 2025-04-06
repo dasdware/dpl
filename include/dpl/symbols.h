@@ -4,7 +4,12 @@
 #include <arena.h>
 #include <nob.h>
 
-#include <program.h>
+#include <dpl/intrinsics.h>
+#include <dpl/program.h>
+#include <dpl/utils.h>
+
+#define DPL_SYMBOLS(...) \
+    DPL_ARG_COUNT(__VA_ARGS__), (DPL_Symbol *[]) { __VA_ARGS__ }
 
 typedef struct DPL_Symbol DPL_Symbol;
 
@@ -135,6 +140,7 @@ typedef enum
     FUNCTION_INSTRUCTION,
     FUNCTION_EXTERNAL,
     FUNCTION_USER,
+    FUNCTION_INTRINSIC,
 
     COUNT_SYMBOL_FUNCTION_KINDS,
 } DPL_Symbol_Function_Kind;
@@ -154,6 +160,7 @@ typedef struct
             size_t user_handle;
             size_t function_handle;
         } user_function;
+        DPL_Intrinsic_Kind intrinsic_function;
     } as;
 } DPL_Symbol_Function;
 
@@ -212,6 +219,8 @@ DPL_Symbol *dpl_symbols_find_function1_cstr(DPL_SymbolStack *stack, const char *
 DPL_Symbol *dpl_symbols_find_function2(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *arg0, DPL_Symbol *arg1);
 DPL_Symbol *dpl_symbols_find_function2_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0, DPL_Symbol *arg1);
 
+DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query);
+
 // Common
 DPL_Symbol *dpl_symbols_push(DPL_SymbolStack *stack, DPL_Symbol_Kind kind, Nob_String_View name);
 DPL_Symbol *dpl_symbols_push_cstr(DPL_SymbolStack *stack, DPL_Symbol_Kind kind, const char *name);
@@ -234,6 +243,12 @@ DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const 
 DPL_Symbol *dpl_symbols_push_function_instruction_cstr(DPL_SymbolStack *stack,
                                                        const char *name, const char *return_type, size_t argument_count, const char **argument_types,
                                                        DPL_Instruction_Kind instruction);
+DPL_Symbol *dpl_symbols_push_function_intrinsic(DPL_SymbolStack *stack,
+                                                const char *name, DPL_Symbol *return_type, size_t argument_count, DPL_Symbol **argument_types,
+                                                DPL_Intrinsic_Kind intrinsic);
+DPL_Symbol *dpl_symbols_push_function_intrinsic_cstr(DPL_SymbolStack *stack,
+                                                     const char *name, const char *return_type, size_t argument_count, const char **argument_types,
+                                                     DPL_Intrinsic_Kind intrinsic);
 DPL_Symbol *dpl_symbols_push_function_external_cstr(DPL_SymbolStack *stack,
                                                     const char *name, const char *return_type, size_t argument_count, const char **argument_types,
                                                     size_t index);

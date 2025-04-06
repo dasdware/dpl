@@ -1,14 +1,3 @@
-type RangeIterator := 
-    [ finished: Boolean, current: Number, to: Number ];
-
-function iterator(range: [from: Number, to: Number]): RangeIterator := 
-    [ finished := range.from >= range.to, current := range.from, to := range.to ];
-
-function next(iterator: RangeIterator): RangeIterator := {
-        var current := iterator.current + 1;
-        [ ..iterator, finished := current > iterator.to, current ]
-    };
-
 # The unsugared initial implementation:
 {
     var __it := iterator([from := 0, to := 8]);

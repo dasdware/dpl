@@ -10,15 +10,20 @@
 
 #define DPL_ERROR DW_ERROR
 
+#define DPL_OBJECT_FIELD(field_name, field_type) \
+    ((DPL_Symbol_Type_ObjectField){              \
+        .name = nob_sv_from_cstr(field_name),    \
+        .type = field_type})
+
 void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
 {
     // SYMBOL STACK
     dpl_symbols_init(&dpl->symbols);
 
     // Base types
-    dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_NUMBER, TYPE_BASE_NUMBER);
+    DPL_Symbol *number_t = dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_NUMBER, TYPE_BASE_NUMBER);
     dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_STRING, TYPE_BASE_STRING);
-    dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_BOOLEAN, TYPE_BASE_BOOLEAN);
+    DPL_Symbol *boolean_t = dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_BOOLEAN, TYPE_BASE_BOOLEAN);
     dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_NONE, TYPE_BASE_NONE);
 
     // Operators on base types
@@ -45,6 +50,27 @@ void dpl_init(DPL *dpl, DPL_ExternalFunctions externals)
     dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_STRING, TYPENAME_STRING), INST_NOT_EQUAL);
     dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "equal", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_EQUAL);
     dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_NOT_EQUAL);
+
+    // intrinsic functions
+    DPL_Symbol_Type_ObjectQuery query = NULL;
+
+    // Number range type
+    da_clear(query);
+    da_add(query, DPL_OBJECT_FIELD("from", number_t));
+    da_add(query, DPL_OBJECT_FIELD("to", number_t));
+    DPL_Symbol *number_range_t = dpl_symbols_check_type_object_query(&dpl->symbols, query);
+
+    // Number iterator type
+    da_clear(query);
+    da_add(query, DPL_OBJECT_FIELD("current", number_t));
+    da_add(query, DPL_OBJECT_FIELD("finished", boolean_t));
+    da_add(query, DPL_OBJECT_FIELD("to", number_t));
+    DPL_Symbol *number_iterator_t = dpl_symbols_check_type_object_query(&dpl->symbols, query);
+
+    da_free(query);
+
+    dpl_symbols_push_function_intrinsic(&dpl->symbols, "iterator", number_iterator_t, DPL_SYMBOLS(number_range_t), INTRINSIC_NUMBER_ITERATOR);
+    dpl_symbols_push_function_intrinsic(&dpl->symbols, "next", number_iterator_t, DPL_SYMBOLS(number_iterator_t), INTRINSIC_NUMBER_ITERATOR_NEXT);
 
     // externals
     for (size_t i = 0; i < da_size(externals); ++i)

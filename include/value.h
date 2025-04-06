@@ -6,6 +6,11 @@
 
 #include <dw_memory_table.h>
 
+#include <dpl/utils.h>
+
+#define DPL_VALUES(...) \
+    DPL_ARG_COUNT(__VA_ARGS__), (DPL_Value[]) { __VA_ARGS__ }
+
 typedef enum
 {
     VALUE_NUMBER,
@@ -17,15 +22,16 @@ typedef enum
 typedef struct
 {
     DPL_ValueKind kind;
-    union {
+    union
+    {
         double number;
         Nob_String_View string;
         bool boolean;
-        DW_MemoryTable_Item* object;
+        DW_MemoryTable_Item *object;
     } as;
 } DPL_Value;
 
-const char* dpl_value_kind_name(DPL_ValueKind kind);
+const char *dpl_value_kind_name(DPL_ValueKind kind);
 
 DPL_Value dpl_value_make_number(double value);
 int dpl_value_compare_numbers(double a, double b);
@@ -36,9 +42,9 @@ DPL_Value dpl_value_make_string(Nob_String_View value);
 DPL_Value dpl_value_make_boolean(bool value);
 const char *dpl_value_format_boolean(bool value);
 
-DPL_Value dpl_value_make_object(DW_MemoryTable_Item* value);
-uint8_t dpl_value_object_field_count(DW_MemoryTable_Item* object);
-DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item* object, uint8_t field_index);
+DPL_Value dpl_value_make_object(DW_MemoryTable_Item *value);
+uint8_t dpl_value_object_field_count(DW_MemoryTable_Item *object);
+DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item *object, uint8_t field_index);
 
 void dpl_value_print_number(double value);
 void dpl_value_print_string(Nob_String_View value);

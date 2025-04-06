@@ -1,8 +1,9 @@
 #ifdef DPL_LEAKCHECK
-#   include "stb_leakcheck.h"
+#include "stb_leakcheck.h"
 #endif
 
-#include "vm.h"
+#include <dpl/vm/intrinsics.h>
+#include <dpl/vm/vm.h>
 
 #include "error.h"
 #include "externals.h"
@@ -20,7 +21,8 @@ void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctio
 
     vm->stack = arena_alloc(&vm->memory, vm->stack_capacity * sizeof(*vm->stack));
 
-    if (vm->callstack_capacity == 0) {
+    if (vm->callstack_capacity == 0)
+    {
         vm->callstack_capacity = 256;
     }
 
@@ -35,7 +37,8 @@ void dplv_free(DPL_VirtualMachine *vm)
     arena_free(&vm->memory);
 }
 
-void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t arity, size_t return_ip) {
+void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t arity, size_t return_ip)
+{
     if (vm->callstack_top >= vm->callstack_capacity)
     {
         DW_ERROR("Fatal Error: Callstack overflow in program execution.");
@@ -47,23 +50,28 @@ void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t arity, size_t return_ip
     ++vm->callstack_top;
 }
 
-DPL_CallFrame *_dplv_peek_callframe(DPL_VirtualMachine *vm) {
-    if (vm->callstack_top == 0) {
+DPL_CallFrame *_dplv_peek_callframe(DPL_VirtualMachine *vm)
+{
+    if (vm->callstack_top == 0)
+    {
         DW_ERROR("Fatal Error: Callstack underflow in program execution.");
     }
 
     return &vm->callstack[vm->callstack_top - 1];
 }
 
-void _dplv_pop_callframe(DPL_VirtualMachine *vm) {
-    if (vm->callstack_top == 0) {
+void _dplv_pop_callframe(DPL_VirtualMachine *vm)
+{
+    if (vm->callstack_top == 0)
+    {
         DW_ERROR("Fatal Error: Callstack underflow in program execution.");
     }
 
     --vm->callstack_top;
 }
 
-void _dplv_trace_stack(DPL_VirtualMachine *vm) {
+void _dplv_trace_stack(DPL_VirtualMachine *vm)
+{
     printf("<");
     for (size_t i = 0; i < vm->stack_top; ++i)
     {
@@ -73,21 +81,31 @@ void _dplv_trace_stack(DPL_VirtualMachine *vm) {
     printf(" >");
 }
 
-DPL_Value dplv_reference(DPL_VirtualMachine* vm, DPL_Value value) {
-    if (value.kind == VALUE_STRING) {
+DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
+{
+    if (value.kind == VALUE_STRING)
+    {
         mt_sv_reference(&vm->stack_memory, value.as.string);
-    } else if (value.kind == VALUE_OBJECT) {
+    }
+    else if (value.kind == VALUE_OBJECT)
+    {
         mt_reference(&vm->stack_memory, value.as.object);
     }
     return value;
 }
 
-void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
-    if (value.kind == VALUE_STRING) {
+void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
+{
+    if (value.kind == VALUE_STRING)
+    {
         mt_sv_release(&vm->stack_memory, value.as.string);
-    } else if (value.kind == VALUE_OBJECT) {
-        if (mt_will_release(&vm->stack_memory, value.as.object)) {
-            for (size_t i = 0; i < dpl_value_object_field_count(value.as.object); ++i) {
+    }
+    else if (value.kind == VALUE_OBJECT)
+    {
+        if (mt_will_release(&vm->stack_memory, value.as.object))
+        {
+            for (size_t i = 0; i < dpl_value_object_field_count(value.as.object); ++i)
+            {
                 dplv_release(vm, dpl_value_object_get_field(value.as.object, i));
             }
         }
@@ -95,8 +113,10 @@ void dplv_release(DPL_VirtualMachine* vm, DPL_Value value) {
     }
 }
 
-void dplv_return(DPL_VirtualMachine* vm, size_t arity, DPL_Value value) {
-    for (size_t i = vm->stack_top - arity; i < vm->stack_top; ++i) {
+void dplv_return(DPL_VirtualMachine *vm, size_t arity, DPL_Value value)
+{
+    for (size_t i = vm->stack_top - arity; i < vm->stack_top; ++i)
+    {
         dplv_release(vm, vm->stack[i]);
     }
 
@@ -104,15 +124,18 @@ void dplv_return(DPL_VirtualMachine* vm, size_t arity, DPL_Value value) {
     vm->stack[vm->stack_top - 1] = value;
 }
 
-void dplv_return_number(DPL_VirtualMachine* vm, size_t arity, double value) {
+void dplv_return_number(DPL_VirtualMachine *vm, size_t arity, double value)
+{
     dplv_return(vm, arity, dpl_value_make_number(value));
 }
 
-void dplv_return_string(DPL_VirtualMachine* vm, size_t arity, Nob_String_View value) {
+void dplv_return_string(DPL_VirtualMachine *vm, size_t arity, Nob_String_View value)
+{
     dplv_return(vm, arity, dpl_value_make_string(value));
 }
 
-void dplv_return_boolean(DPL_VirtualMachine* vm, size_t arity, bool value) {
+void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value)
+{
     dplv_return(vm, arity, dpl_value_make_boolean(value));
 }
 
@@ -134,7 +157,8 @@ void dplv_run(DPL_VirtualMachine *vm)
 
     while (!bs_at_end(&program))
     {
-        if (vm->trace) {
+        if (vm->trace)
+        {
             DW_ByteStream trace_program = program;
             dplp_print_stream_instruction(&trace_program, &constants);
             printf("    :: ");
@@ -148,7 +172,8 @@ void dplv_run(DPL_VirtualMachine *vm)
         {
         case INST_NOOP:
             break;
-        case INST_PUSH_NUMBER: {
+        case INST_PUSH_NUMBER:
+        {
             if (vm->stack_top >= vm->stack_capacity)
             {
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
@@ -160,7 +185,8 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = dpl_value_make_number(value);
         }
         break;
-        case INST_PUSH_STRING: {
+        case INST_PUSH_STRING:
+        {
             if (vm->stack_top >= vm->stack_capacity)
             {
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
@@ -174,7 +200,8 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = dpl_value_make_string(mt_sv_allocate_sv(&vm->stack_memory, value));
         }
         break;
-        case INST_PUSH_BOOLEAN: {
+        case INST_PUSH_BOOLEAN:
+        {
             if (vm->stack_top >= vm->stack_capacity)
             {
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
@@ -193,9 +220,12 @@ void dplv_run(DPL_VirtualMachine *vm)
             dplv_return_boolean(vm, 1, !TOP0.as.boolean);
             break;
         case INST_ADD:
-            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER)
+            {
                 dplv_return_number(vm, 2, TOP1.as.number + TOP0.as.number);
-            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+            }
+            else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING)
+            {
                 dplv_return_string(vm, 2, mt_sv_allocate_concat(&vm->stack_memory, TOP1.as.string, TOP0.as.string));
             }
             break;
@@ -221,45 +251,66 @@ void dplv_run(DPL_VirtualMachine *vm)
             dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) >= 0);
             break;
         case INST_EQUAL:
-            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER)
+            {
                 dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) == 0);
-            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+            }
+            else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING)
+            {
                 dplv_return_boolean(vm, 2, dpl_value_string_equals(TOP0.as.string, TOP1.as.string));
-            } else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN) {
+            }
+            else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN)
+            {
                 dplv_return_boolean(vm, 2, TOP0.as.boolean == TOP1.as.boolean);
             }
             break;
         case INST_NOT_EQUAL:
-            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER) {
+            if (TOP0.kind == VALUE_NUMBER && TOP1.kind == VALUE_NUMBER)
+            {
                 dplv_return_boolean(vm, 2, dpl_value_compare_numbers(TOP1.as.number, TOP0.as.number) != 0);
-            } else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING) {
+            }
+            else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING)
+            {
                 dplv_return_boolean(vm, 2, !dpl_value_string_equals(TOP0.as.string, TOP1.as.string));
-            } else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN) {
+            }
+            else if (TOP0.kind == VALUE_BOOLEAN && TOP1.kind == VALUE_BOOLEAN)
+            {
                 dplv_return_boolean(vm, 2, TOP0.as.boolean != TOP1.as.boolean);
             }
             break;
         case INST_POP:
-            if (vm->stack_top == 0) {
+            if (vm->stack_top == 0)
+            {
                 DW_ERROR("Fatal Error: Stack underflow in program execution.");
             }
             dplv_release(vm, TOP0);
             --vm->stack_top;
             break;
-        case INST_CALL_EXTERNAL: {
+        case INST_CALL_EXTERNAL:
+        {
             uint8_t external_num = bs_read_u8(&program);
 
-            if (vm->externals == NULL) {
+            if (vm->externals == NULL)
+            {
                 DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: No external function definitions were provided to the vm.", external_num, ip_begin);
             }
 
-            if (external_num >= da_size(vm->externals)) {
+            if (external_num >= da_size(vm->externals))
+            {
                 DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: Invalid external num.", external_num, ip_begin);
             }
 
             vm->externals[external_num].callback(vm);
         }
         break;
-        case INST_PUSH_LOCAL: {
+        case INST_CALL_INTRINSIC:
+        {
+            DPL_Intrinsic_Kind intrinsic = bs_read_u8(&program);
+            dpl_vm_call_intrinsic(vm, intrinsic);
+        }
+        break;
+        case INST_PUSH_LOCAL:
+        {
             if (vm->stack_top >= vm->stack_capacity)
             {
                 DW_ERROR("Fatal Error: Stack overflow in program execution.");
@@ -272,7 +323,8 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = dplv_reference(vm, vm->stack[slot]);
         }
         break;
-        case INST_STORE_LOCAL: {
+        case INST_STORE_LOCAL:
+        {
             size_t scope_index = bs_read_u64(&program);
             size_t slot = _dplv_peek_callframe(vm)->stack_top + scope_index;
 
@@ -280,13 +332,15 @@ void dplv_run(DPL_VirtualMachine *vm)
             vm->stack[slot] = dplv_reference(vm, TOP0);
         }
         break;
-        case INST_POP_SCOPE: {
+        case INST_POP_SCOPE:
+        {
             size_t scope_size = bs_read_u64(&program);
 
             dplv_return(vm, scope_size + 1, dplv_reference(vm, TOP0));
         }
         break;
-        case INST_CALL_USER: {
+        case INST_CALL_USER:
+        {
             uint8_t arity = bs_read_u8(&program);
             size_t begin_ip = bs_read_u64(&program);
 
@@ -295,7 +349,8 @@ void dplv_run(DPL_VirtualMachine *vm)
             program.position = begin_ip;
         };
         break;
-        case INST_RETURN: {
+        case INST_RETURN:
+        {
             DPL_CallFrame *frame = _dplv_peek_callframe(vm);
             dplv_return(vm, frame->arity + 1, dplv_reference(vm, TOP0));
             program.position = frame->return_ip;
@@ -303,43 +358,51 @@ void dplv_run(DPL_VirtualMachine *vm)
             _dplv_pop_callframe(vm);
         };
         break;
-        case INST_JUMP: {
+        case INST_JUMP:
+        {
             uint16_t jump = bs_read_u16(&program);
             program.position += jump;
         }
         break;
-        case INST_JUMP_IF_FALSE: {
+        case INST_JUMP_IF_FALSE:
+        {
             uint16_t jump = bs_read_u16(&program);
-            if (!TOP0.as.boolean) {
+            if (!TOP0.as.boolean)
+            {
                 program.position += jump;
             }
         }
         break;
-        case INST_JUMP_IF_TRUE: {
+        case INST_JUMP_IF_TRUE:
+        {
             uint16_t jump = bs_read_u16(&program);
-            if (TOP0.as.boolean) {
+            if (TOP0.as.boolean)
+            {
                 program.position += jump;
             }
         }
         break;
-        case INST_JUMP_LOOP: {
+        case INST_JUMP_LOOP:
+        {
             uint16_t jump = bs_read_u16(&program);
             program.position -= jump;
         }
         break;
-        case INST_CREATE_OBJECT: {
+        case INST_CREATE_OBJECT:
+        {
             uint8_t field_count = bs_read_u8(&program);
 
             size_t object_size = field_count * sizeof(DPL_Value);
 
-            DW_MemoryTable_Item* object = mt_allocate(&vm->stack_memory, object_size);
+            DW_MemoryTable_Item *object = mt_allocate(&vm->stack_memory, object_size);
             memcpy(object->data, &vm->stack[vm->stack_top - field_count], object_size);
 
             vm->stack_top -= (field_count - 1);
             TOP0 = dpl_value_make_object(object);
         }
         break;
-        case INST_LOAD_FIELD: {
+        case INST_LOAD_FIELD:
+        {
             uint8_t field_index = bs_read_u8(&program);
 
             DPL_Value field_value = dplv_reference(vm, dpl_value_object_get_field(TOP0.as.object, field_index));
@@ -347,11 +410,13 @@ void dplv_run(DPL_VirtualMachine *vm)
             TOP0 = field_value;
         }
         break;
-        case INST_INTERPOLATION: {
+        case INST_INTERPOLATION:
+        {
             uint8_t count = bs_read_u8(&program);
 
             str_t result = NULL;
-            for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i) {
+            for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i)
+            {
                 str_append_length(result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
             }
 
@@ -370,7 +435,8 @@ void dplv_run(DPL_VirtualMachine *vm)
             DW_UNIMPLEMENTED_MSG("`%s` at position %zu.", dplp_inst_kind_name(instruction), ip_begin);
         }
 
-        if (vm->trace) {
+        if (vm->trace)
+        {
             printf("\n    :: ");
             _dplv_trace_stack(vm);
             printf(" [%04zu]\n", program.position);
@@ -386,7 +452,8 @@ void dplv_run(DPL_VirtualMachine *vm)
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
-    if (vm->stack_top == 0) {
+    if (vm->stack_top == 0)
+    {
         DW_ERROR("Fatal Error: Stack underflow in program execution.");
     }
 

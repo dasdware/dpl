@@ -1,5 +1,5 @@
 #ifdef DPL_LEAKCHECK
-#   include "stb_leakcheck.h"
+#include "stb_leakcheck.h"
 #endif
 
 #include <math.h>
@@ -7,8 +7,10 @@
 #include "error.h"
 #include "value.h"
 
-const char* dpl_value_kind_name(DPL_ValueKind kind) {
-    switch (kind) {
+const char *dpl_value_kind_name(DPL_ValueKind kind)
+{
+    switch (kind)
+    {
     case VALUE_NUMBER:
         return "number";
     case VALUE_STRING:
@@ -22,75 +24,82 @@ const char* dpl_value_kind_name(DPL_ValueKind kind) {
     DW_ERROR("ERROR: Invalid value kind `%02X`.", kind);
 }
 
-DPL_Value dpl_value_make_number(double value) {
-    return (DPL_Value) {
+DPL_Value dpl_value_make_number(double value)
+{
+    return (DPL_Value){
         .kind = VALUE_NUMBER,
         .as = {
-            .number = value
-        }
-    };
+            .number = value}};
 }
 
-DPL_Value dpl_value_make_string(Nob_String_View value) {
-    return (DPL_Value) {
+DPL_Value dpl_value_make_string(Nob_String_View value)
+{
+    return (DPL_Value){
         .kind = VALUE_STRING,
         .as = {
-            .string = value
-        }
-    };
+            .string = value}};
 }
 
-DPL_Value dpl_value_make_boolean(bool value) {
-    return (DPL_Value) {
+DPL_Value dpl_value_make_boolean(bool value)
+{
+    return (DPL_Value){
         .kind = VALUE_BOOLEAN,
         .as = {
-            .boolean = value
-        }
-    };
+            .boolean = value}};
 }
 
-DPL_Value dpl_value_make_object(DW_MemoryTable_Item* value) {
-    return (DPL_Value) {
+DPL_Value dpl_value_make_object(DW_MemoryTable_Item *value)
+{
+    return (DPL_Value){
         .kind = VALUE_OBJECT,
         .as = {
-            .object = value
-        }
-    };
+            .object = value}};
 }
 
 #define EPSILON 0.00001
 
-int dpl_value_compare_numbers(double a, double b) {
-    if (fabs(a - b) < EPSILON) {
+int dpl_value_compare_numbers(double a, double b)
+{
+    if (fabs(a - b) < EPSILON)
+    {
         return 0;
     }
-    if (a < b) {
+    if (a < b)
+    {
         return -1;
     }
     return 1;
 }
 
-const char* dpl_value_format_number(double value) {
+const char *dpl_value_format_number(double value)
+{
     static char buffer[16];
     double abs_value = fabs(value);
-    if (abs_value - floorf(abs_value) < EPSILON) {
-        snprintf(buffer, 16, "%i", (int) round(value));
-    } else {
+    if (abs_value - floorf(abs_value) < EPSILON)
+    {
+        snprintf(buffer, 16, "%i", (int)round(value));
+    }
+    else
+    {
         snprintf(buffer, 16, "%f", value);
     }
     return buffer;
 }
 
-void dpl_value_print_number(double value) {
+void dpl_value_print_number(double value)
+{
     printf("[%s: %s]", dpl_value_kind_name(VALUE_NUMBER), dpl_value_format_number(value));
 }
 
-void dpl_value_print_string(Nob_String_View value) {
-    printf("[%s: \"",  dpl_value_kind_name(VALUE_STRING));
+void dpl_value_print_string(Nob_String_View value)
+{
+    printf("[%s: \"", dpl_value_kind_name(VALUE_STRING));
 
-    const char* pos = value.data;
-    for (size_t i = 0; i < value.count; ++i) {
-        switch (*pos) {
+    const char *pos = value.data;
+    for (size_t i = 0; i < value.count; ++i)
+    {
+        switch (*pos)
+        {
         case '\n':
             printf("\\n");
             break;
@@ -108,33 +117,41 @@ void dpl_value_print_string(Nob_String_View value) {
     printf("\"]");
 }
 
-const char* dpl_value_format_boolean(bool value) {
+const char *dpl_value_format_boolean(bool value)
+{
     return value ? "true" : "false";
 }
 
-void dpl_value_print_boolean(bool value) {
+void dpl_value_print_boolean(bool value)
+{
     printf("[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), dpl_value_format_boolean(value));
 }
 
-uint8_t dpl_value_object_field_count(DW_MemoryTable_Item* object) {
+uint8_t dpl_value_object_field_count(DW_MemoryTable_Item *object)
+{
     return object->length / sizeof(DPL_Value);
 }
 
-DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item* object, uint8_t field_index) {
-    return ((DPL_Value*)object->data)[field_index];
+DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item *object, uint8_t field_index)
+{
+    return ((DPL_Value *)object->data)[field_index];
 }
 
-void dpl_value_print_object(DW_MemoryTable_Item* object) {
+void dpl_value_print_object(DW_MemoryTable_Item *object)
+{
     uint8_t field_count = dpl_value_object_field_count(object);
     printf("[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);
-    for (uint8_t field_index = 0; field_index < field_count; ++field_index) {
+    for (uint8_t field_index = 0; field_index < field_count; ++field_index)
+    {
         dpl_value_print(dpl_value_object_get_field(object, field_index));
     }
     printf("]");
 }
 
-void dpl_value_print(DPL_Value value) {
-    switch (value.kind) {
+void dpl_value_print(DPL_Value value)
+{
+    switch (value.kind)
+    {
     case VALUE_NUMBER:
         dpl_value_print_number(value.as.number);
         break;
@@ -163,13 +180,15 @@ bool dpl_value_string_equals(Nob_String_View string1, Nob_String_View string2)
     return nob_sv_eq(string1, string2);
 }
 
-
-bool dpl_value_equals(DPL_Value value1, DPL_Value value2) {
-    if (value1.kind != value2.kind) {
+bool dpl_value_equals(DPL_Value value1, DPL_Value value2)
+{
+    if (value1.kind != value2.kind)
+    {
         return false;
     }
 
-    switch (value1.kind) {
+    switch (value1.kind)
+    {
     case VALUE_NUMBER:
         return dpl_value_number_equals(value1.as.number, value2.as.number);
     case VALUE_STRING:

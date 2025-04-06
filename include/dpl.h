@@ -8,10 +8,10 @@
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
 #include <dpl/parser.h>
+#include <dpl/program.h>
 #include <dpl/symbols.h>
 
 #include "externals.h"
-#include "program.h"
 
 // COMMON
 
