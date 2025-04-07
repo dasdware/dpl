@@ -795,9 +795,8 @@ void dpl_symbols_print_table(DPL_SymbolStack *stack)
     {
         sb.count = 0;
         dpl_symbols_print_table_row(stack->entries[i], &sb);
-        nob_sb_append_cstr(&sb, "\n");
         nob_sb_append_null(&sb);
-        printf(sb.items);
+        printf("%s\n", sb.items);
     }
     nob_sb_free(sb);
 }
