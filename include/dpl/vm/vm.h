@@ -2,7 +2,6 @@
 #define __DPL_VM_H
 
 #include "arena.h"
-#include "externals.h"
 #include "value.h"
 #include "dw_memory_table.h"
 
@@ -18,7 +17,6 @@ typedef struct
 typedef struct DPL_VirtualMachine
 {
     DPL_Program *program;
-    DPL_ExternalFunctions externals;
 
     bool debug;
     bool trace;
@@ -35,7 +33,7 @@ typedef struct DPL_VirtualMachine
     Arena memory;
 } DPL_VirtualMachine;
 
-void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctions externals);
+void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program);
 void dplv_free(DPL_VirtualMachine *vm);
 
 void dplv_run(DPL_VirtualMachine *vm);

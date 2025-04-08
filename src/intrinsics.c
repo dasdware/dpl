@@ -5,11 +5,17 @@
 #include <dpl/intrinsics.h>
 
 const char *INTRINSIC_KIND_NAMES[COUNT_INTRINSICS] = {
-    [INTRINSIC_NUMBER_ITERATOR] = "iterator(Range<Number>): Iterator<Number>",
-    [INTRINSIC_NUMBER_ITERATOR_NEXT] = "next(Iterator<Number>): Iterator<Number>",
+    [INTRINSIC_BOOLEAN_TOSTRING] = "toString(Boolean): String",
+    [INTRINSIC_BOOLEAN_PRINT] = "print(Boolean): Boolean",
+    [INTRINSIC_NUMBER_PRINT] = "print(Number): Number",
+    [INTRINSIC_NUMBER_TOSTRING] = "toString(Number): String",
+    [INTRINSIC_NUMBERITERATOR_NEXT] = "next(Iterator<Number>): Iterator<Number>",
+    [INTRINSIC_NUMBERRANGE_ITERATOR] = "iterator(Range<Number>): Iterator<Number>",
+    [INTRINSIC_STRING_LENGTH] = "length(String): Number",
+    [INTRINSIC_STRING_PRINT] = "print(String): String",
 };
 
-static_assert(COUNT_INTRINSICS == 2,
+static_assert(COUNT_INTRINSICS == 8,
               "Count of intrinsic kinds has changed, please update intrinsic kind names map.");
 
 const char *dpl_intrinsic_kind_name(DPL_Intrinsic_Kind kind)

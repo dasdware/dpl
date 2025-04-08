@@ -167,12 +167,6 @@ void dplp_write_divide(DPL_Program *program)
     bb_write_u8(&program->code, INST_DIVIDE);
 }
 
-void dplp_write_call_external(DPL_Program *program, size_t external_num)
-{
-    bb_write_u8(&program->code, INST_CALL_EXTERNAL);
-    bb_write_u8(&program->code, external_num);
-}
-
 void dplp_write_call_intrinsic(DPL_Program *program, DPL_Intrinsic_Kind intrinsic)
 {
     bb_write_u8(&program->code, INST_CALL_INTRINSIC);
@@ -277,8 +271,6 @@ const char *dplp_inst_kind_name(DPL_Instruction_Kind kind)
         return "NOT_EQUAL";
     case INST_CALL_INTRINSIC:
         return "CALL_INTRINSIC";
-    case INST_CALL_EXTERNAL:
-        return "CALL_EXTERNAL";
     case INST_CALL_USER:
         return "CALL_USER";
     case INST_RETURN:
@@ -415,12 +407,6 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_NOT_EQUAL:
     case INST_RETURN:
         break;
-    case INST_CALL_EXTERNAL:
-    {
-        uint8_t external_num = bs_read_u8(code);
-        printf(" %u", external_num);
-    }
-    break;
     case INST_CALL_INTRINSIC:
     {
         printf(" %s", dpl_intrinsic_kind_name(bs_read_u8(code)));

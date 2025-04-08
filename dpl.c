@@ -4,7 +4,6 @@
 #endif
 
 #include "error.h"
-#include "externals.h"
 #include "value.h"
 #include <dpl/vm/vm.h>
 
@@ -58,13 +57,10 @@ int main(int argc, char **argv)
         usage(exe);
     }
 
-    DPL_ExternalFunctions externals = {0};
-    dple_init(&externals);
-
     DPL_Program program = {0};
     dplp_load(&program, program_filename);
 
-    dplv_init(&vm, &program, externals);
+    dplv_init(&vm, &program);
     dplv_run(&vm);
 
     if (vm.debug)
@@ -84,7 +80,6 @@ int main(int argc, char **argv)
 
     dplv_free(&vm);
     dplp_free(&program);
-    dple_free(&externals);
 
 #ifdef DPL_LEAKCHECK
     stb_leakcheck_dumpmem();

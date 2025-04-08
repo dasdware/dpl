@@ -6,13 +6,11 @@
 #include <dpl/vm/vm.h>
 
 #include "error.h"
-#include "externals.h"
 #include "math.h"
 
-void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program, DPL_ExternalFunctions externals)
+void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program)
 {
     vm->program = program;
-    vm->externals = externals;
 
     if (vm->stack_capacity == 0)
     {
@@ -286,23 +284,6 @@ void dplv_run(DPL_VirtualMachine *vm)
             dplv_release(vm, TOP0);
             --vm->stack_top;
             break;
-        case INST_CALL_EXTERNAL:
-        {
-            uint8_t external_num = bs_read_u8(&program);
-
-            if (vm->externals == NULL)
-            {
-                DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: No external function definitions were provided to the vm.", external_num, ip_begin);
-            }
-
-            if (external_num >= da_size(vm->externals))
-            {
-                DW_ERROR("Fatal Error: Cannot resolve external function call `%02X` at position %zu: Invalid external num.", external_num, ip_begin);
-            }
-
-            vm->externals[external_num].callback(vm);
-        }
-        break;
         case INST_CALL_INTRINSIC:
         {
             DPL_Intrinsic_Kind intrinsic = bs_read_u8(&program);

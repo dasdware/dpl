@@ -30,7 +30,6 @@ typedef enum
     INST_GREATER_EQUAL,
     INST_EQUAL,
     INST_NOT_EQUAL,
-    INST_CALL_EXTERNAL,
     INST_CALL_INTRINSIC,
     INST_CALL_USER,
     INST_PUSH_LOCAL,
@@ -89,7 +88,6 @@ void dplp_write_subtract(DPL_Program *program);
 void dplp_write_multiply(DPL_Program *program);
 void dplp_write_divide(DPL_Program *program);
 
-void dplp_write_call_external(DPL_Program *program, size_t external_num);
 void dplp_write_call_intrinsic(DPL_Program *program, DPL_Intrinsic_Kind intrinsic);
 void dplp_write_call_user(DPL_Program *program, size_t arity, size_t ip_begin);
 void dplp_write_return(DPL_Program *program);

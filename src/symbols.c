@@ -561,27 +561,6 @@ DPL_Symbol *dpl_symbols_push_function_intrinsic_cstr(DPL_SymbolStack *stack,
     return symbol;
 }
 
-DPL_Symbol *dpl_symbols_push_function_external_cstr(DPL_SymbolStack *stack, const char *name, const char *return_type,
-                                                    size_t argument_count, const char **argument_types,
-                                                    size_t index)
-{
-    DPL_Symbol_Type_Signature signature = {0};
-    if (!dpl_symbols_resolve_function_signature_cstr(stack, &signature, return_type, argument_count, argument_types))
-    {
-        return NULL;
-    }
-
-    DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_FUNCTION, name);
-    ABORT_IF_NULL(symbol);
-
-    symbol->as.function = (DPL_Symbol_Function){
-        .signature = signature,
-        .kind = FUNCTION_EXTERNAL,
-        .as.external_function = index,
-    };
-    return symbol;
-}
-
 DPL_Symbol *dpl_symbols_push_function_user(DPL_SymbolStack *stack, Nob_String_View name, size_t argument_count)
 {
     DPL_Symbol *symbol = dpl_symbols_push(stack, SYMBOL_FUNCTION, name);
@@ -741,9 +720,6 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
             nob_sb_append_format(sb, "intrinsic: #%2zu", symbol->as.function.as.intrinsic_function);
         }
         break;
-        case FUNCTION_EXTERNAL:
-            nob_sb_append_format(sb, "external: %zu", symbol->as.function.as.external_function);
-            break;
         case FUNCTION_USER:
             nob_sb_append_cstr(sb, " user");
             break;

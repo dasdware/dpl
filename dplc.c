@@ -30,9 +30,6 @@ int main(int argc, char **argv)
 {
     const char *program = nob_shift_args(&argc, &argv);
 
-    DPL_ExternalFunctions externals = {0};
-    dple_init(&externals);
-
     Arena memory = {0};
 
     DPL dpl = {0};
@@ -78,7 +75,7 @@ int main(int argc, char **argv)
     nob_read_entire_file(source_filename, &source);
     dpl.source = nob_sv_from_parts(source.items, source.count);
 
-    dpl_init(&dpl, externals);
+    dpl_init(&dpl);
 
     DPL_Program compiled_program = {0};
     dplp_init(&compiled_program);
@@ -87,7 +84,6 @@ int main(int argc, char **argv)
 
     dplp_free(&compiled_program);
     dpl_free(&dpl);
-    dple_free(&externals);
     nob_da_free(source);
 
     arena_free(&memory);

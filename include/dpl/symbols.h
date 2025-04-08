@@ -138,7 +138,6 @@ typedef struct
 typedef enum
 {
     FUNCTION_INSTRUCTION,
-    FUNCTION_EXTERNAL,
     FUNCTION_USER,
     FUNCTION_INTRINSIC,
 
@@ -152,7 +151,6 @@ typedef struct
     union
     {
         DPL_Instruction_Kind instruction_function;
-        size_t external_function;
         struct
         {
             void *body;
@@ -249,9 +247,6 @@ DPL_Symbol *dpl_symbols_push_function_intrinsic(DPL_SymbolStack *stack,
 DPL_Symbol *dpl_symbols_push_function_intrinsic_cstr(DPL_SymbolStack *stack,
                                                      const char *name, const char *return_type, size_t argument_count, const char **argument_types,
                                                      DPL_Intrinsic_Kind intrinsic);
-DPL_Symbol *dpl_symbols_push_function_external_cstr(DPL_SymbolStack *stack,
-                                                    const char *name, const char *return_type, size_t argument_count, const char **argument_types,
-                                                    size_t index);
 DPL_Symbol *dpl_symbols_push_function_user(DPL_SymbolStack *stack, Nob_String_View name, size_t argument_count);
 
 // Variables

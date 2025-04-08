@@ -60,16 +60,13 @@ void build_dplc(bool debug_build)
     nob_cmd_append(&cmd,
                    "./src/dpl.c",
                    "./src/binding.c",
-                   "./src/externals.c", // TODO remove when externals are removed
                    "./src/generator.c",
                    "./src/intrinsics.c",
-                   "./src/vm/intrinsics.c", // TODO remove when externals are removed
                    "./src/lexer.c",
                    "./src/parser.c",
                    "./src/program.c",
                    "./src/symbols.c",
                    "./src/value.c",
-                   "./src/vm.c", // TODO remove when externals are removed
                    "./dplc.c", );
     nob_cmd_append(&cmd, "-lm");
     nob_cmd_append(&cmd, "-o", DPLC_OUTPUT);
@@ -97,7 +94,6 @@ void build_dpl(bool debug_build)
                    "./src/program.c",
                    "./src/intrinsics.c",
                    "./src/vm/intrinsics.c",
-                   "./src/externals.c",
                    "./src/value.c",
                    "./src/vm.c",
                    "./dpl.c", );
@@ -470,12 +466,9 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
         nob_cmd_append(&cmd, "-I./include/");
         nob_cmd_append(&cmd,
                        test_filepath.items,
-                       "./src/externals.c",
-                       "./src/intrinsics.c", // TODO remove when externals are removed
+                       "./src/intrinsics.c",
                        "./src/program.c",
                        "./src/value.c",
-                       "./src/vm.c", // TODO remove when externals are removed
-                       "./src/vm/intrinsics.c", // TODO remove when externals are removed
                        "./src/symbols.c");
         nob_cmd_append(&cmd, "-lm");
         nob_cmd_append(&cmd, "-o", test_exepath.items);
