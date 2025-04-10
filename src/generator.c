@@ -61,7 +61,7 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
             break;
         case FUNCTION_USER:
         {
-            DPL_Binding_UserFunction *uf = &generator->user_functions[f.function->as.function.as.user_function.user_handle];
+            DPL_Binding_UserFunction *uf = &generator->user_functions.items[f.function->as.function.as.user_function.user_handle];
             dplp_write_call_user(program, uf->arity, uf->begin_ip);
         }
         break;

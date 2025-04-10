@@ -1,7 +1,6 @@
 #include <assert.h>
 
 #include <arena.h>
-#include <dw_array.h>
 #include <error.h>
 
 #include <dpl/binding.h>
@@ -298,7 +297,7 @@ static void dpl_bind_check_function_used(DPL_Binding *binding, DPL_Symbol *symbo
     if (f->kind == FUNCTION_USER && !f->as.user_function.used)
     {
         f->as.user_function.used = true;
-        f->as.user_function.user_handle = da_size(binding->user_functions);
+        f->as.user_function.user_handle = binding->user_functions.count;
 
         DPL_Binding_UserFunction user_function = {
             .function = symbol,
@@ -306,7 +305,7 @@ static void dpl_bind_check_function_used(DPL_Binding *binding, DPL_Symbol *symbo
             .begin_ip = 0,
             .body = (DPL_Bound_Node *)f->as.user_function.body,
         };
-        da_add(binding->user_functions, user_function);
+        nob_da_append(&binding->user_functions, user_function);
     }
 }
 

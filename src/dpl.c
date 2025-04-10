@@ -113,15 +113,15 @@ void dpl_compile(DPL *dpl, DPL_Program *program)
         .memory = dpl->memory,
         .source = dpl->source,
         .symbols = &dpl->symbols,
-        .user_functions = 0,
+        .user_functions = {0},
     };
     DPL_Bound_Node *bound_root_expression = dpl_bind_node(&binding, root_expression);
 
     if (dpl->debug)
     {
-        for (size_t i = 0; i < da_size(binding.user_functions); ++i)
+        for (size_t i = 0; i < binding.user_functions.count; ++i)
         {
-            DPL_Binding_UserFunction *uf = &binding.user_functions[i];
+            DPL_Binding_UserFunction *uf = &binding.user_functions.items[i];
             printf("### " SV_Fmt " (arity: %zu) ###\n", SV_Arg(uf->function->name), uf->arity);
             dpl_bind_print(&binding, uf->body, 0);
             printf("\n");
@@ -135,9 +135,9 @@ void dpl_compile(DPL *dpl, DPL_Program *program)
     DPL_Generator generator = {
         .user_functions = binding.user_functions,
     };
-    for (size_t i = 0; i < da_size(generator.user_functions); ++i)
+    for (size_t i = 0; i < generator.user_functions.count; ++i)
     {
-        DPL_Binding_UserFunction *uf = &generator.user_functions[i];
+        DPL_Binding_UserFunction *uf = &generator.user_functions.items[i];
         uf->begin_ip = program->code.count;
         dpl_generate(&generator, uf->body, program);
         dplp_write_return(program);
@@ -157,5 +157,5 @@ void dpl_compile(DPL *dpl, DPL_Program *program)
         printf("\n");
     }
 
-    da_free(binding.user_functions);
+    nob_da_free(binding.user_functions);
 }
