@@ -4,7 +4,6 @@
 
 #include <dpl/program.h>
 #include "error.h"
-#include <dw_array.h>
 
 void dplp_init(DPL_Program *program)
 {
@@ -519,7 +518,7 @@ bool dplp_save(DPL_Program *program, const char *file_name)
 typedef struct
 {
     char name[5];
-    da_array(uint8_t) data;
+    DW_ByteBuffer data;
 } DPL_Loaded_Chunk;
 
 bool _dplp_load_chunk(FILE *in, DPL_Loaded_Chunk *chunk)
@@ -540,11 +539,23 @@ bool _dplp_load_chunk(FILE *in, DPL_Loaded_Chunk *chunk)
         return false;
     }
 
-    da_check_size(chunk->data, count);
-    if (fread(chunk->data, 1, count, in) < count)
+    // TODO: Use newer nob functionality to reserve needed capacity
+    if ((&chunk->data)->count + (count) > (&chunk->data)->capacity) {                               
+        if ((&chunk->data)->capacity == 0) {                                                      
+            (&chunk->data)->capacity = NOB_DA_INIT_CAP;                                           
+        }                                                                               
+        while ((&chunk->data)->count + (count) > (&chunk->data)->capacity) {                        
+            (&chunk->data)->capacity *= 2;                                                        
+        }                                                                               
+        (&chunk->data)->items = NOB_REALLOC((&chunk->data)->items, (&chunk->data)->capacity*sizeof(*(&chunk->data)->items)); 
+        NOB_ASSERT((&chunk->data)->items != NULL && "Buy more RAM lol");                          
+    } 
+
+    if (fread(chunk->data.items, 1, count, in) < count)
     {
         return false;
     }
+    chunk->data.count += count;
 
     return true;
 }
@@ -558,16 +569,16 @@ bool dplp_load(DPL_Program *program, const char *file_name)
     {
         if (strcmp(chunk.name, "HEAD") == 0)
         {
-            program->version = chunk.data[0];
-            program->entry = *(uint64_t *)(chunk.data + sizeof(program->version));
+            program->version = chunk.data.items[0];
+            program->entry = *(uint64_t *)(chunk.data.items + sizeof(program->version));
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {
-            nob_da_append_many(&program->constants, chunk.data, da_size(chunk.data));
+            nob_da_append_many(&program->constants, chunk.data.items, chunk.data.count);
         }
         else if (strcmp(chunk.name, "CODE") == 0)
         {
-            nob_da_append_many(&program->code, chunk.data, da_size(chunk.data));
+            nob_da_append_many(&program->code, chunk.data.items, chunk.data.count);
         }
         else
         {
@@ -575,7 +586,7 @@ bool dplp_load(DPL_Program *program, const char *file_name)
         }
     }
 
-    da_free(chunk.data);
+    nob_da_free(chunk.data);
     fclose(in);
     return true;
 }
