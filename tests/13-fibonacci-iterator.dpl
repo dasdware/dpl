@@ -1,0 +1,19 @@
+type FibonacciIterator := 
+    [ current: Number, last: Number, i: Number, n: Number, finished: Boolean];
+
+function fibonacci(n: Number): FibonacciIterator :=
+    [ current := 1, last := 0, i := 0, n, finished := n <= 0];
+
+function next(it: FibonacciIterator): FibonacciIterator :=
+    [ 
+        current := it.last + it.current, 
+        last := it.current, 
+        i := it.i + 1, 
+        n := it.n, 
+        finished := it.i >= it.n - 1
+    ];
+
+for (var fib in fibonacci(10))
+    print("${fib}\n");
+
+#print(fibonacci(5).current);
