@@ -2,6 +2,7 @@
 
 #include <arena.h>
 #include <error.h>
+#include <dw_array.h>
 
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
@@ -245,41 +246,19 @@ DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node 
 
 DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, DPL_Bound_ObjectFields fields)
 {
-    DPL_Symbol_Type_ObjectQuery type_query = NULL;
+    DPL_Symbol_Type_ObjectQuery type_query = {0};
     for (size_t i = 0; i < fields.count; ++i)
     {
-        da_add(
-            type_query,
+        nob_da_append(
+            &type_query,
             ((DPL_Symbol_Type_ObjectField){
                 .name = fields.items[i].name,
                 .type = fields.items[i].expression->type,
             }));
     }
 
-    DPL_Symbol *bound_type = dpl_symbols_find_type_object_query(binding->symbols, type_query);
-    if (!bound_type)
-    {
-        Nob_String_Builder type_name_builder = {0};
-        nob_sb_append_cstr(&type_name_builder, "[");
-        for (size_t i = 0; i < da_size(type_query); ++i)
-        {
-            if (i > 0)
-            {
-                nob_sb_append_cstr(&type_name_builder, ", ");
-            }
-            nob_sb_append_sv(&type_name_builder, type_query[i].name);
-            nob_sb_append_cstr(&type_name_builder, ": ");
-            nob_sb_append_sv(&type_name_builder, type_query[i].type->name);
-        }
-        nob_sb_append_cstr(&type_name_builder, "]");
-        nob_sb_append_null(&type_name_builder);
-
-        bound_type = dpl_symbols_push_type_object_cstr(binding->symbols, type_name_builder.items, da_size(type_query));
-        memcpy(bound_type->as.type.as.object.fields, type_query, sizeof(DPL_Symbol_Type_ObjectField) * da_size(type_query));
-
-        nob_sb_free(type_name_builder);
-    }
-    da_free(type_query);
+    DPL_Symbol *bound_type = dpl_symbols_check_type_object_query(binding->symbols, type_query);
+    nob_da_free(type_query);
 
     DPL_Bound_Node *object_literal = dpl_bind_allocate_node(binding, BOUND_NODE_OBJECT, bound_type);
     object_literal->as.object.field_count = fields.count;

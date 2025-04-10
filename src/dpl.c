@@ -52,22 +52,22 @@ void dpl_init(DPL *dpl)
     dpl_symbols_push_function_instruction_cstr(&dpl->symbols, "notEqual", TYPENAME_BOOLEAN, DPL_ARGS(TYPENAME_BOOLEAN, TYPENAME_BOOLEAN), INST_NOT_EQUAL);
 
     // intrinsic functions
-    DPL_Symbol_Type_ObjectQuery query = NULL;
+    DPL_Symbol_Type_ObjectQuery query = {0};
 
     // Number range type
-    da_clear(query);
-    da_add(query, DPL_OBJECT_FIELD("from", number_t));
-    da_add(query, DPL_OBJECT_FIELD("to", number_t));
+    query.count = 0;
+    nob_da_append(&query, DPL_OBJECT_FIELD("from", number_t));
+    nob_da_append(&query, DPL_OBJECT_FIELD("to", number_t));
     DPL_Symbol *number_range_t = dpl_symbols_check_type_object_query(&dpl->symbols, query);
 
     // Number iterator type
-    da_clear(query);
-    da_add(query, DPL_OBJECT_FIELD("current", number_t));
-    da_add(query, DPL_OBJECT_FIELD("finished", boolean_t));
-    da_add(query, DPL_OBJECT_FIELD("to", number_t));
+    query.count = 0;
+    nob_da_append(&query, DPL_OBJECT_FIELD("current", number_t));
+    nob_da_append(&query, DPL_OBJECT_FIELD("finished", boolean_t));
+    nob_da_append(&query, DPL_OBJECT_FIELD("to", number_t));
     DPL_Symbol *number_iterator_t = dpl_symbols_check_type_object_query(&dpl->symbols, query);
 
-    da_free(query);
+    nob_da_free(query);
 
     dpl_symbols_push_function_intrinsic(&dpl->symbols, "print", boolean_t, DPL_SYMBOLS(boolean_t), INTRINSIC_BOOLEAN_PRINT);
     dpl_symbols_push_function_intrinsic(&dpl->symbols, "toString", string_t, DPL_SYMBOLS(boolean_t), INTRINSIC_BOOLEAN_TOSTRING);

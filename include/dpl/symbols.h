@@ -3,7 +3,6 @@
 
 #include <arena.h>
 #include <nob.h>
-#include <dw_array.h>
 
 #include <dpl/intrinsics.h>
 #include <dpl/program.h>
@@ -70,7 +69,11 @@ typedef struct
     DPL_Symbol *type;
 } DPL_Symbol_Type_ObjectField;
 
-typedef da_array(DPL_Symbol_Type_ObjectField) DPL_Symbol_Type_ObjectQuery;
+typedef struct {
+    DPL_Symbol_Type_ObjectField* items;
+    size_t count;
+    size_t capacity;
+} DPL_Symbol_Type_ObjectQuery;
 
 typedef struct
 {
