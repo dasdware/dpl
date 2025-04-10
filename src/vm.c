@@ -5,6 +5,7 @@
 #include <dpl/vm/intrinsics.h>
 #include <dpl/vm/vm.h>
 
+#include <dw_array.h>
 #include "error.h"
 #include "math.h"
 

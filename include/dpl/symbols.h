@@ -3,6 +3,7 @@
 
 #include <arena.h>
 #include <nob.h>
+#include <dw_array.h>
 
 #include <dpl/intrinsics.h>
 #include <dpl/program.h>

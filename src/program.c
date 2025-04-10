@@ -4,6 +4,7 @@
 
 #include <dpl/program.h>
 #include "error.h"
+#include <dw_array.h>
 
 void dplp_init(DPL_Program *program)
 {
@@ -14,14 +15,14 @@ void dplp_free(DPL_Program *program)
 {
     nob_da_free(program->constants);
     nob_da_free(program->code);
-    da_free(program->constants_dictionary);
+    nob_da_free(program->constants_dictionary);
 }
 
 bool _dplp_find_number_constant(DPL_Program *program, double value, size_t *output)
 {
-    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i)
     {
-        DPL_Constant constant = program->constants_dictionary[i];
+        DPL_Constant constant = program->constants_dictionary.items[i];
         if (constant.kind == VALUE_NUMBER && dpl_value_number_equals(bb_read_f64(program->constants, constant.offset), value))
         {
             *output = constant.offset;
@@ -34,9 +35,9 @@ bool _dplp_find_number_constant(DPL_Program *program, double value, size_t *outp
 
 bool _dplp_find_string_constant(DPL_Program *program, Nob_String_View value, size_t *output)
 {
-    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i)
     {
-        DPL_Constant constant = program->constants_dictionary[i];
+        DPL_Constant constant = program->constants_dictionary.items[i];
         if (constant.kind == VALUE_STRING && dpl_value_string_equals(bb_read_sv(program->constants, constant.offset), value))
         {
             *output = constant.offset;
@@ -79,7 +80,7 @@ size_t _dplp_add_string_constant(DPL_Program *program, const char *value)
         .offset = offset,
         .kind = VALUE_STRING,
     };
-    da_add(program->constants_dictionary, dictionary_entry);
+    nob_da_append(&program->constants_dictionary, dictionary_entry);
 
     return offset;
 }
@@ -326,7 +327,7 @@ void dplp_print_escaped_string(const char *value, size_t length)
 void _dplp_print_constant(DPL_Program *program, size_t i)
 {
     printf(" #%zu: ", i);
-    DPL_Constant constant = program->constants_dictionary[i];
+    DPL_Constant constant = program->constants_dictionary.items[i];
     switch (constant.kind)
     {
     case VALUE_STRING:
@@ -460,9 +461,9 @@ void dplp_print(DPL_Program *program)
     printf("          Entry: %zu\n", program->entry);
 
     printf("----- CONSTANTS DICTIONARY ------\n");
-    printf("           Size: %zu\n", da_size(program->constants_dictionary));
-    printf("     Chunk size: %zu\n", da_size(program->constants.items));
-    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
+    printf("           Size: %zu\n", program->constants_dictionary.count);
+    printf("     Chunk size: %zu\n", program->constants.count);
+    for (size_t i = 0; i < program->constants_dictionary.count; ++i)
     {
         _dplp_print_constant(program, i);
     }

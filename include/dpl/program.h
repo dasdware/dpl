@@ -6,7 +6,6 @@
 #include "nob.h"
 
 #include "dw_byte_buffer.h"
-#include "dw_array.h"
 #include "value.h"
 
 #include <dpl/intrinsics.h>
@@ -51,7 +50,11 @@ typedef struct
     size_t offset;
 } DPL_Constant;
 
-typedef da_array(DPL_Constant) DPL_Constants_Dictionary;
+typedef struct {
+    DPL_Constant* items;
+    size_t count;
+    size_t capacity;
+} DPL_Constants_Dictionary;
 
 typedef struct
 {
