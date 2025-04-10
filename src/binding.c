@@ -2,7 +2,6 @@
 
 #include <arena.h>
 #include <error.h>
-#include <dw_array.h>
 
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
@@ -597,7 +596,7 @@ static DPL_Bound_Node *dpl_bind_function_call(DPL_Binding *binding, DPL_Ast_Node
 {
     DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_FUNCTIONCALL, NULL);
 
-    da_array(DPL_Symbol *) argument_types = NULL;
+    DPL_Symbols argument_types = {0};
     DPL_Bound_Nodes temp_arguments = {0};
 
     DPL_Ast_FunctionCall fc = node->as.function_call;
@@ -609,12 +608,14 @@ static DPL_Bound_Node *dpl_bind_function_call(DPL_Binding *binding, DPL_Ast_Node
             DPL_AST_ERROR(binding->source, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
         nob_da_append(&temp_arguments, bound_argument);
-        da_add(argument_types, bound_argument->type);
+        nob_da_append(&argument_types, bound_argument->type);
     }
     dpl_bind_move_nodelist(binding, temp_arguments, &bound_node->as.function_call.arguments_count,
                            &bound_node->as.function_call.arguments);
 
-    DPL_Symbol *function_symbol = dpl_symbols_find_function(binding->symbols, fc.name.text, da_size(argument_types), argument_types);
+    DPL_Symbol *function_symbol = dpl_symbols_find_function(binding->symbols, fc.name.text, argument_types.count, argument_types.items);
+    nob_da_free(argument_types);
+
     if (function_symbol)
     {
         dpl_bind_check_function_used(binding, function_symbol);

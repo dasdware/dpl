@@ -19,9 +19,6 @@
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
 
-#define DW_ARRAY_IMPLEMENTATION
-#include <dw_array.h>
-
 void usage(const char *program)
 {
     DW_ERROR("Usage: %s [-d] [-t] program.dplp", program);

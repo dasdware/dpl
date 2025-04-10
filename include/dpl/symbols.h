@@ -186,6 +186,12 @@ struct DPL_Symbol
     int stack_index;
 };
 
+typedef struct {
+    DPL_Symbol **items;
+    size_t count;
+    size_t capacity;
+} DPL_Symbols;
+
 // Symbol stack
 
 typedef struct

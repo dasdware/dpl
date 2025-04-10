@@ -14,9 +14,6 @@
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
 
-#define DW_ARRAY_IMPLEMENTATION
-#include <dw_array.h>
-
 void test_find_symbol(DPL_SymbolStack *stack, const char *name)
 {
     DPL_Symbol *symbol = dpl_symbols_find_cstr(stack, name);
