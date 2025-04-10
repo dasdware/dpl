@@ -12,6 +12,12 @@ typedef struct {
     size_t capacity;
 } DPL_Bound_Nodes;
 
+typedef struct {
+    DPL_Bound_ObjectField* items;
+    size_t count;
+    size_t capacity;
+} DPL_Bound_ObjectFields;
+
 // UTILS
 
 const char *BOUND_NODE_KIND_NAMES[COUNT_BOUND_NODE_KINDS] = {
@@ -237,18 +243,16 @@ DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node 
     return while_loop;
 }
 
-DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) fields)
+DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, DPL_Bound_ObjectFields fields)
 {
-    size_t field_count = da_size(fields);
-
     DPL_Symbol_Type_ObjectQuery type_query = NULL;
-    for (size_t i = 0; i < field_count; ++i)
+    for (size_t i = 0; i < fields.count; ++i)
     {
         da_add(
             type_query,
             ((DPL_Symbol_Type_ObjectField){
-                .name = fields[i].name,
-                .type = fields[i].expression->type,
+                .name = fields.items[i].name,
+                .type = fields.items[i].expression->type,
             }));
     }
 
@@ -278,10 +282,10 @@ DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, da_arr
     da_free(type_query);
 
     DPL_Bound_Node *object_literal = dpl_bind_allocate_node(binding, BOUND_NODE_OBJECT, bound_type);
-    object_literal->as.object.field_count = field_count;
-    object_literal->as.object.fields = arena_alloc(binding->memory, sizeof(DPL_Bound_ObjectField) * field_count);
-    memcpy(object_literal->as.object.fields, fields, sizeof(DPL_Bound_ObjectField) * field_count);
-    da_free(fields);
+    object_literal->as.object.field_count = fields.count;
+    object_literal->as.object.fields = arena_alloc(binding->memory, sizeof(DPL_Bound_ObjectField) * fields.count);
+    memcpy(object_literal->as.object.fields, fields.items, sizeof(DPL_Bound_ObjectField) * fields.count);
+    nob_da_free(fields);
 
     return object_literal;
 }
@@ -687,16 +691,16 @@ static int dpl_bind_object_literal_compare_fields(void const *a, void const *b)
     return nob_sv_cmp(((DPL_Bound_ObjectField *)a)->name, ((DPL_Bound_ObjectField *)b)->name);
 }
 
-void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) * fields,
+void dpl_bind_object_literal_add_field(DPL_Binding *binding, DPL_Bound_ObjectFields *fields,
                                        Nob_String_View field_name, DPL_Bound_Node *field_expression)
 {
     DW_UNUSED(binding);
 
-    for (size_t i = 0; i < da_size(*fields); ++i)
+    for (size_t i = 0; i < (*fields).count; ++i)
     {
-        if (nob_sv_eq((*fields)[i].name, field_name))
+        if (nob_sv_eq((*fields).items[i].name, field_name))
         {
-            (*fields)[i].expression = field_expression;
+            (*fields).items[i].expression = field_expression;
             return;
         }
     }
@@ -705,8 +709,8 @@ void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_
         .name = field_name,
         .expression = field_expression,
     };
-    da_add(*fields, bound_field);
-    qsort(*fields, da_size(*fields), sizeof(**fields), dpl_bind_object_literal_compare_fields);
+    nob_da_append(fields, bound_field);
+    qsort((*fields).items, (*fields).count, sizeof(*(*fields).items), dpl_bind_object_literal_compare_fields);
 }
 
 DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node)
@@ -714,7 +718,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
     dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
 
     DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
-    da_array(DPL_Bound_ObjectField) tmp_bound_fields = NULL;
+    DPL_Bound_ObjectFields tmp_bound_fields = {0};
     DPL_Bound_Nodes temporaries = {0};
     for (size_t i = 0; i < object_literal.field_count; ++i)
     {
@@ -919,7 +923,7 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
             DPL_AST_ERROR(binding->source, node, "Cannot bind right-hand side of binary expression.");
         }
 
-        da_array(DPL_Bound_ObjectField) bound_fields = NULL;
+        DPL_Bound_ObjectFields bound_fields = {0};
         dpl_bind_object_literal_add_field(binding, &bound_fields, nob_sv_from_cstr("from"), lhs);
         dpl_bind_object_literal_add_field(binding, &bound_fields, nob_sv_from_cstr("to"), rhs);
         return dpl_bind_create_object_literal_move(binding, bound_fields);
