@@ -12,8 +12,8 @@ void dplp_init(DPL_Program *program)
 
 void dplp_free(DPL_Program *program)
 {
-    da_free(program->constants);
-    da_free(program->code);
+    nob_da_free(program->constants);
+    nob_da_free(program->code);
     da_free(program->constants_dictionary);
 }
 
@@ -67,7 +67,7 @@ bool _dplp_find_string_constant(DPL_Program *program, Nob_String_View value, siz
 size_t _dplp_add_string_constant(DPL_Program *program, const char *value)
 {
     Nob_String_View value_view = nob_sv_from_cstr(value);
-    size_t offset = da_size(program->constants);
+    size_t offset = program->constants.count;
     if (_dplp_find_string_constant(program, value_view, &offset))
     {
         return offset;
@@ -195,13 +195,13 @@ size_t dplp_write_jump(DPL_Program *program, DPL_Instruction_Kind jump_kind)
 {
     dplp_write(program, jump_kind);
     bb_write_u16(&program->code, 0);
-    return da_size(program->code) - 2;
+    return program->code.count - 2;
 }
 
 void dplp_patch_jump(DPL_Program *program, size_t offset)
 {
     // -2 to adjust for the bytecode for the jump offset itself.
-    int jump = da_size(program->code) - offset - 2;
+    int jump = program->code.count - offset - 2;
 
     if (jump > UINT16_MAX)
     {
@@ -209,14 +209,14 @@ void dplp_patch_jump(DPL_Program *program, size_t offset)
     }
 
     uint16_t u16_jump = jump;
-    *((uint16_t *)(program->code + offset)) = u16_jump;
+    *((uint16_t *)(program->code.items + offset)) = u16_jump;
 }
 
 void dplp_write_loop(DPL_Program *program, size_t target)
 {
     dplp_write(program, INST_JUMP_LOOP);
 
-    int jump = da_size(program->code) - target + 2;
+    int jump = program->code.count - target + 2;
     if (jump > UINT16_MAX)
     {
         DW_ERROR("Cannot generate jumps larger then %u bytes.", UINT16_MAX);
@@ -362,7 +362,7 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
         size_t length = bs_read_u64(constants);
         printf("(length: %zu, value: \"", length);
         dplp_print_escaped_string(
-            (char *)(constants->buffer + constants->position),
+            (char *)(constants->buffer.items + constants->position),
             length);
         printf("\")");
     }
@@ -461,14 +461,14 @@ void dplp_print(DPL_Program *program)
 
     printf("----- CONSTANTS DICTIONARY ------\n");
     printf("           Size: %zu\n", da_size(program->constants_dictionary));
-    printf("     Chunk size: %zu\n", da_size(program->constants));
+    printf("     Chunk size: %zu\n", da_size(program->constants.items));
     for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
     {
         _dplp_print_constant(program, i);
     }
 
     printf("------------- CODE --------------\n");
-    printf("     Chunk size: %zu\n", da_size(program->code));
+    printf("     Chunk size: %zu\n", program->code.count);
 
     DW_ByteStream constants = {
         .buffer = program->constants,
@@ -501,11 +501,11 @@ bool dplp_save(DPL_Program *program, const char *file_name)
 {
     FILE *out = fopen(file_name, "wb");
 
-    DW_ByteBuffer header = 0;
+    DW_ByteBuffer header = { 0 };
     bb_write_u8(&header, program->version);
     bb_write_u64(&header, program->entry);
     _dplp_save_chunk(out, "HEAD", header);
-    da_free(header);
+    nob_da_free(header);
 
     _dplp_save_chunk(out, "CONS", program->constants);
     _dplp_save_chunk(out, "CODE", program->code);
@@ -562,11 +562,11 @@ bool dplp_load(DPL_Program *program, const char *file_name)
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {
-            da_addn(program->constants, chunk.data, da_size(chunk.data));
+            nob_da_append_many(&program->constants, chunk.data, da_size(chunk.data));
         }
         else if (strcmp(chunk.name, "CODE") == 0)
         {
-            da_addn(program->code, chunk.data, da_size(chunk.data));
+            nob_da_append_many(&program->code, chunk.data, da_size(chunk.data));
         }
         else
         {

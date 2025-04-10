@@ -2,7 +2,6 @@
 #define __DPL_H
 
 #include "arena.h"
-#include "dw_array.h"
 #include "nob.h"
 
 #include <dpl/binding.h>

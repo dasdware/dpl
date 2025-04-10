@@ -138,12 +138,12 @@ void dpl_compile(DPL *dpl, DPL_Program *program)
     for (size_t i = 0; i < da_size(generator.user_functions); ++i)
     {
         DPL_Binding_UserFunction *uf = &generator.user_functions[i];
-        uf->begin_ip = da_size(program->code);
+        uf->begin_ip = program->code.count;
         dpl_generate(&generator, uf->body, program);
         dplp_write_return(program);
     }
 
-    program->entry = da_size(program->code);
+    program->entry = program->code.count;
     dpl_generate(&generator, bound_root_expression, program);
     if (dpl->debug)
     {

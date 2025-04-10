@@ -153,7 +153,7 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
     break;
     case BOUND_NODE_WHILE_LOOP:
     {
-        size_t loop_start = da_size(program->code);
+        size_t loop_start = program->code.count;
 
         dpl_generate(generator, node->as.while_loop.condition, program);
 

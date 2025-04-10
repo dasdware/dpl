@@ -1,9 +1,11 @@
 #ifndef DW_BYTE_BUFFER_H_INCLUDED
 #define DW_BYTE_BUFFER_H_INCLUDED
 
-#include <dw_array.h>
-
-typedef da_array(uint8_t) DW_ByteBuffer;
+typedef struct {
+    uint8_t *items;
+    size_t count;
+    size_t capacity;
+} DW_ByteBuffer;
 
 void bb_write_u8(DW_ByteBuffer *buffer, uint8_t value);
 void bb_write_u16(DW_ByteBuffer *buffer, uint16_t value);
@@ -42,78 +44,78 @@ double bs_read_f64(DW_ByteStream* stream);
 
 void bb_write_u8(DW_ByteBuffer *buffer, uint8_t value)
 {
-    da_addn(*buffer, &value, sizeof(value));
+    nob_da_append_many(buffer, &value, sizeof(value));
 }
 
 void bb_write_u16(DW_ByteBuffer *buffer, uint16_t value)
 {
-    da_addn(*buffer, &value, sizeof(value));
+    nob_da_append_many(buffer, &value, sizeof(value));
 }
 
 void bb_write_u32(DW_ByteBuffer *buffer, uint32_t value)
 {
-    da_addn(*buffer, &value, sizeof(value));
+    nob_da_append_many(buffer, &value, sizeof(value));
 }
 
 void bb_write_u64(DW_ByteBuffer *buffer, uint64_t value)
 {
-    da_addn(*buffer, &value, sizeof(value));
+    nob_da_append_many(buffer, &value, sizeof(value));
 }
 
 void bb_write_f64(DW_ByteBuffer *buffer, double value)
 {
-    da_addn(*buffer, &value, sizeof(value));
+    nob_da_append_many(buffer, &value, sizeof(value));
 }
 
 void bb_write_sv(DW_ByteBuffer *buffer, Nob_String_View value)
 {
     bb_write_u64(buffer, value.count);
-    da_addn(*buffer, value.data, sizeof(char) * value.count);
+    nob_da_append_many(buffer, value.data, sizeof(char) * value.count);
 }
 
 uint8_t bb_read_u8(DW_ByteBuffer buffer, size_t offset)
 {
-    return *(uint8_t*) &buffer[offset];
+    return *(uint8_t*) &buffer.items[offset];
 }
 
 uint16_t bb_read_u16(DW_ByteBuffer buffer, size_t offset)
 {
-    return *(uint32_t*) &buffer[offset];
+    return *(uint32_t*) &buffer.items[offset];
 }
 
 uint32_t bb_read_u32(DW_ByteBuffer buffer, size_t offset)
 {
-    return *(uint32_t*) &buffer[offset];
+    return *(uint32_t*) &buffer.items[offset];
 }
 
 uint64_t bb_read_u64(DW_ByteBuffer buffer, size_t offset)
 {
-    return *(uint64_t*) &buffer[offset];
+    return *(uint64_t*) &buffer.items[offset];
 }
 
 double bb_read_f64(DW_ByteBuffer buffer, size_t offset)
 {
-    return *(double*) &buffer[offset];
+    return *(double*) &buffer.items[offset];
 }
 
 Nob_String_View bb_read_sv(DW_ByteBuffer buffer, size_t offset)
 {
     return (Nob_String_View) {
         .count = bb_read_u64(buffer, offset),
-        .data = (const char*) &buffer[offset + sizeof(uint64_t)],
+        .data = (const char*) &buffer.items[offset + sizeof(uint64_t)],
     };
 }
 
 void bb_save(FILE *out, DW_ByteBuffer buffer)
 {
-    size_t buffer_size = da_size(buffer);
+    size_t buffer_size = buffer.count;
     fwrite(&buffer_size, sizeof(size_t), 1, out);
-    fwrite(buffer, sizeof(uint8_t), buffer_size, out);
+    fwrite(buffer.items, sizeof(uint8_t), buffer_size, out);
 }
 
 bool bs_at_end(DW_ByteStream* stream)
 {
-    return stream->position >= da_size(stream->buffer);
+    return stream->position >= stream->buffer.count;
 }
 
 uint8_t bs_read_u8(DW_ByteStream* stream) {
