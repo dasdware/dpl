@@ -274,7 +274,7 @@ print(if (true) 2 else "foo"); # Types `Number` and `String` do not match
                                # in the conditional expression clauses.
 ```
 
-### Loops
+### While loops
 
 ```bash
 var i := 0;
@@ -353,3 +353,53 @@ function test(a: Number): Number := "foo";
 ```
 
 If the return type is ommitted, it is inferred from the `<BodyClause>` expression.
+
+
+### For loops, iterators and ranges
+
+```bash
+for (var i in 0..8)
+   print("${i}\n"); # print values from 1 to 8 (inclusive)
+```
+
+For loops can be used to iterate over a specific number of elements. In order to do that, they expect a variable name (`i` in the example above) that can be accessed in the loop body expression. The second argument (the `0..8` in the example above) must be an expression that either is or can be converted to an iterator.
+
+#### Iterators
+
+An iterator is an object of type `I` that satisfies the following requirements:
+
+1. It has the form `[finished: Boolean, current: T]`. The field `finished` denotes whether the iterator has finished (`true`) its iteration or if there are more elements to process (`false`). The field `current` contains the current value of the iterator. It can be of any type `T`. Aside from these two fields, iterators may have any additional fields for bookkeeping (e.g. a maximum value).
+2. There is a function `next(I): I`, which calculates the next iteration for the iterator. The return value contains updated fields `finished` and `current`. For the loop to finish, `finished` should be eventually `true`.
+
+With these requirements, for loops can be desugared to simple while loops:
+
+```bash
+function next(iterator: [current: Number, finished: Boolean, to: Number]): [current: Number, finished: Boolean, to: Number] := {
+  var current := iterator.current + 1;
+  [ ..iterator, finished := current > iterator.to, current ]
+};
+
+# for (var i in <iterator>)
+#   print("${i}\n");
+{
+    var it := [current: 0, finished: false, to: 8];
+    while (!(it.finished)) {
+        var i := it.current;
+
+        # the following line is the actual loop body
+        print("${i}\n");
+        it := it.next();
+    }
+}
+```
+
+#### Ranges
+
+A range is an expression that can be converted to an iterator by calling an available `iterator` function:
+
+```bash
+function iterator(range: [from: Number, to: Number]) :=
+  [ current: range.from, finished: range.from >= to, to: range.to ];
+```
+
+The compiler transforms expressions using the binary operator `..` automatically to objects of the form `[from: T, to: T]`. For example, `0..8` becomes `[from: 0, to: 8]`.

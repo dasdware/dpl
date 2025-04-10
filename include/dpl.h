@@ -8,10 +8,8 @@
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
 #include <dpl/parser.h>
+#include <dpl/program.h>
 #include <dpl/symbols.h>
-
-#include "externals.h"
-#include "program.h"
 
 // COMMON
 
@@ -28,7 +26,7 @@ typedef struct
     Arena *memory;
 } DPL;
 
-void dpl_init(DPL *dpl, DPL_ExternalFunctions externals);
+void dpl_init(DPL *dpl);
 void dpl_free(DPL *dpl);
 
 void dpl_compile(DPL *dpl, DPL_Program *program);

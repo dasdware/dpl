@@ -1,0 +1,22 @@
+# The unsugared initial implementation:
+{
+    var __it := iterator([from := 0, to := 8]);
+    while (!(__it.finished)) {
+        var i := __it.current;
+
+        print("${i}\n");
+        __it := __it.next();
+    }
+};
+
+# Same as a for loop:
+for (var i in iterator([from := 0, to := 8]))
+   print("${i}\n");
+
+# The call to the `iterator(...)` function can be generated automatically:
+for (var i in [from := 0, to := 8])
+   print("${i}\n");
+
+# Ranges can be automatically translated into appropriate objects:
+for (var i in 0..8)
+   print("${i}\n");

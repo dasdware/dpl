@@ -233,8 +233,8 @@ void mt_print(DW_MemoryTable *table) {
     printf("================================================================\n");
     printf("| DW Memory Table debug statistics\n");
     printf("================================================================\n");
-    printf("| Entries: %zu/%zu\n", used_entries, MT_CAPACITY);
-    printf("| Memory : %zu/%zu bytes\n", used_memory, MT_CAPACITY * (MT_MAX_LENGTH + 1));
+    printf("| Entries: %zu/%llu\n", used_entries, MT_CAPACITY);
+    printf("| Memory : %zu/%llu bytes\n", used_memory, MT_CAPACITY * (MT_MAX_LENGTH + 1));
     if (used_entries > 0) {
         printf("----------------------------------------------------------------\n");
         printf("| Entry breakdown\n");

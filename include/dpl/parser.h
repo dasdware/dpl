@@ -46,6 +46,7 @@ typedef enum
     AST_NODE_FUNCTION,
     AST_NODE_CONDITIONAL,
     AST_NODE_WHILE_LOOP,
+    AST_NODE_FOR_LOOP,
     AST_NODE_FIELD_ACCESS,
     AST_NODE_INTERPOLATION,
 
@@ -90,6 +91,13 @@ typedef struct
     DPL_Ast_Node *condition;
     DPL_Ast_Node *body;
 } DPL_Ast_WhileLoop;
+
+typedef struct parser
+{
+    DPL_Token variable_name;
+    DPL_Ast_Node *iterator_initializer;
+    DPL_Ast_Node *body;
+} DPL_Ast_ForLoop;
 
 typedef struct
 {
@@ -173,6 +181,7 @@ struct _DPL_Ast_Node
         DPL_Ast_Function function;
         DPL_Ast_Conditional conditional;
         DPL_Ast_WhileLoop while_loop;
+        DPL_Ast_ForLoop for_loop;
         DPL_Ast_FieldAccess field_access;
         DPL_Ast_Interpolation interpolation;
     } as;

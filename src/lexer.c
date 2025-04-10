@@ -39,6 +39,8 @@ const char *TOKEN_KIND_NAMES[COUNT_TOKEN_KINDS] = {
     [TOKEN_KEYWORD_TYPE] = "keyword `type`",
     [TOKEN_KEYWORD_VAR] = "keyword `var`",
     [TOKEN_KEYWORD_WHILE] = "keyword `while`",
+    [TOKEN_KEYWORD_FOR] = "keyword `for`",
+    [TOKEN_KEYWORD_IN] = "keyword `in`",
     [TOKEN_LESS_EQUAL] = "token `<=`",
     [TOKEN_LESS] = "token `<`",
     [TOKEN_MINUS] = "token `-`",
@@ -57,6 +59,9 @@ const char *TOKEN_KIND_NAMES[COUNT_TOKEN_KINDS] = {
     [TOKEN_TRUE] = "boolean literal",
     [TOKEN_WHITESPACE] = "<whitespace>",
 };
+
+static_assert(COUNT_TOKEN_KINDS == 44,
+              "Count of token kinds has changed, please update token kind names map.");
 
 const char *dpl_lexer_token_kind_name(DPL_TokenKind kind)
 {
@@ -512,6 +517,14 @@ DPL_Token dpl_lexer_next_token(DPL_Lexer *lexer)
         else if (nob_sv_eq(t.text, nob_sv_from_cstr("type")))
         {
             t.kind = TOKEN_KEYWORD_TYPE;
+        }
+        else if (nob_sv_eq(t.text, nob_sv_from_cstr("for")))
+        {
+            t.kind = TOKEN_KEYWORD_FOR;
+        }
+        else if (nob_sv_eq(t.text, nob_sv_from_cstr("in")))
+        {
+            t.kind = TOKEN_KEYWORD_IN;
         }
 
         return t;

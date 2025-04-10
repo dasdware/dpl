@@ -6,6 +6,10 @@
 #include <dpl/lexer.h>
 #include <dpl/parser.h>
 #include <dpl/symbols.h>
+#include <dpl/utils.h>
+
+#define DPL_BOUND_NODES(...) \
+    DPL_ARG_COUNT(__VA_ARGS__), (DPL_Bound_Node *[]) { __VA_ARGS__ }
 
 typedef enum
 {

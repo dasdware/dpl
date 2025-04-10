@@ -9,6 +9,8 @@
 #include "dw_array.h"
 #include "value.h"
 
+#include <dpl/intrinsics.h>
+
 typedef enum
 {
     INST_NOOP,
@@ -28,7 +30,7 @@ typedef enum
     INST_GREATER_EQUAL,
     INST_EQUAL,
     INST_NOT_EQUAL,
-    INST_CALL_EXTERNAL,
+    INST_CALL_INTRINSIC,
     INST_CALL_USER,
     INST_PUSH_LOCAL,
     INST_STORE_LOCAL,
@@ -43,7 +45,8 @@ typedef enum
     INST_INTERPOLATION,
 } DPL_Instruction_Kind;
 
-typedef struct {
+typedef struct
+{
     DPL_ValueKind kind;
     size_t offset;
 } DPL_Constant;
@@ -69,11 +72,11 @@ void dplp_write(DPL_Program *program, DPL_Instruction_Kind kind);
 void dplp_write_noop(DPL_Program *program);
 
 void dplp_write_push_number(DPL_Program *program, double value);
-void dplp_write_push_string(DPL_Program *program, const char* value);
+void dplp_write_push_string(DPL_Program *program, const char *value);
 void dplp_write_push_boolean(DPL_Program *program, bool value);
 void dplp_write_push_local(DPL_Program *program, size_t scope_index);
-void dplp_write_pop(DPL_Program* program);
-void dplp_write_pop_scope(DPL_Program* program, size_t n);
+void dplp_write_pop(DPL_Program *program);
+void dplp_write_pop_scope(DPL_Program *program, size_t n);
 
 void dplp_write_create_object(DPL_Program *program, size_t field_count);
 void dplp_write_load_field(DPL_Program *program, size_t field_index);
@@ -85,9 +88,9 @@ void dplp_write_subtract(DPL_Program *program);
 void dplp_write_multiply(DPL_Program *program);
 void dplp_write_divide(DPL_Program *program);
 
-void dplp_write_call_external(DPL_Program *program, size_t external_num);
+void dplp_write_call_intrinsic(DPL_Program *program, DPL_Intrinsic_Kind intrinsic);
 void dplp_write_call_user(DPL_Program *program, size_t arity, size_t ip_begin);
-void dplp_write_return(DPL_Program* program);
+void dplp_write_return(DPL_Program *program);
 
 void dplp_write_store_local(DPL_Program *program, size_t scope_index);
 
@@ -97,13 +100,13 @@ void dplp_write_loop(DPL_Program *program, size_t target);
 
 void dplp_write_interpolation(DPL_Program *program, size_t count);
 
-const char* dplp_inst_kind_name(DPL_Instruction_Kind kind);
+const char *dplp_inst_kind_name(DPL_Instruction_Kind kind);
 
-void dplp_print_escaped_string(const char* value, size_t length);
+void dplp_print_escaped_string(const char *value, size_t length);
 void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants);
 void dplp_print(DPL_Program *program);
 
-bool dplp_save(DPL_Program* program, const char* file_name);
-bool dplp_load(DPL_Program* program, const char* file_name);
+bool dplp_save(DPL_Program *program, const char *file_name);
+bool dplp_load(DPL_Program *program, const char *file_name);
 
 #endif // __DPL_PROGRAM_H

@@ -1,25 +1,29 @@
 #ifdef DPL_LEAKCHECK
-#   include "stb_leakcheck.h"
+#include "stb_leakcheck.h"
 #endif
 
-#include "program.h"
+#include <dpl/program.h>
 #include "error.h"
 
-void dplp_init(DPL_Program* program) {
+void dplp_init(DPL_Program *program)
+{
     program->version = 1;
 }
 
-void dplp_free(DPL_Program* program) {
+void dplp_free(DPL_Program *program)
+{
     da_free(program->constants);
     da_free(program->code);
     da_free(program->constants_dictionary);
 }
 
-bool _dplp_find_number_constant(DPL_Program* program, double value, size_t* output) {
-    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
+bool _dplp_find_number_constant(DPL_Program *program, double value, size_t *output)
+{
+    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
+    {
         DPL_Constant constant = program->constants_dictionary[i];
-        if (constant.kind == VALUE_NUMBER
-                && dpl_value_number_equals(bb_read_f64(program->constants, constant.offset), value)) {
+        if (constant.kind == VALUE_NUMBER && dpl_value_number_equals(bb_read_f64(program->constants, constant.offset), value))
+        {
             *output = constant.offset;
             return true;
         }
@@ -28,11 +32,13 @@ bool _dplp_find_number_constant(DPL_Program* program, double value, size_t* outp
     return false;
 }
 
-bool _dplp_find_string_constant(DPL_Program* program, Nob_String_View value, size_t* output) {
-    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
+bool _dplp_find_string_constant(DPL_Program *program, Nob_String_View value, size_t *output)
+{
+    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
+    {
         DPL_Constant constant = program->constants_dictionary[i];
-        if (constant.kind == VALUE_STRING
-                && dpl_value_string_equals(bb_read_sv(program->constants, constant.offset), value)) {
+        if (constant.kind == VALUE_STRING && dpl_value_string_equals(bb_read_sv(program->constants, constant.offset), value))
+        {
             *output = constant.offset;
             return true;
         }
@@ -58,10 +64,12 @@ bool _dplp_find_string_constant(DPL_Program* program, Nob_String_View value, siz
 //     return offset;
 // }
 
-size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
+size_t _dplp_add_string_constant(DPL_Program *program, const char *value)
+{
     Nob_String_View value_view = nob_sv_from_cstr(value);
     size_t offset = da_size(program->constants);
-    if (_dplp_find_string_constant(program, value_view, &offset)) {
+    if (_dplp_find_string_constant(program, value_view, &offset))
+    {
         return offset;
     }
 
@@ -76,90 +84,109 @@ size_t _dplp_add_string_constant(DPL_Program *program, const char* value) {
     return offset;
 }
 
-void dplp_write(DPL_Program *program, DPL_Instruction_Kind kind) {
+void dplp_write(DPL_Program *program, DPL_Instruction_Kind kind)
+{
     bb_write_u8(&program->code, kind);
 }
 
-void dplp_write_noop(DPL_Program *program) {
+void dplp_write_noop(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_NOOP);
 }
 
-void dplp_write_push_number(DPL_Program *program, double value) {
+void dplp_write_push_number(DPL_Program *program, double value)
+{
     bb_write_u8(&program->code, INST_PUSH_NUMBER);
     bb_write_f64(&program->code, value);
     // bb_write_u64(&program->code, _dplp_add_number_constant(program, value));
 }
 
-void dplp_write_push_string(DPL_Program *program, const char* value) {
+void dplp_write_push_string(DPL_Program *program, const char *value)
+{
     bb_write_u8(&program->code, INST_PUSH_STRING);
     bb_write_u64(&program->code, _dplp_add_string_constant(program, value));
 }
 
-void dplp_write_push_boolean(DPL_Program *program, bool value) {
+void dplp_write_push_boolean(DPL_Program *program, bool value)
+{
     bb_write_u8(&program->code, INST_PUSH_BOOLEAN);
     bb_write_u8(&program->code, value ? 1 : 0);
 }
 
-void dplp_write_create_object(DPL_Program *program, size_t field_count) {
+void dplp_write_create_object(DPL_Program *program, size_t field_count)
+{
     bb_write_u8(&program->code, INST_CREATE_OBJECT);
     bb_write_u8(&program->code, field_count);
 }
 
-void dplp_write_load_field(DPL_Program *program, size_t field_index) {
+void dplp_write_load_field(DPL_Program *program, size_t field_index)
+{
     bb_write_u8(&program->code, INST_LOAD_FIELD);
     bb_write_u8(&program->code, field_index);
 }
 
-void dplp_write_push_local(DPL_Program *program, size_t scope_index) {
+void dplp_write_push_local(DPL_Program *program, size_t scope_index)
+{
     bb_write_u8(&program->code, INST_PUSH_LOCAL);
     bb_write_u64(&program->code, scope_index);
 }
 
-void dplp_write_pop(DPL_Program* program) {
+void dplp_write_pop(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_POP);
 }
 
-void dplp_write_pop_scope(DPL_Program* program, size_t n) {
+void dplp_write_pop_scope(DPL_Program *program, size_t n)
+{
     bb_write_u8(&program->code, INST_POP_SCOPE);
     bb_write_u64(&program->code, n);
 }
 
-void dplp_write_negate(DPL_Program *program) {
+void dplp_write_negate(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_NEGATE);
 }
 
-void dplp_write_add(DPL_Program *program) {
+void dplp_write_add(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_ADD);
 }
 
-void dplp_write_subtract(DPL_Program *program) {
+void dplp_write_subtract(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_SUBTRACT);
 }
 
-void dplp_write_multiply(DPL_Program *program) {
+void dplp_write_multiply(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_MULTIPLY);
 }
 
-void dplp_write_divide(DPL_Program *program) {
+void dplp_write_divide(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_DIVIDE);
 }
 
-void dplp_write_call_external(DPL_Program *program, size_t external_num) {
-    bb_write_u8(&program->code, INST_CALL_EXTERNAL);
-    bb_write_u8(&program->code, external_num);
+void dplp_write_call_intrinsic(DPL_Program *program, DPL_Intrinsic_Kind intrinsic)
+{
+    bb_write_u8(&program->code, INST_CALL_INTRINSIC);
+    bb_write_u8(&program->code, intrinsic);
 }
 
-void dplp_write_call_user(DPL_Program *program, size_t arity, size_t ip_begin) {
+void dplp_write_call_user(DPL_Program *program, size_t arity, size_t ip_begin)
+{
     bb_write_u8(&program->code, INST_CALL_USER);
     bb_write_u8(&program->code, arity);
     bb_write_u64(&program->code, ip_begin);
 }
 
-void dplp_write_return(DPL_Program* program) {
+void dplp_write_return(DPL_Program *program)
+{
     bb_write_u8(&program->code, INST_RETURN);
 }
 
-void dplp_write_store_local(DPL_Program *program, size_t scope_index) {
+void dplp_write_store_local(DPL_Program *program, size_t scope_index)
+{
     bb_write_u8(&program->code, INST_STORE_LOCAL);
     bb_write_u64(&program->code, scope_index);
 }
@@ -176,12 +203,13 @@ void dplp_patch_jump(DPL_Program *program, size_t offset)
     // -2 to adjust for the bytecode for the jump offset itself.
     int jump = da_size(program->code) - offset - 2;
 
-    if (jump > UINT16_MAX) {
+    if (jump > UINT16_MAX)
+    {
         DW_ERROR("Cannot generate jumps larger then %u bytes.", UINT16_MAX);
     }
 
     uint16_t u16_jump = jump;
-    *((uint16_t*)(program->code + offset)) = u16_jump;
+    *((uint16_t *)(program->code + offset)) = u16_jump;
 }
 
 void dplp_write_loop(DPL_Program *program, size_t target)
@@ -189,20 +217,24 @@ void dplp_write_loop(DPL_Program *program, size_t target)
     dplp_write(program, INST_JUMP_LOOP);
 
     int jump = da_size(program->code) - target + 2;
-    if (jump > UINT16_MAX) {
+    if (jump > UINT16_MAX)
+    {
         DW_ERROR("Cannot generate jumps larger then %u bytes.", UINT16_MAX);
     }
 
     bb_write_u16(&program->code, jump);
 }
 
-void dplp_write_interpolation(DPL_Program *program, size_t count) {
+void dplp_write_interpolation(DPL_Program *program, size_t count)
+{
     dplp_write(program, INST_INTERPOLATION);
     bb_write_u8(&program->code, count);
 }
 
-const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
-    switch (kind) {
+const char *dplp_inst_kind_name(DPL_Instruction_Kind kind)
+{
+    switch (kind)
+    {
     case INST_NOOP:
         return "NOOP";
     case INST_PUSH_NUMBER:
@@ -237,8 +269,8 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
         return "EQUAL";
     case INST_NOT_EQUAL:
         return "NOT_EQUAL";
-    case INST_CALL_EXTERNAL:
-        return "CALL_EXTERNAL";
+    case INST_CALL_INTRINSIC:
+        return "CALL_INTRINSIC";
     case INST_CALL_USER:
         return "CALL_USER";
     case INST_RETURN:
@@ -268,10 +300,13 @@ const char* dplp_inst_kind_name(DPL_Instruction_Kind kind) {
     }
 }
 
-void dplp_print_escaped_string(const char* value, size_t length) {
-    char* pos = (char*)value;
-    for (size_t i = 0; i < length; ++i) {
-        switch (*pos) {
+void dplp_print_escaped_string(const char *value, size_t length)
+{
+    char *pos = (char *)value;
+    for (size_t i = 0; i < length; ++i)
+    {
+        switch (*pos)
+        {
         case '\n':
             printf("\\n");
             break;
@@ -288,10 +323,12 @@ void dplp_print_escaped_string(const char* value, size_t length) {
     }
 }
 
-void _dplp_print_constant(DPL_Program* program, size_t i) {
+void _dplp_print_constant(DPL_Program *program, size_t i)
+{
     printf(" #%zu: ", i);
     DPL_Constant constant = program->constants_dictionary[i];
-    switch (constant.kind) {
+    switch (constant.kind)
+    {
     case VALUE_STRING:
         dpl_value_print_string(bb_read_sv(program->constants, constant.offset));
         break;
@@ -304,44 +341,52 @@ void _dplp_print_constant(DPL_Program* program, size_t i) {
     printf(" (offset: %zu)\n", constant.offset);
 }
 
-void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants) {
+void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants)
+{
     printf("[%04zu] ", code->position);
     DPL_Instruction_Kind kind = bs_read_u8(code);
     printf("%s", dplp_inst_kind_name(kind));
 
-    switch (kind) {
-    case INST_PUSH_NUMBER: {
+    switch (kind)
+    {
+    case INST_PUSH_NUMBER:
+    {
         double value = bs_read_f64(code);
         printf(" %f ", value);
     }
     break;
-    case INST_PUSH_STRING: {
+    case INST_PUSH_STRING:
+    {
         constants->position = bs_read_u64(code);
         printf(" %zu: ", constants->position);
         size_t length = bs_read_u64(constants);
         printf("(length: %zu, value: \"", length);
         dplp_print_escaped_string(
-            (char*)(constants->buffer + constants->position),
+            (char *)(constants->buffer + constants->position),
             length);
         printf("\")");
     }
     break;
-    case INST_PUSH_BOOLEAN: {
+    case INST_PUSH_BOOLEAN:
+    {
         uint8_t value = bs_read_u8(code);
         printf(" %s", (value == 1) ? "true" : "false");
     }
     break;
-    case INST_PUSH_LOCAL: {
+    case INST_PUSH_LOCAL:
+    {
         size_t scope_index = bs_read_u64(code);
         printf(" %zu", scope_index);
     }
     break;
-    case INST_CREATE_OBJECT: {
+    case INST_CREATE_OBJECT:
+    {
         size_t field_count = bs_read_u8(code);
         printf(" %zu", field_count);
     }
     break;
-    case INST_LOAD_FIELD: {
+    case INST_LOAD_FIELD:
+    {
         size_t field_index = bs_read_u8(code);
         printf(" %zu", field_index);
     }
@@ -362,23 +407,26 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_NOT_EQUAL:
     case INST_RETURN:
         break;
-    case INST_CALL_EXTERNAL: {
-        uint8_t external_num = bs_read_u8(code);
-        printf(" %u", external_num);
+    case INST_CALL_INTRINSIC:
+    {
+        printf(" %s", dpl_intrinsic_kind_name(bs_read_u8(code)));
     }
     break;
-    case INST_CALL_USER: {
+    case INST_CALL_USER:
+    {
         uint8_t arity = bs_read_u8(code);
         size_t begin_ip = bs_read_u64(code);
         printf(" %u %zu", arity, begin_ip);
     }
     break;
-    case INST_STORE_LOCAL: {
+    case INST_STORE_LOCAL:
+    {
         size_t scope_index = bs_read_u64(code);
         printf(" %zu", scope_index);
     }
     break;
-    case INST_POP_SCOPE: {
+    case INST_POP_SCOPE:
+    {
         size_t n = bs_read_u64(code);
         printf(" %zu", n);
     }
@@ -386,12 +434,14 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_JUMP:
     case INST_JUMP_IF_FALSE:
     case INST_JUMP_IF_TRUE:
-    case INST_JUMP_LOOP: {
+    case INST_JUMP_LOOP:
+    {
         uint16_t offset = bs_read_u16(code);
         printf(" %u", offset);
     }
     break;
-    case INST_INTERPOLATION: {
+    case INST_INTERPOLATION:
+    {
         uint8_t count = bs_read_u8(code);
         printf(" %u", count);
     }
@@ -401,10 +451,10 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     }
 
     printf("\n");
-
 }
 
-void dplp_print(DPL_Program *program) {
+void dplp_print(DPL_Program *program)
+{
     printf("============ PROGRAM ============\n");
     printf("        Version: %u\n", program->version);
     printf("          Entry: %zu\n", program->entry);
@@ -412,7 +462,8 @@ void dplp_print(DPL_Program *program) {
     printf("----- CONSTANTS DICTIONARY ------\n");
     printf("           Size: %zu\n", da_size(program->constants_dictionary));
     printf("     Chunk size: %zu\n", da_size(program->constants));
-    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i) {
+    for (size_t i = 0; i < da_size(program->constants_dictionary); ++i)
+    {
         _dplp_print_constant(program, i);
     }
 
@@ -427,7 +478,8 @@ void dplp_print(DPL_Program *program) {
         .buffer = program->code,
         .position = 0,
     };
-    while (!bs_at_end(&code)) {
+    while (!bs_at_end(&code))
+    {
         dplp_print_stream_instruction(&code, &constants);
         continue;
     }
@@ -435,7 +487,7 @@ void dplp_print(DPL_Program *program) {
     printf("\n");
 }
 
-bool _dplp_save_chunk(FILE* out, const char* name, DW_ByteBuffer buffer)
+bool _dplp_save_chunk(FILE *out, const char *name, DW_ByteBuffer buffer)
 {
     assert(strlen(name) == 4);
 
@@ -445,7 +497,7 @@ bool _dplp_save_chunk(FILE* out, const char* name, DW_ByteBuffer buffer)
     return true;
 }
 
-bool dplp_save(DPL_Program* program, const char* file_name)
+bool dplp_save(DPL_Program *program, const char *file_name)
 {
     FILE *out = fopen(file_name, "wb");
 
@@ -469,9 +521,10 @@ typedef struct
     da_array(uint8_t) data;
 } DPL_Loaded_Chunk;
 
-bool _dplp_load_chunk(FILE* in, DPL_Loaded_Chunk* chunk)
+bool _dplp_load_chunk(FILE *in, DPL_Loaded_Chunk *chunk)
 {
-    if (feof(in)) {
+    if (feof(in))
+    {
         return false;
     }
 
@@ -495,16 +548,17 @@ bool _dplp_load_chunk(FILE* in, DPL_Loaded_Chunk* chunk)
     return true;
 }
 
-bool dplp_load(DPL_Program* program, const char* file_name)
+bool dplp_load(DPL_Program *program, const char *file_name)
 {
     FILE *in = fopen(file_name, "rb");
 
     DPL_Loaded_Chunk chunk = {0};
-    while (_dplp_load_chunk(in, &chunk)) {
+    while (_dplp_load_chunk(in, &chunk))
+    {
         if (strcmp(chunk.name, "HEAD") == 0)
         {
             program->version = chunk.data[0];
-            program->entry = *(uint64_t*)(chunk.data + sizeof(program->version));
+            program->entry = *(uint64_t *)(chunk.data + sizeof(program->version));
         }
         else if (strcmp(chunk.name, "CONS") == 0)
         {

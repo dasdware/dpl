@@ -2,7 +2,7 @@
 #define __DPL_GENERATOR_H
 
 #include <dpl/binding.h>
-#include <program.h>
+#include <dpl/program.h>
 
 typedef struct
 {
