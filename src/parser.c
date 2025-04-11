@@ -45,14 +45,14 @@ DPL_Ast_Node *dpl_parse_allocate_node(DPL_Parser *parser, DPL_AstNodeKind kind, 
     return node;
 }
 
-void dpl_parse_move_nodelist(DPL_Parser *parser, da_array(DPL_Ast_Node *) list, size_t *target_count, DPL_Ast_Node ***target_items)
+void dpl_parse_move_nodelist(DPL_Parser *parser, DPL_Ast_Nodes list, size_t *target_count, DPL_Ast_Node ***target_items)
 {
-    *target_count = da_size(list);
-    if (da_some(list))
+    *target_count = list.count;
+    if (list.count > 0)
     {
-        *target_items = arena_alloc(parser->memory, sizeof(DPL_Ast_Node *) * da_size(list));
-        memcpy(*target_items, list, sizeof(DPL_Ast_Node *) * da_size(list));
-        da_free(list);
+        *target_items = arena_alloc(parser->memory, sizeof(DPL_Ast_Node *) * list.count);
+        memcpy(*target_items, list.items, sizeof(DPL_Ast_Node *) * list.count);
+        nob_da_free(list);
     }
 }
 
@@ -542,16 +542,16 @@ DPL_Ast_Node *dpl_parse_declaration(DPL_Parser *parser)
     return dpl_parse_expression(parser);
 }
 
-da_array(DPL_Ast_Node *) dpl_parse_expressions(DPL_Parser *parser, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
+DPL_Ast_Nodes dpl_parse_expressions(DPL_Parser *parser, DPL_TokenKind delimiter, DPL_TokenKind closing, bool allow_declarations)
 {
-    da_array(DPL_Ast_Node *) list = 0;
+    DPL_Ast_Nodes list = {0};
     if (allow_declarations)
     {
-        da_add(list, dpl_parse_declaration(parser));
+        nob_da_append(&list, dpl_parse_declaration(parser));
     }
     else
     {
-        da_add(list, dpl_parse_expression(parser));
+        nob_da_append(&list, dpl_parse_expression(parser));
     }
 
     DPL_Token delimiter_candidate = dpl_parse_peek_token(parser);
@@ -565,11 +565,11 @@ da_array(DPL_Ast_Node *) dpl_parse_expressions(DPL_Parser *parser, DPL_TokenKind
 
         if (allow_declarations)
         {
-            da_add(list, dpl_parse_declaration(parser));
+            nob_da_append(&list, dpl_parse_declaration(parser));
         }
         else
         {
-            da_add(list, dpl_parse_expression(parser));
+            nob_da_append(&list, dpl_parse_expression(parser));
         }
         delimiter_candidate = dpl_parse_peek_token(parser);
     }
@@ -607,7 +607,7 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
             DPL_Token name = token;
             /*DPL_Token open_paren =*/dpl_parse_expect_token(parser, TOKEN_OPEN_PAREN);
 
-            da_array(DPL_Ast_Node *) arguments = 0;
+            DPL_Ast_Nodes arguments = {0};
             if (dpl_parse_peek_token(parser).kind != TOKEN_CLOSE_PAREN)
             {
                 arguments = dpl_parse_expressions(parser, TOKEN_COMMA, TOKEN_CLOSE_PAREN, false);
@@ -628,7 +628,7 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
     case TOKEN_OPEN_BRACKET:
     {
         bool first = true;
-        da_array(DPL_Ast_Node *) tmp_fields = NULL;
+        DPL_Ast_Nodes tmp_fields = {0};
         while (dpl_parse_peek_token(parser).kind != TOKEN_CLOSE_BRACKET)
         {
             if (!first)
@@ -637,7 +637,7 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
             }
 
             DPL_Ast_Node *field = dpl_parse_expression(parser);
-            da_add(tmp_fields, field);
+            nob_da_append(&tmp_fields, field);
 
             first = false;
         }
@@ -651,17 +651,17 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
     break;
     case TOKEN_STRING_INTERPOLATION:
     {
-        da_array(DPL_Ast_Node *) tmp_parts = NULL;
+        DPL_Ast_Nodes tmp_parts = {0};
 
         while (token.kind == TOKEN_STRING_INTERPOLATION)
         {
             if (token.text.count > 3)
             {
-                da_add(tmp_parts, dpl_parse_allocate_literal(parser, token));
+                nob_da_append(&tmp_parts, dpl_parse_allocate_literal(parser, token));
             }
 
             DPL_Ast_Node *expression = dpl_parse_expression(parser);
-            da_add(tmp_parts, expression);
+            nob_da_append(&tmp_parts, expression);
 
             token = dpl_parse_next_token(parser);
         }
@@ -669,11 +669,11 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
         dpl_parse_check_token(parser, token, TOKEN_STRING);
         if (token.text.count > 2)
         {
-            da_add(tmp_parts, dpl_parse_allocate_literal(parser, token));
+            nob_da_append(&tmp_parts, dpl_parse_allocate_literal(parser, token));
         }
 
         DPL_Ast_Node *node = dpl_parse_allocate_node(parser, AST_NODE_INTERPOLATION,
-                                                     da_first(tmp_parts)->first, da_last(tmp_parts)->last);
+                                                     tmp_parts.items[0]->first, tmp_parts.items[tmp_parts.count - 1]->last);
         dpl_parse_move_nodelist(parser, tmp_parts, &node->as.interpolation.expression_count, &node->as.interpolation.expressions);
 
         return node;
@@ -1000,10 +1000,10 @@ DPL_Ast_Node *dpl_parse_scope(DPL_Parser *parser, DPL_Token opening_token, DPL_T
                         dpl_lexer_token_kind_name(closing_token_kind));
     }
 
-    da_array(DPL_Ast_Node *) expressions = dpl_parse_expressions(parser, TOKEN_SEMICOLON, closing_token_kind, true);
+    DPL_Ast_Nodes expressions = dpl_parse_expressions(parser, TOKEN_SEMICOLON, closing_token_kind, true);
     if (opening_token.kind == TOKEN_NONE)
     {
-        opening_token = expressions[0]->first;
+        opening_token = expressions.items[0]->first;
     }
 
     DPL_Token closing_token = dpl_parse_expect_token(parser, closing_token_kind);

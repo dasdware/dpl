@@ -53,7 +53,7 @@ typedef enum
     COUNT_AST_NODE_KINDS,
 } DPL_AstNodeKind;
 
-typedef struct _DPL_Ast_Node DPL_Ast_Node;
+typedef struct DPL_Ast_Node DPL_Ast_Node;
 
 typedef struct
 {
@@ -162,7 +162,7 @@ typedef struct
     DPL_Ast_Node *field;
 } DPL_Ast_FieldAccess;
 
-struct _DPL_Ast_Node
+struct DPL_Ast_Node
 {
     DPL_AstNodeKind kind;
     DPL_Token first;
@@ -186,6 +186,12 @@ struct _DPL_Ast_Node
         DPL_Ast_Interpolation interpolation;
     } as;
 };
+
+typedef struct {
+    DPL_Ast_Node **items;
+    size_t count;
+    size_t capacity;
+} DPL_Ast_Nodes;
 
 typedef struct
 {
