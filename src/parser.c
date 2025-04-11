@@ -376,10 +376,10 @@ DPL_Ast_Type *dpl_parse_type(DPL_Parser *parser)
     {
         dpl_parse_next_token(parser);
 
-        da_array(DPL_Ast_TypeField) tmp_fields = NULL;
+        DPL_Ast_TypeFields tmp_fields = {0};
         while (dpl_parse_peek_token(parser).kind != TOKEN_CLOSE_BRACKET)
         {
-            if (da_size(tmp_fields) > 0)
+            if (tmp_fields.count > 0)
             {
                 dpl_parse_expect_token(parser, TOKEN_COMMA);
             }
@@ -393,34 +393,34 @@ DPL_Ast_Type *dpl_parse_type(DPL_Parser *parser)
                 .type = type,
             };
 
-            for (size_t i = 0; i < da_size(tmp_fields); ++i)
+            for (size_t i = 0; i < tmp_fields.count; ++i)
             {
-                if (nob_sv_eq(tmp_fields[i].name.text, name.text))
+                if (nob_sv_eq(tmp_fields.items[i].name.text, name.text))
                 {
                     DPL_AST_ERROR_WITH_NOTE(parser->lexer->source,
-                                            &tmp_fields[i], "Previous declaration was here.",
+                                            &tmp_fields.items[i], "Previous declaration was here.",
                                             &field, "Duplicate field `" SV_Fmt "` in object type.", SV_Arg(name.text));
                 }
             }
-            da_add(tmp_fields, field);
+            nob_da_append(&tmp_fields, field);
         }
-        qsort(tmp_fields, da_size(tmp_fields), sizeof(*tmp_fields), dpl_parse_compare_object_type_fields);
+        qsort(tmp_fields.items, tmp_fields.count, sizeof(*tmp_fields.items), dpl_parse_compare_object_type_fields);
 
         DPL_Ast_TypeField *fields = NULL;
-        if (da_some(tmp_fields))
+        if (tmp_fields.count > 0)
         {
-            fields = arena_alloc(parser->memory, sizeof(DPL_Ast_TypeField) * da_size(tmp_fields));
-            memcpy(fields, tmp_fields, sizeof(DPL_Ast_TypeField) * da_size(tmp_fields));
+            fields = arena_alloc(parser->memory, sizeof(DPL_Ast_TypeField) * tmp_fields.count);
+            memcpy(fields, tmp_fields.items, sizeof(DPL_Ast_TypeField) * tmp_fields.count);
         }
 
         DPL_Ast_Type *object_type = arena_alloc(parser->memory, sizeof(DPL_Ast_Type));
         object_type->kind = TYPE_OBJECT;
         object_type->first = type_begin;
         object_type->last = dpl_parse_peek_token(parser);
-        object_type->as.object.field_count = da_size(tmp_fields);
+        object_type->as.object.field_count = tmp_fields.count;
         object_type->as.object.fields = fields;
 
-        da_free(tmp_fields);
+        nob_da_free(tmp_fields);
         dpl_parse_next_token(parser);
 
         return object_type;

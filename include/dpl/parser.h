@@ -14,6 +14,12 @@ typedef struct
     struct DPL_Ast_Type *type;
 } DPL_Ast_TypeField;
 
+typedef struct {
+    DPL_Ast_TypeField* items;
+    size_t count;
+    size_t capacity;
+} DPL_Ast_TypeFields;
+
 typedef struct
 {
     size_t field_count;
