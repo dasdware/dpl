@@ -149,6 +149,13 @@ typedef struct
 
 typedef struct
 {
+    DPL_Ast_FunctionArgument* items;
+    size_t count;
+    size_t capacity;
+} DPL_Ast_FunctionArguments;
+
+typedef struct
+{
     size_t argument_count;
     DPL_Ast_FunctionArgument *arguments;
     DPL_Ast_Type *type;

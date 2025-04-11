@@ -463,7 +463,7 @@ DPL_Ast_Node *dpl_parse_declaration(DPL_Parser *parser)
         DPL_Token keyword = dpl_parse_next_token(parser);
         DPL_Token name = dpl_parse_expect_token(parser, TOKEN_IDENTIFIER);
 
-        da_array(DPL_Ast_FunctionArgument) arguments = 0;
+        DPL_Ast_FunctionArguments arguments = {0};
         dpl_parse_expect_token(parser, TOKEN_OPEN_PAREN);
         if (dpl_parse_peek_token(parser).kind != TOKEN_CLOSE_PAREN)
         {
@@ -474,7 +474,7 @@ DPL_Ast_Node *dpl_parse_declaration(DPL_Parser *parser)
                 dpl_parse_expect_token(parser, TOKEN_COLON);
                 argument.type = dpl_parse_type(parser);
 
-                da_add(arguments, argument);
+                nob_da_append(&arguments, argument);
 
                 if (dpl_parse_peek_token(parser).kind != TOKEN_COMMA)
                 {
@@ -503,12 +503,12 @@ DPL_Ast_Node *dpl_parse_declaration(DPL_Parser *parser)
         function->as.function.keyword = keyword;
         function->as.function.name = name;
 
-        function->as.function.signature.argument_count = da_size(arguments);
-        if (da_some(arguments))
+        function->as.function.signature.argument_count = arguments.count;
+        if (arguments.count > 0)
         {
-            function->as.function.signature.arguments = arena_alloc(parser->memory, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
-            memcpy(function->as.function.signature.arguments, arguments, sizeof(DPL_Ast_FunctionArgument) * da_size(arguments));
-            da_free(arguments);
+            function->as.function.signature.arguments = arena_alloc(parser->memory, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
+            memcpy(function->as.function.signature.arguments, arguments.items, sizeof(DPL_Ast_FunctionArgument) * arguments.count);
+            nob_da_free(arguments);
         }
         function->as.function.signature.type = result_type;
 
