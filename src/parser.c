@@ -1,8 +1,6 @@
 #include <dpl/parser.h>
 #include <error.h>
 
-#include <dw_array.h>
-
 const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
 
     [AST_NODE_LITERAL] = "AST_NODE_LITERAL",
