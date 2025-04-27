@@ -1,7 +1,7 @@
 #ifndef __DPL_LEXER_H
 #define __DPL_LEXER_H
 
-#include <nob.h>
+#include <nobx.h>
 
 #ifndef DPL_MAX_INTERPOLATION
 #define DPL_MAX_INTERPOLATION 8

@@ -1,9 +1,10 @@
 #include "./include/error.h"
 #define NOB_IMPLEMENTATION
-#include "./include/nob.h"
+#include "./thirdparty/nob.h"
+#include "./thirdparty/nobx.h"
 
-#define BUILD_DIR "build"
-#define BUILD_OUTPUT(output) "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR output
+#define BUILD_DIR "build/"
+#define BUILD_OUTPUT(output) "./" BUILD_DIR output
 
 #define DPLC_OUTPUT BUILD_OUTPUT("dplc.exe")
 #define DPL_OUTPUT BUILD_OUTPUT("dpl.exe")
@@ -53,6 +54,7 @@ void build_dplc(bool debug_build)
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
+    nob_cmd_append(&cmd, "-I./thirdparty/");
     if (debug_build)
     {
         nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
@@ -86,6 +88,7 @@ void build_dpl(bool debug_build)
     nob_cmd_append(&cmd, "gcc");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
     nob_cmd_append(&cmd, "-I./include/");
+    nob_cmd_append(&cmd, "-I./thirdparty/");
     if (debug_build)
     {
         nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
@@ -241,8 +244,8 @@ void help(Nob_String_View program, int *argc, char ***argv)
 
 void build_dplc_output(Nob_String_Builder *output_path, const char *dpl_file)
 {
-    Nob_String_View input_file = nob_sv_filename_of(nob_sv_from_cstr(dpl_file));
-    nob_sb_append_cstr(output_path, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
+    Nob_String_View input_file = nob_sv_from_cstr(nob_path_name(dpl_file));
+    nob_sb_append_cstr(output_path, "./" BUILD_DIR);
     nob_sb_append_sv(output_path, input_file);
     nob_sb_append_cstr(output_path, "p");
     nob_sb_append_null(output_path);
@@ -416,19 +419,17 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
     nob_log(NOB_INFO, "Test: " SV_Fmt, SV_Arg(test_filename));
 
     Nob_String_Builder test_filepath = {0};
-    nob_sb_append_cstr(&test_filepath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
+    nob_sb_append_cstr(&test_filepath, "./tests/");
     nob_sb_append_sv(&test_filepath, test_filename);
     nob_sb_append_null(&test_filepath);
 
     Nob_String_Builder test_outpath = {0};
-    nob_sb_append_cstr(&test_outpath, "." NOB_PATH_DELIM_STR "tests" NOB_PATH_DELIM_STR);
+    nob_sb_append_cstr(&test_outpath, "./tests/");
     nob_sb_append_sv(&test_outpath, test_filename);
     nob_sb_append_cstr(&test_outpath, ".out");
     nob_sb_append_null(&test_outpath);
 
-    Nob_String_View extension = nob_sv_last_part_by_delim(test_filename, '.');
-
-    if (nob_sv_eq(extension, nob_sv_from_cstr("dpl")))
+    if (nob_sv_end_with(test_filename, ".dpl"))
     {
         Nob_String_Builder test_dplppath = {0};
         build_dplc_output(&test_dplppath, test_filepath.items);
@@ -452,10 +453,10 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
 
         nob_sb_free(test_dplppath);
     }
-    else if (nob_sv_eq(extension, nob_sv_from_cstr("c")))
+    else if (nob_sv_end_with(test_filename, ".c"))
     {
         Nob_String_Builder test_exepath = {0};
-        nob_sb_append_cstr(&test_exepath, "." NOB_PATH_DELIM_STR BUILD_DIR NOB_PATH_DELIM_STR);
+        nob_sb_append_cstr(&test_exepath, "./" BUILD_DIR);
         nob_sb_append_sv(&test_exepath, test_filename);
         nob_sb_append_cstr(&test_exepath, ".exe");
         nob_sb_append_null(&test_exepath);
@@ -464,6 +465,7 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
         nob_cmd_append(&cmd, "gcc");
         nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
         nob_cmd_append(&cmd, "-I./include/");
+        nob_cmd_append(&cmd, "-I./thirdparty/");
         nob_cmd_append(&cmd,
                        test_filepath.items,
                        "./src/intrinsics.c",
@@ -491,7 +493,7 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
 void test(Nob_String_View program, int *argc, char ***argv)
 {
     DIR *dfd;
-    if ((dfd = opendir("." NOB_PATH_DELIM_STR "tests")) == NULL)
+    if ((dfd = opendir("./tests")) == NULL)
     {
         nob_log(NOB_ERROR, "Cannot iterate test files.");
         exit(1);
@@ -535,7 +537,7 @@ int main(int argc, char **argv)
 {
     NOB_GO_REBUILD_URSELF(argc, argv);
 
-    Nob_String_View program = nob_sv_filename_of(nob_sv_shift_args(&argc, &argv));
+    Nob_String_View program = nob_sv_from_cstr(nob_path_name(nob_shift_args(&argc, &argv)));
     printf(SV_Fmt " - Buildtool for dasd.ware Programming Language (DPL)\n", SV_Arg(program));
 
     if (argc == 0)

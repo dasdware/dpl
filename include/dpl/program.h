@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "nob.h"
+#include <nobx.h>
 
 #include "dw_byte_buffer.h"
 #include "value.h"
@@ -50,8 +50,9 @@ typedef struct
     size_t offset;
 } DPL_Constant;
 
-typedef struct {
-    DPL_Constant* items;
+typedef struct
+{
+    DPL_Constant *items;
     size_t count;
     size_t capacity;
 } DPL_Constants_Dictionary;

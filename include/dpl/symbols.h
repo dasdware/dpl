@@ -2,7 +2,7 @@
 #define __DPL_SYMBOLS_H
 
 #include <arena.h>
-#include <nob.h>
+#include <nobx.h>
 
 #include <dpl/intrinsics.h>
 #include <dpl/program.h>
@@ -69,8 +69,9 @@ typedef struct
     DPL_Symbol *type;
 } DPL_Symbol_Type_ObjectField;
 
-typedef struct {
-    DPL_Symbol_Type_ObjectField* items;
+typedef struct
+{
+    DPL_Symbol_Type_ObjectField *items;
     size_t count;
     size_t capacity;
 } DPL_Symbol_Type_ObjectQuery;
@@ -186,7 +187,8 @@ struct DPL_Symbol
     int stack_index;
 };
 
-typedef struct {
+typedef struct
+{
     DPL_Symbol **items;
     size_t count;
     size_t capacity;

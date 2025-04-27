@@ -5,7 +5,8 @@
 #include "arena.h"
 
 #define NOB_IMPLEMENTATION
-#include "nob.h"
+#include <nob.h>
+#include <nobx.h>
 #undef NOB_IMPLEMENTATION
 
 #define DW_MEMORY_TABLE_IMPLEMENTATION

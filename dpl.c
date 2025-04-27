@@ -11,7 +11,8 @@
 #include "arena.h"
 
 #define NOB_IMPLEMENTATION
-#include "nob.h"
+#include <nob.h>
+#include <nobx.h>
 
 #define DW_MEMORY_TABLE_IMPLEMENTATION
 #include <dw_memory_table.h>

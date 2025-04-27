@@ -16,7 +16,8 @@
 #include <dw_byte_buffer.h>
 
 #define NOB_IMPLEMENTATION
-#include "nob.h"
+#include <nob.h>
+#include <nobx.h>
 
 void usage(const char *program)
 {
@@ -61,9 +62,27 @@ int main(int argc, char **argv)
         DW_ERROR_MSGLN("ERROR: No source file given.");
         usage(program);
     }
+
+    Nob_String_Builder output_filename_sb = {0};
     if (output_filename == NULL)
     {
-        output_filename = nob_temp_change_file_ext(source_filename, "dplp");
+        char *ext = strrchr(source_filename, '.');
+        if (ext)
+        {
+            nob_sb_append_buf(&output_filename_sb, source_filename, ext - source_filename);
+        }
+        else
+        {
+            nob_sb_append_cstr(&output_filename_sb, source_filename);
+            nob_sb_append_cstr(&output_filename_sb, ".");
+        }
+        nob_sb_append_cstr(&output_filename_sb, "dplp");
+        nob_sb_append_null(&output_filename_sb);
+    }
+    else
+    {
+        nob_sb_append_cstr(&output_filename_sb, output_filename);
+        nob_sb_append_null(&output_filename_sb);
     }
 
     dpl.file_name = nob_sv_from_cstr(source_filename);
@@ -77,7 +96,8 @@ int main(int argc, char **argv)
     DPL_Program compiled_program = {0};
     dplp_init(&compiled_program);
     dpl_compile(&dpl, &compiled_program);
-    dplp_save(&compiled_program, output_filename);
+    dplp_save(&compiled_program, output_filename_sb.items);
+    nob_sb_free(output_filename_sb);
 
     dplp_free(&compiled_program);
     dpl_free(&dpl);

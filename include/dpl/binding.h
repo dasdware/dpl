@@ -1,7 +1,7 @@
 #ifndef __DPL_BINDING_H
 #define __DPL_BINDING_H
 
-#include <nob.h>
+#include <nobx.h>
 
 #include <dpl/lexer.h>
 #include <dpl/parser.h>
@@ -124,8 +124,9 @@ typedef struct
     DPL_Bound_Node *body;
 } DPL_Binding_UserFunction;
 
-typedef struct {
-    DPL_Binding_UserFunction* items;
+typedef struct
+{
+    DPL_Binding_UserFunction *items;
     size_t count;
     size_t capacity;
 } DPL_Binding_UserFunctions;

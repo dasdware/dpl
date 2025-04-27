@@ -1,5 +1,7 @@
-#include <dpl/parser.h>
 #include <error.h>
+#include <nobx.h>
+
+#include <dpl/parser.h>
 
 const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
 

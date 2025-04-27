@@ -1,8 +1,8 @@
 #ifndef __DPL_H
 #define __DPL_H
 
-#include "arena.h"
-#include "nob.h"
+#include <arena.h>
+#include <nobx.h>
 
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
