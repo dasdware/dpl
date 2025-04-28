@@ -72,7 +72,7 @@ void dpl_parse_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
         break;
     case TYPE_OBJECT:
     {
-        nob_sb_append_cstr(sb, "[");
+        nob_sb_append_cstr(sb, "$[");
         for (size_t i = 0; i < ast_type->as.object.field_count; ++i)
         {
             if (i > 0)
@@ -372,7 +372,7 @@ DPL_Ast_Type *dpl_parse_type(DPL_Parser *parser)
         name_type->as.name = type_begin;
         return name_type;
     }
-    case TOKEN_OPEN_BRACKET:
+    case TOKEN_OPEN_DOLLAR_BRACKET:
     {
         dpl_parse_next_token(parser);
 
@@ -625,7 +625,7 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
         node->as.symbol = token;
         return node;
     }
-    case TOKEN_OPEN_BRACKET:
+    case TOKEN_OPEN_DOLLAR_BRACKET:
     {
         bool first = true;
         DPL_Ast_Nodes tmp_fields = {0};
@@ -735,11 +735,11 @@ DPL_Ast_Node *dpl_parse_unary(DPL_Parser *parser)
     DPL_Token operator_candidate = dpl_parse_peek_token(parser);
     if (operator_candidate.kind == TOKEN_MINUS || operator_candidate.kind == TOKEN_BANG || operator_candidate.kind == TOKEN_DOT_DOT)
     {
-        DPL_Token operator= dpl_parse_next_token(parser);
+        DPL_Token operator = dpl_parse_next_token(parser);
         DPL_Ast_Node *operand = dpl_parse_unary(parser);
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_UNARY, operator, operand->last);
-        new_expression->as.unary.operator= operator;
+        new_expression->as.unary.operator = operator;
         new_expression->as.unary.operand = operand;
         return new_expression;
     }
@@ -759,7 +759,7 @@ DPL_Ast_Node *dpl_parse_range(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
     }
@@ -779,7 +779,7 @@ DPL_Ast_Node *dpl_parse_multiplicative(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -801,7 +801,7 @@ DPL_Ast_Node *dpl_parse_additive(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -823,7 +823,7 @@ DPL_Ast_Node *dpl_parse_comparison(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -845,7 +845,7 @@ DPL_Ast_Node *dpl_parse_equality(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -867,7 +867,7 @@ DPL_Ast_Node *dpl_parse_and(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -889,7 +889,7 @@ DPL_Ast_Node *dpl_parse_or(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 

@@ -186,7 +186,7 @@ DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symb
     if (!object_type)
     {
         Nob_String_Builder sb_name = {0};
-        nob_sb_append_cstr(&sb_name, "[");
+        nob_sb_append_cstr(&sb_name, "$[");
         for (size_t i = 0; i < query.count; ++i)
         {
             if (i > 0)

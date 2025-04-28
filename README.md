@@ -60,9 +60,9 @@ DPL is an expression based and statically typed programming language that is com
 
 Since all expressions yield a value, they also have a type. Types are considered compatible, if they have the same structure. If, for example, two object type definitions have the same structure (individual fields and their types), they are considered compatible even if they have different names.
 
-#### Builtin Types
+#### Base Types
 
-The following types are built directly into the language:
+The following base types are built directly into the language:
 
 | Type      | Examples        | Description                                                                                                                                                                                                                        |
 | --------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -71,13 +71,13 @@ The following types are built directly into the language:
 | `Boolean` | `true`, `false` | A boolean value. Can be either `true` or `false`.                                                                                                                                                                                  |
 | `None`    | -               | A type representing an expression that yields no value. There is no way to produce a value of this type. This type is only temporary and used for loops since they can be run zero times and therefore could have no value at all. |
 
-#### User-defined Types
+#### Objects
 
-User defined types can be declared in a DPL program. They are used to form more complex structures from basic types.
+Object types can be declared in a DPL program. They are used to form more complex structures from basic types.
 
-| Type   | Declaration example      | Value example      | Description                                                                                                                                  |
-| ------ | ------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Object | `[x: number, y: number]` | `[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
+| Type   | Declaration example       | Value example       | Description                                                                                                                                  |
+| ------ | ------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Object | `$[x: number, y: number]` | `$[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
 
 ### Function calls
 
@@ -210,17 +210,17 @@ Objects can be composed via object literals. These consist of a comma-separated 
 
 ```bash
 # Fields can be assigned with assignments:
-var p1 := [ x := 1, y := 2 ];
+var p1 := $[ x := 1, y := 2 ];
 
 # If the fields exist as variables, they can be used directly
 var x := 1;
 var y := 2;
-var p2 := [ x, y ]; # is the same as p1
+var p2 := $[ x, y ]; # is the same as p1
 
 # Fields cannot be modified after the objects have been created.
 # However, you can easily create new objects by spreading the old ones
 # and then overriding inidividual fields.
-var p3 := [ ..p2, x := 3 ];
+var p3 := $[ ..p2, x := 3 ];
 ```
 
 ### String interpolation
@@ -354,7 +354,6 @@ function test(a: Number): Number := "foo";
 
 If the return type is ommitted, it is inferred from the `<BodyClause>` expression.
 
-
 ### For loops, iterators and ranges
 
 ```bash
@@ -368,13 +367,13 @@ For loops can be used to iterate over a specific number of elements. In order to
 
 An iterator is an object of type `I` that satisfies the following requirements:
 
-1. It has the form `[finished: Boolean, current: T]`. The field `finished` denotes whether the iterator has finished (`true`) its iteration or if there are more elements to process (`false`). The field `current` contains the current value of the iterator. It can be of any type `T`. Aside from these two fields, iterators may have any additional fields for bookkeeping (e.g. a maximum value).
+1. It has the form `$[finished: Boolean, current: T]`. The field `finished` denotes whether the iterator has finished (`true`) its iteration or if there are more elements to process (`false`). The field `current` contains the current value of the iterator. It can be of any type `T`. Aside from these two fields, iterators may have any additional fields for bookkeeping (e.g. a maximum value).
 2. There is a function `next(I): I`, which calculates the next iteration for the iterator. The return value contains updated fields `finished` and `current`. For the loop to finish, `finished` should be eventually `true`.
 
 With these requirements, for loops can be desugared to simple while loops:
 
 ```bash
-function next(iterator: [current: Number, finished: Boolean, to: Number]): [current: Number, finished: Boolean, to: Number] := {
+function next(iterator: $[current: Number, finished: Boolean, to: Number]): $[current: Number, finished: Boolean, to: Number] := {
   var current := iterator.current + 1;
   [ ..iterator, finished := current > iterator.to, current ]
 };
@@ -382,7 +381,7 @@ function next(iterator: [current: Number, finished: Boolean, to: Number]): [curr
 # for (var i in <iterator>)
 #   print("${i}\n");
 {
-    var it := [current: 0, finished: false, to: 8];
+    var it := $[current: 0, finished: false, to: 8];
     while (!(it.finished)) {
         var i := it.current;
 
@@ -398,8 +397,8 @@ function next(iterator: [current: Number, finished: Boolean, to: Number]): [curr
 A range is an expression that can be converted to an iterator by calling an available `iterator` function:
 
 ```bash
-function iterator(range: [from: Number, to: Number]) :=
-  [ current: range.from, finished: range.from >= to, to: range.to ];
+function iterator(range: $[from: Number, to: Number]) :=
+  $[ current: range.from, finished: range.from >= to, to: range.to ];
 ```
 
-The compiler transforms expressions using the binary operator `..` automatically to objects of the form `[from: T, to: T]`. For example, `0..8` becomes `[from: 0, to: 8]`.
+The compiler transforms expressions using the binary operator `..` automatically to objects of the form `$[from: T, to: T]`. For example, `0..8` becomes `$[from: 0, to: 8]`.

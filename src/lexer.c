@@ -49,6 +49,7 @@ const char *TOKEN_KIND_NAMES[COUNT_TOKEN_KINDS] = {
     [TOKEN_NUMBER] = "number literal",
     [TOKEN_OPEN_BRACE] = "token `{`",
     [TOKEN_OPEN_BRACKET] = "token `[`",
+    [TOKEN_OPEN_DOLLAR_BRACKET] = "token `$[`",
     [TOKEN_OPEN_PAREN] = "token `(`",
     [TOKEN_PIPE_PIPE] = "token `||`",
     [TOKEN_PLUS] = "token `+`",
@@ -61,7 +62,7 @@ const char *TOKEN_KIND_NAMES[COUNT_TOKEN_KINDS] = {
     [TOKEN_WHITESPACE] = "<whitespace>",
 };
 
-static_assert(COUNT_TOKEN_KINDS == 44,
+static_assert(COUNT_TOKEN_KINDS == 45,
               "Count of token kinds has changed, please update token kind names map.");
 
 const char *dpl_lexer_token_kind_name(DPL_TokenKind kind)
@@ -432,6 +433,14 @@ DPL_Token dpl_lexer_next_token(DPL_Lexer *lexer)
     case ']':
         dpl_lexer_advance(lexer);
         return dpl_lexer_build_token(lexer, TOKEN_CLOSE_BRACKET);
+    case '$':
+        if ((lexer->position < lexer->source.count - 2) && (lexer->source.data[lexer->position + 1] == '['))
+        {
+            dpl_lexer_advance(lexer);
+            dpl_lexer_advance(lexer);
+            return dpl_lexer_build_token(lexer, TOKEN_OPEN_DOLLAR_BRACKET);
+        }
+        break;
     case ',':
         dpl_lexer_advance(lexer);
         return dpl_lexer_build_token(lexer, TOKEN_COMMA);

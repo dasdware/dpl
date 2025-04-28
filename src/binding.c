@@ -6,14 +6,16 @@
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
 
-typedef struct {
-    DPL_Bound_Node** items;
+typedef struct
+{
+    DPL_Bound_Node **items;
     size_t count;
     size_t capacity;
 } DPL_Bound_Nodes;
 
-typedef struct {
-    DPL_Bound_ObjectField* items;
+typedef struct
+{
+    DPL_Bound_ObjectField *items;
     size_t count;
     size_t capacity;
 } DPL_Bound_ObjectFields;
@@ -70,7 +72,7 @@ static void dpl_bind_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder 
         break;
     case TYPE_OBJECT:
     {
-        nob_sb_append_cstr(sb, "[");
+        nob_sb_append_cstr(sb, "$[");
         for (size_t i = 0; i < ast_type->as.object.field_count; ++i)
         {
             if (i > 0)
@@ -382,7 +384,7 @@ static DPL_Symbol_Constant dpl_bind_fold_constant_literal(DPL_Binding *binding, 
 
 static DPL_Symbol_Constant dpl_bind_fold_constant_binary(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    DPL_Token operator= node->as.binary.operator;
+    DPL_Token operator = node->as.binary.operator;
     DPL_Symbol_Constant lhs_value = dpl_bind_fold_constant(binding, node->as.binary.left);
     DPL_Symbol_Constant rhs_value = dpl_bind_fold_constant(binding, node->as.binary.right);
 
@@ -829,7 +831,7 @@ static DPL_Bound_Node *dpl_bind_field_access(DPL_Binding *binding, DPL_Ast_Node 
 
 static DPL_Bound_Node *dpl_bind_unary_operator(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    DPL_Token operator= node->as.unary.operator;
+    DPL_Token operator = node->as.unary.operator;
     switch (operator.kind)
     {
     case TOKEN_MINUS:
@@ -847,7 +849,7 @@ static DPL_Bound_Node *dpl_bind_unary_operator(DPL_Binding *binding, DPL_Ast_Nod
 
 DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    DPL_Token operator= node->as.binary.operator;
+    DPL_Token operator = node->as.binary.operator;
     switch (operator.kind)
     {
     case TOKEN_PLUS:
@@ -885,7 +887,7 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
         }
 
         DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_LOGICAL_OPERATOR, dpl_symbols_find_type_boolean(binding->symbols));
-        bound_node->as.logical_operator.operator= node->as.binary.operator;
+        bound_node->as.logical_operator.operator = node->as.binary.operator;
         bound_node->as.logical_operator.lhs = lhs;
         bound_node->as.logical_operator.rhs = rhs;
         return bound_node;
