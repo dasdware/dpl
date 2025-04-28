@@ -1,11 +1,22 @@
 #include <assert.h>
 
 #include <arena.h>
-#include <dw_array.h>
 #include <error.h>
 
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
+
+typedef struct {
+    DPL_Bound_Node** items;
+    size_t count;
+    size_t capacity;
+} DPL_Bound_Nodes;
+
+typedef struct {
+    DPL_Bound_ObjectField* items;
+    size_t count;
+    size_t capacity;
+} DPL_Bound_ObjectFields;
 
 // UTILS
 
@@ -189,10 +200,10 @@ DPL_Bound_Node *dpl_bind_create_scope(DPL_Binding *binding, size_t expression_co
     return scope;
 }
 
-DPL_Bound_Node *dpl_bind_create_scope_move(DPL_Binding *binding, da_array(DPL_Bound_Node *) expressions)
+DPL_Bound_Node *dpl_bind_create_scope_move(DPL_Binding *binding, DPL_Bound_Nodes expressions)
 {
-    DPL_Bound_Node *scope = dpl_bind_create_scope(binding, da_size(expressions), expressions);
-    da_free(expressions);
+    DPL_Bound_Node *scope = dpl_bind_create_scope(binding, expressions.count, expressions.items);
+    nob_da_free(expressions);
     return scope;
 }
 
@@ -232,63 +243,39 @@ DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node 
     return while_loop;
 }
 
-DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) fields)
+DPL_Bound_Node *dpl_bind_create_object_literal_move(DPL_Binding *binding, DPL_Bound_ObjectFields fields)
 {
-    size_t field_count = da_size(fields);
-
-    DPL_Symbol_Type_ObjectQuery type_query = NULL;
-    for (size_t i = 0; i < field_count; ++i)
+    DPL_Symbol_Type_ObjectQuery type_query = {0};
+    for (size_t i = 0; i < fields.count; ++i)
     {
-        da_add(
-            type_query,
+        nob_da_append(
+            &type_query,
             ((DPL_Symbol_Type_ObjectField){
-                .name = fields[i].name,
-                .type = fields[i].expression->type,
+                .name = fields.items[i].name,
+                .type = fields.items[i].expression->type,
             }));
     }
 
-    DPL_Symbol *bound_type = dpl_symbols_find_type_object_query(binding->symbols, type_query);
-    if (!bound_type)
-    {
-        Nob_String_Builder type_name_builder = {0};
-        nob_sb_append_cstr(&type_name_builder, "[");
-        for (size_t i = 0; i < da_size(type_query); ++i)
-        {
-            if (i > 0)
-            {
-                nob_sb_append_cstr(&type_name_builder, ", ");
-            }
-            nob_sb_append_sv(&type_name_builder, type_query[i].name);
-            nob_sb_append_cstr(&type_name_builder, ": ");
-            nob_sb_append_sv(&type_name_builder, type_query[i].type->name);
-        }
-        nob_sb_append_cstr(&type_name_builder, "]");
-        nob_sb_append_null(&type_name_builder);
-
-        bound_type = dpl_symbols_push_type_object_cstr(binding->symbols, type_name_builder.items, da_size(type_query));
-        memcpy(bound_type->as.type.as.object.fields, type_query, sizeof(DPL_Symbol_Type_ObjectField) * da_size(type_query));
-
-        nob_sb_free(type_name_builder);
-    }
-    da_free(type_query);
+    DPL_Symbol *bound_type = dpl_symbols_check_type_object_query(binding->symbols, type_query);
+    nob_da_free(type_query);
 
     DPL_Bound_Node *object_literal = dpl_bind_allocate_node(binding, BOUND_NODE_OBJECT, bound_type);
-    object_literal->as.object.field_count = field_count;
-    object_literal->as.object.fields = arena_alloc(binding->memory, sizeof(DPL_Bound_ObjectField) * field_count);
-    memcpy(object_literal->as.object.fields, fields, sizeof(DPL_Bound_ObjectField) * field_count);
-    da_free(fields);
+    object_literal->as.object.field_count = fields.count;
+    object_literal->as.object.fields = arena_alloc(binding->memory, sizeof(DPL_Bound_ObjectField) * fields.count);
+    memcpy(object_literal->as.object.fields, fields.items, sizeof(DPL_Bound_ObjectField) * fields.count);
+    nob_da_free(fields);
 
     return object_literal;
 }
 
-static void dpl_bind_move_nodelist(DPL_Binding *binding, da_array(DPL_Bound_Node *) list, size_t *target_count, DPL_Bound_Node ***target_items)
+static void dpl_bind_move_nodelist(DPL_Binding *binding, DPL_Bound_Nodes list, size_t *target_count, DPL_Bound_Node ***target_items)
 {
-    *target_count = da_size(list);
-    if (da_some(list))
+    *target_count = list.count;
+    if (list.count > 0)
     {
-        *target_items = arena_alloc(binding->memory, sizeof(DPL_Bound_Node *) * da_size(list));
-        memcpy(*target_items, list, sizeof(DPL_Bound_Node *) * da_size(list));
-        da_free(list);
+        *target_items = arena_alloc(binding->memory, sizeof(DPL_Bound_Node *) * list.count);
+        memcpy(*target_items, list.items, sizeof(DPL_Bound_Node *) * list.count);
+        nob_da_free(list);
     }
 }
 
@@ -298,7 +285,7 @@ static void dpl_bind_check_function_used(DPL_Binding *binding, DPL_Symbol *symbo
     if (f->kind == FUNCTION_USER && !f->as.user_function.used)
     {
         f->as.user_function.used = true;
-        f->as.user_function.user_handle = da_size(binding->user_functions);
+        f->as.user_function.user_handle = binding->user_functions.count;
 
         DPL_Binding_UserFunction user_function = {
             .function = symbol,
@@ -306,7 +293,7 @@ static void dpl_bind_check_function_used(DPL_Binding *binding, DPL_Symbol *symbo
             .begin_ip = 0,
             .body = (DPL_Bound_Node *)f->as.user_function.body,
         };
-        da_add(binding->user_functions, user_function);
+        nob_da_append(&binding->user_functions, user_function);
     }
 }
 
@@ -543,8 +530,8 @@ static DPL_Bound_Node *dpl_bind_unary_function_call(DPL_Binding *binding, DPL_Bo
                                                             function_symbol->as.function.signature.returns);
         bound_node->as.function_call.function = function_symbol;
 
-        da_array(DPL_Bound_Node *) temp_arguments = 0;
-        da_add(temp_arguments, operand);
+        DPL_Bound_Nodes temp_arguments = {0};
+        nob_da_append(&temp_arguments, operand);
         dpl_bind_move_nodelist(binding, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
         return bound_node;
     }
@@ -593,9 +580,9 @@ static DPL_Bound_Node *dpl_bind_binary(DPL_Binding *binding, DPL_Ast_Node *node,
                                                             function_symbol->as.function.signature.returns);
         bound_node->as.function_call.function = function_symbol;
 
-        da_array(DPL_Bound_Node *) temp_arguments = 0;
-        da_add(temp_arguments, lhs);
-        da_add(temp_arguments, rhs);
+        DPL_Bound_Nodes temp_arguments = {0};
+        nob_da_append(&temp_arguments, lhs);
+        nob_da_append(&temp_arguments, rhs);
         dpl_bind_move_nodelist(binding, temp_arguments, &bound_node->as.function_call.arguments_count, &bound_node->as.function_call.arguments);
         return bound_node;
     }
@@ -609,8 +596,8 @@ static DPL_Bound_Node *dpl_bind_function_call(DPL_Binding *binding, DPL_Ast_Node
 {
     DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_FUNCTIONCALL, NULL);
 
-    da_array(DPL_Symbol *) argument_types = NULL;
-    da_array(DPL_Bound_Node *) temp_arguments = NULL;
+    DPL_Symbols argument_types = {0};
+    DPL_Bound_Nodes temp_arguments = {0};
 
     DPL_Ast_FunctionCall fc = node->as.function_call;
     for (size_t i = 0; i < fc.argument_count; ++i)
@@ -620,13 +607,15 @@ static DPL_Bound_Node *dpl_bind_function_call(DPL_Binding *binding, DPL_Ast_Node
         {
             DPL_AST_ERROR(binding->source, fc.arguments[i], "Cannot bind argument #%zu of function call.", i);
         }
-        da_add(temp_arguments, bound_argument);
-        da_add(argument_types, bound_argument->type);
+        nob_da_append(&temp_arguments, bound_argument);
+        nob_da_append(&argument_types, bound_argument->type);
     }
     dpl_bind_move_nodelist(binding, temp_arguments, &bound_node->as.function_call.arguments_count,
                            &bound_node->as.function_call.arguments);
 
-    DPL_Symbol *function_symbol = dpl_symbols_find_function(binding->symbols, fc.name.text, da_size(argument_types), argument_types);
+    DPL_Symbol *function_symbol = dpl_symbols_find_function(binding->symbols, fc.name.text, argument_types.count, argument_types.items);
+    nob_da_free(argument_types);
+
     if (function_symbol)
     {
         dpl_bind_check_function_used(binding, function_symbol);
@@ -660,7 +649,7 @@ static DPL_Bound_Node *dpl_bind_scope(DPL_Binding *binding, DPL_Ast_Node *node)
 
     DPL_Ast_Scope scope = node->as.scope;
 
-    da_array(DPL_Bound_Node *) bound_expressions = 0;
+    DPL_Bound_Nodes bound_expressions = {0};
     dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
     for (size_t i = 0; i < scope.expression_count; ++i)
     {
@@ -670,7 +659,7 @@ static DPL_Bound_Node *dpl_bind_scope(DPL_Binding *binding, DPL_Ast_Node *node)
             continue;
         }
 
-        da_add(bound_expressions, bound_expression);
+        nob_da_append(&bound_expressions, bound_expression);
     }
     dpl_symbols_pop_boundary(binding->symbols);
 
@@ -682,16 +671,16 @@ static int dpl_bind_object_literal_compare_fields(void const *a, void const *b)
     return nob_sv_cmp(((DPL_Bound_ObjectField *)a)->name, ((DPL_Bound_ObjectField *)b)->name);
 }
 
-void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_ObjectField) * fields,
+void dpl_bind_object_literal_add_field(DPL_Binding *binding, DPL_Bound_ObjectFields *fields,
                                        Nob_String_View field_name, DPL_Bound_Node *field_expression)
 {
     DW_UNUSED(binding);
 
-    for (size_t i = 0; i < da_size(*fields); ++i)
+    for (size_t i = 0; i < (*fields).count; ++i)
     {
-        if (nob_sv_eq((*fields)[i].name, field_name))
+        if (nob_sv_eq((*fields).items[i].name, field_name))
         {
-            (*fields)[i].expression = field_expression;
+            (*fields).items[i].expression = field_expression;
             return;
         }
     }
@@ -700,8 +689,8 @@ void dpl_bind_object_literal_add_field(DPL_Binding *binding, da_array(DPL_Bound_
         .name = field_name,
         .expression = field_expression,
     };
-    da_add(*fields, bound_field);
-    qsort(*fields, da_size(*fields), sizeof(**fields), dpl_bind_object_literal_compare_fields);
+    nob_da_append(fields, bound_field);
+    qsort((*fields).items, (*fields).count, sizeof(*(*fields).items), dpl_bind_object_literal_compare_fields);
 }
 
 DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node)
@@ -709,8 +698,8 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
     dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
 
     DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
-    da_array(DPL_Bound_ObjectField) tmp_bound_fields = NULL;
-    da_array(DPL_Bound_Node *) temporaries = NULL;
+    DPL_Bound_ObjectFields tmp_bound_fields = {0};
+    DPL_Bound_Nodes temporaries = {0};
     for (size_t i = 0; i < object_literal.field_count; ++i)
     {
         DPL_Ast_Node *field = object_literal.fields[i];
@@ -730,7 +719,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
             {
                 DPL_AST_ERROR(binding->source, field, "Only object expressions can be spread for composing objects.");
             }
-            da_add(temporaries, bound_temporary);
+            nob_da_append(&temporaries, bound_temporary);
 
             DPL_Symbol *var = dpl_symbols_push_var(binding->symbols, SV_NULL, bound_temporary->type);
 
@@ -766,9 +755,9 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
 
     dpl_symbols_pop_boundary(binding->symbols);
 
-    if (da_some(temporaries))
+    if (temporaries.count > 0)
     {
-        da_add(temporaries, bound_node);
+        nob_da_append(&temporaries, bound_node);
         return dpl_bind_create_scope_move(binding, temporaries);
     }
 
@@ -914,7 +903,7 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
             DPL_AST_ERROR(binding->source, node, "Cannot bind right-hand side of binary expression.");
         }
 
-        da_array(DPL_Bound_ObjectField) bound_fields = NULL;
+        DPL_Bound_ObjectFields bound_fields = {0};
         dpl_bind_object_literal_add_field(binding, &bound_fields, nob_sv_from_cstr("from"), lhs);
         dpl_bind_object_literal_add_field(binding, &bound_fields, nob_sv_from_cstr("to"), rhs);
         return dpl_bind_create_object_literal_move(binding, bound_fields);
@@ -1279,7 +1268,7 @@ DPL_Bound_Node *dpl_bind_interpolation(DPL_Binding *binding, DPL_Ast_Node *node)
 {
     DPL_Ast_Interpolation *interpolation = &node->as.interpolation;
 
-    da_array(DPL_Bound_Node *) bound_expressions = NULL;
+    DPL_Bound_Nodes bound_expressions = {0};
     for (size_t i = 0; i < interpolation->expression_count; ++i)
     {
         DPL_Bound_Node *bound_expression = dpl_bind_node(binding, interpolation->expressions[i]);
@@ -1296,7 +1285,7 @@ DPL_Bound_Node *dpl_bind_interpolation(DPL_Binding *binding, DPL_Ast_Node *node)
             bound_expression = bound_expression_to_string;
         }
 
-        da_add(bound_expressions, bound_expression);
+        nob_da_append(&bound_expressions, bound_expression);
     }
 
     DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_INTERPOLATION, dpl_symbols_find_type_string(binding->symbols));

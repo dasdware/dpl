@@ -5,7 +5,8 @@
 #include "arena.h"
 
 #define NOB_IMPLEMENTATION
-#include "nob.h"
+#include <nob.h>
+#include <nobx.h>
 #undef NOB_IMPLEMENTATION
 
 #define DW_MEMORY_TABLE_IMPLEMENTATION
@@ -13,9 +14,6 @@
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
-
-#define DW_ARRAY_IMPLEMENTATION
-#include <dw_array.h>
 
 void test_find_symbol(DPL_SymbolStack *stack, const char *name)
 {

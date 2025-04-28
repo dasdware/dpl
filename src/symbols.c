@@ -1,7 +1,7 @@
-#include <dpl/symbols.h>
-
 #include <error.h>
+#include <nobx.h>
 
+#include <dpl/symbols.h>
 #include <dpl/utils.h>
 
 #define ABORT_IF_NULL(value) \
@@ -153,17 +153,17 @@ DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbo
     }
 
     DPL_Symbol_Type_Object *object_type = &symbol->as.type.as.object;
-    if (object_type->field_count == da_size(query))
+    if (object_type->field_count == query.count)
     {
         bool is_match = true;
         for (size_t j = 0; j < object_type->field_count; ++j)
         {
-            if (!nob_sv_eq(query[j].name, object_type->fields[j].name))
+            if (!nob_sv_eq(query.items[j].name, object_type->fields[j].name))
             {
                 is_match = false;
                 break;
             }
-            if (query[j].type != object_type->fields[j].type)
+            if (query.items[j].type != object_type->fields[j].type)
             {
                 is_match = false;
                 break;
@@ -187,21 +187,21 @@ DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symb
     {
         Nob_String_Builder sb_name = {0};
         nob_sb_append_cstr(&sb_name, "[");
-        for (size_t i = 0; i < da_size(query); ++i)
+        for (size_t i = 0; i < query.count; ++i)
         {
             if (i > 0)
             {
                 nob_sb_append_cstr(&sb_name, ", ");
             }
-            nob_sb_append_sv(&sb_name, query[i].name);
+            nob_sb_append_sv(&sb_name, query.items[i].name);
             nob_sb_append_cstr(&sb_name, ": ");
-            nob_sb_append_sv(&sb_name, query[i].type->name);
+            nob_sb_append_sv(&sb_name, query.items[i].type->name);
         }
         nob_sb_append_cstr(&sb_name, "]");
         nob_sb_append_null(&sb_name);
 
-        object_type = dpl_symbols_push_type_object_cstr(stack, sb_name.items, da_size(query));
-        memcpy(object_type->as.type.as.object.fields, query, sizeof(DPL_Symbol_Type_ObjectField) * da_size(query));
+        object_type = dpl_symbols_push_type_object_cstr(stack, sb_name.items, query.count);
+        memcpy(object_type->as.type.as.object.fields, query.items, sizeof(DPL_Symbol_Type_ObjectField) * query.count);
 
         nob_sb_free(sb_name);
     }
@@ -668,7 +668,7 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
         {
         case TYPE_BASE:
         {
-            nob_sb_append_format(sb, "base: %s", SYMBOL_TYPE_BASE_KIND_NAMES[symbol->as.type.as.base]);
+            nob_sb_appendf(sb, "base: %s", SYMBOL_TYPE_BASE_KIND_NAMES[symbol->as.type.as.base]);
         }
         break;
         case TYPE_OBJECT:
@@ -692,7 +692,7 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
             {
             case TYPE_BASE_NUMBER:
             {
-                nob_sb_append_format(sb, "value: %f", symbol->as.constant.as.number);
+                nob_sb_appendf(sb, "value: %f", symbol->as.constant.as.number);
             }
             break;
             default:
@@ -717,7 +717,7 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
         break;
         case FUNCTION_INTRINSIC:
         {
-            nob_sb_append_format(sb, "intrinsic: #%2zu", symbol->as.function.as.intrinsic_function);
+            nob_sb_appendf(sb, "intrinsic: #%2d", (int)symbol->as.function.as.intrinsic_function);
         }
         break;
         case FUNCTION_USER:
@@ -730,12 +730,12 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
     break;
     case SYMBOL_VAR:
     {
-        nob_sb_append_format(sb, "scope_index: %d", symbol->as.var.scope_index);
+        nob_sb_appendf(sb, "scope_index: %d", (int)symbol->as.var.scope_index);
     }
     break;
     case SYMBOL_ARGUMENT:
     {
-        nob_sb_append_format(sb, "scope_index: %d", symbol->as.argument.scope_index);
+        nob_sb_appendf(sb, "scope_index: %d", (int)symbol->as.argument.scope_index);
     }
     break;
     default:
@@ -753,12 +753,12 @@ static void dpl_symbols_print_table_row(DPL_Symbol *symbol, Nob_String_Builder *
     dpl_symbols_print_flags(symbol, &flags_builder);
     nob_sb_append_null(&flags_builder);
 
-    nob_sb_append_format(sb, "| %3d | %3d | %-8s | %-40s | %-30s | ",
-                         symbol->boundary_count,
-                         symbol->stack_index,
-                         SYMBOL_KIND_NAMES[symbol->kind],
-                         signature_builder.items,
-                         flags_builder.items);
+    nob_sb_appendf(sb, "| %3d | %3d | %-8s | %-40s | %-30s | ",
+                   (int)symbol->boundary_count,
+                   (int)symbol->stack_index,
+                   SYMBOL_KIND_NAMES[symbol->kind],
+                   signature_builder.items,
+                   flags_builder.items);
 
     nob_sb_free(signature_builder);
     nob_sb_free(flags_builder);

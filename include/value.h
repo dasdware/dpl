@@ -2,7 +2,7 @@
 #define __DPL_VALUE_H
 
 #include <stdint.h>
-#include <nob.h>
+#include <nobx.h>
 
 #include <dw_memory_table.h>
 

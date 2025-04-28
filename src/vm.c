@@ -395,16 +395,17 @@ void dplv_run(DPL_VirtualMachine *vm)
         {
             uint8_t count = bs_read_u8(&program);
 
-            str_t result = NULL;
+            Nob_String_Builder result = {0};
             for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i)
             {
-                str_append_length(result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
+                nob_sb_append_buf(&result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
             }
+            nob_sb_append_null(&result);
 
             ++vm->stack_top;
-            TOP0 = dpl_value_make_string(mt_sv_allocate_cstr(&vm->stack_memory, result));
+            TOP0 = dpl_value_make_string(mt_sv_allocate_cstr(&vm->stack_memory, result.items));
 
-            str_free(result);
+            nob_sb_free(result);
 
             dplv_return(vm, count + 1, dplv_reference(vm, TOP0));
         }

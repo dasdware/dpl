@@ -1,7 +1,7 @@
 #ifndef __DPL_BINDING_H
 #define __DPL_BINDING_H
 
-#include <nob.h>
+#include <nobx.h>
 
 #include <dpl/lexer.h>
 #include <dpl/parser.h>
@@ -126,10 +126,17 @@ typedef struct
 
 typedef struct
 {
+    DPL_Binding_UserFunction *items;
+    size_t count;
+    size_t capacity;
+} DPL_Binding_UserFunctions;
+
+typedef struct
+{
     Arena *memory;
     Nob_String_View source;
     DPL_SymbolStack *symbols;
-    da_array(DPL_Binding_UserFunction) user_functions;
+    DPL_Binding_UserFunctions user_functions;
 } DPL_Binding;
 
 const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind);
