@@ -3,18 +3,18 @@ print(true); print("\n");
 print(false); print("\n");
 
 # Converting booleans to strings
-print(true.toString() + "\n");
-print(false.toString() + "\n");
+print("${true}\n");
+print("${false}\n");
 
 # Assigning to variables
 var x := true;
 print(x); print("\n");
-print(x.toString() + "\n");
+print("${x}\n");
 var y := false;
 print(y); print("\n");
-print(y.toString() + "\n");
+print("${y}\n");
 
 # Assigning to constants
 constant z := true;
 print(z); print("\n");
-print(z.toString() + "\n");
+print("${z}\n");
