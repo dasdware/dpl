@@ -180,6 +180,44 @@ DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbo
     return NULL;
 }
 
+DPL_Symbol *dpl_symbols_find_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    STACK_FOREACH_BEGIN(stack, symbol)
+    if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_ARRAY)
+    {
+        continue;
+    }
+
+    DPL_Symbol_Type_Array *array_type = &symbol->as.type.as.array;
+    if (array_type->element_type == element_type)
+    {
+        return symbol;
+    }
+    STACK_FOREACH_END
+
+    // TODO: Prepare error message(?)
+    return NULL;
+}
+
+// DPL_Symbol *dpl_symbols_find_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+// {
+//     STACK_FOREACH_BEGIN(stack, symbol)
+//     if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_MULTI)
+//     {
+//         continue;
+//     }
+
+//     DPL_Symbol_Type_Array *array_type = &symbol->as.type.as.array;
+//     if (array_type->element_type == element_type)
+//     {
+//         return symbol;
+//     }
+//     STACK_FOREACH_END
+
+//     // TODO: Prepare error message(?)
+//     return NULL;
+// }
+
 DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query)
 {
     DPL_Symbol *object_type = dpl_symbols_find_type_object_query(stack, query);
@@ -207,6 +245,42 @@ DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symb
     }
     return object_type;
 }
+
+DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    DPL_Symbol *array_type = dpl_symbols_find_type_array_query(stack, element_type);
+    if (!array_type)
+    {
+        Nob_String_Builder sb_name = {0};
+        nob_sb_append_cstr(&sb_name, "[");
+        nob_sb_append_sv(&sb_name, element_type->name);
+        nob_sb_append_cstr(&sb_name, "]");
+        nob_sb_append_null(&sb_name);
+
+        array_type = dpl_symbols_push_type_array_cstr(stack, sb_name.items, element_type);
+        nob_sb_free(sb_name);
+
+        DPL_Symbol *number_t = dpl_symbols_find_type_number(stack);
+        dpl_symbols_push_function_intrinsic(stack, "length", number_t, DPL_SYMBOLS(array_type), INTRINSIC_ARRAY_LENGTH);
+    }
+    return array_type;
+}
+
+// DPL_Symbol *dpl_symbols_check_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+// {
+//     DPL_Symbol *array_type = dpl_symbols_find_type_multi_query(stack, element_type);
+//     if (!array_type)
+//     {
+//         Nob_String_Builder sb_name = {0};
+//         nob_sb_append_sv(&sb_name, element_type->name);
+//         nob_sb_append_cstr(&sb_name, "..");
+//         nob_sb_append_null(&sb_name);
+
+//         array_type = dpl_symbols_push_type_multi_cstr(stack, sb_name.items, element_type);
+//         nob_sb_free(sb_name);
+//     }
+//     return array_type;
+// }
 
 DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack,
                                       Nob_String_View name, size_t arguments_count, DPL_Symbol **arguments)
@@ -376,6 +450,19 @@ DPL_Symbol *dpl_symbols_push_type_object_cstr(DPL_SymbolStack *stack, const char
         .as.object = {
             .field_count = field_count,
             .fields = arena_alloc(&stack->memory, sizeof(DPL_Symbol_Type_ObjectField) * field_count),
+        }};
+    return symbol;
+}
+
+DPL_Symbol *dpl_symbols_push_type_array_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type)
+{
+    DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_TYPE, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.type = (DPL_Symbol_Type){
+        .kind = TYPE_ARRAY,
+        .as.array = {
+            .element_type = element_type,
         }};
     return symbol;
 }

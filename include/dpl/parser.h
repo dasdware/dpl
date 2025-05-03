@@ -14,8 +14,9 @@ typedef struct
     struct DPL_Ast_Type *type;
 } DPL_Ast_TypeField;
 
-typedef struct {
-    DPL_Ast_TypeField* items;
+typedef struct
+{
+    DPL_Ast_TypeField *items;
     size_t count;
     size_t capacity;
 } DPL_Ast_TypeFields;
@@ -26,6 +27,11 @@ typedef struct
     DPL_Ast_TypeField *fields;
 } DPL_Ast_TypeObject;
 
+typedef struct
+{
+    struct DPL_Ast_Type *element_type;
+} DPL_Ast_TypeArray;
+
 typedef struct DPL_Ast_Type
 {
     DPL_Symbol_Type_Kind kind;
@@ -35,6 +41,7 @@ typedef struct DPL_Ast_Type
     {
         DPL_Token name;
         DPL_Ast_TypeObject object;
+        DPL_Ast_TypeArray array;
     } as;
 } DPL_Ast_Type;
 
@@ -42,6 +49,7 @@ typedef enum
 {
     AST_NODE_LITERAL = 0,
     AST_NODE_OBJECT_LITERAL,
+    AST_NODE_ARRAY_LITERAL,
     AST_NODE_UNARY,
     AST_NODE_BINARY,
     AST_NODE_FUNCTIONCALL,
@@ -71,6 +79,12 @@ typedef struct
     size_t field_count;
     DPL_Ast_Node **fields;
 } DPL_Ast_ObjectLiteral;
+
+typedef struct
+{
+    size_t element_count;
+    DPL_Ast_Node **elements;
+} DPL_Ast_ArrayLiteral;
 
 typedef struct
 {
@@ -149,7 +163,7 @@ typedef struct
 
 typedef struct
 {
-    DPL_Ast_FunctionArgument* items;
+    DPL_Ast_FunctionArgument *items;
     size_t count;
     size_t capacity;
 } DPL_Ast_FunctionArguments;
@@ -184,6 +198,7 @@ struct DPL_Ast_Node
     {
         DPL_Ast_Literal literal;
         DPL_Ast_ObjectLiteral object_literal;
+        DPL_Ast_ArrayLiteral array_literal;
         DPL_Ast_Unary unary;
         DPL_Ast_Binary binary;
         DPL_Ast_FunctionCall function_call;
@@ -200,7 +215,8 @@ struct DPL_Ast_Node
     } as;
 };
 
-typedef struct {
+typedef struct
+{
     DPL_Ast_Node **items;
     size_t count;
     size_t capacity;

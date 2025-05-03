@@ -89,6 +89,10 @@ DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
     {
         mt_reference(&vm->stack_memory, value.as.object);
     }
+    else if (value.kind == VALUE_ARRAY)
+    {
+        mt_reference(&vm->stack_memory, value.as.array);
+    }
     return value;
 }
 
@@ -108,6 +112,17 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
             }
         }
         mt_release(&vm->stack_memory, value.as.object);
+    }
+    else if (value.kind == VALUE_ARRAY)
+    {
+        if (mt_will_release(&vm->stack_memory, value.as.array))
+        {
+            for (size_t i = 0; i < dpl_value_array_element_count(value.as.array); ++i)
+            {
+                dplv_release(vm, dpl_value_array_get_element(value.as.array, i));
+            }
+        }
+        mt_release(&vm->stack_memory, value.as.array);
     }
 }
 
@@ -408,6 +423,25 @@ void dplv_run(DPL_VirtualMachine *vm)
             nob_sb_free(result);
 
             dplv_return(vm, count + 1, dplv_reference(vm, TOP0));
+        }
+        break;
+        case INST_BEGIN_ARRAY:
+        {
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_array_slot();
+        }
+        break;
+        case INST_END_ARRAY:
+        {
+            for (size_t i = vm->stack_top; i > 0; --i)
+            {
+                if (vm->stack[i - 1].kind == VALUE_ARRAY && vm->stack[i - 1].as.array == NULL)
+                {
+                    size_t element_count = vm->stack_top - i;
+                    vm->stack[i - 1].as.array = mt_allocate_data(&vm->stack_memory, &vm->stack[i], sizeof(DPL_Value) * element_count);
+                    vm->stack_top -= element_count;
+                }
+            }
         }
         break;
         default:

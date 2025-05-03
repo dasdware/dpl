@@ -231,6 +231,16 @@ void dplp_write_interpolation(DPL_Program *program, size_t count)
     bb_write_u8(&program->code, count);
 }
 
+void dplp_write_begin_array(DPL_Program *program)
+{
+    dplp_write(program, INST_BEGIN_ARRAY);
+}
+
+void dplp_write_end_array(DPL_Program *program)
+{
+    dplp_write(program, INST_END_ARRAY);
+}
+
 const char *dplp_inst_kind_name(DPL_Instruction_Kind kind)
 {
     switch (kind)
@@ -295,6 +305,10 @@ const char *dplp_inst_kind_name(DPL_Instruction_Kind kind)
         return "LOAD_FIELD";
     case INST_INTERPOLATION:
         return "INTERPOLATION";
+    case INST_BEGIN_ARRAY:
+        return "BEGIN_ARRAY";
+    case INST_END_ARRAY:
+        return "END_ARRAY";
     default:
         DW_UNIMPLEMENTED_MSG("%d", kind);
     }
@@ -335,6 +349,7 @@ void _dplp_print_constant(DPL_Program *program, size_t i)
     case VALUE_NUMBER:
     case VALUE_BOOLEAN:
     case VALUE_OBJECT:
+    case VALUE_ARRAY:
         // numbers, booleans or objects will never occur in constant dictionary
         break;
     }
@@ -406,6 +421,8 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_EQUAL:
     case INST_NOT_EQUAL:
     case INST_RETURN:
+    case INST_BEGIN_ARRAY:
+    case INST_END_ARRAY:
         break;
     case INST_CALL_INTRINSIC:
     {
@@ -501,7 +518,7 @@ bool dplp_save(DPL_Program *program, const char *file_name)
 {
     FILE *out = fopen(file_name, "wb");
 
-    DW_ByteBuffer header = { 0 };
+    DW_ByteBuffer header = {0};
     bb_write_u8(&header, program->version);
     bb_write_u64(&header, program->entry);
     _dplp_save_chunk(out, "HEAD", header);
@@ -539,23 +556,12 @@ bool _dplp_load_chunk(FILE *in, DPL_Loaded_Chunk *chunk)
         return false;
     }
 
-    // TODO: Use newer nob functionality to reserve needed capacity
-    if ((&chunk->data)->count + (count) > (&chunk->data)->capacity) {                               
-        if ((&chunk->data)->capacity == 0) {                                                      
-            (&chunk->data)->capacity = NOB_DA_INIT_CAP;                                           
-        }                                                                               
-        while ((&chunk->data)->count + (count) > (&chunk->data)->capacity) {                        
-            (&chunk->data)->capacity *= 2;                                                        
-        }                                                                               
-        (&chunk->data)->items = NOB_REALLOC((&chunk->data)->items, (&chunk->data)->capacity*sizeof(*(&chunk->data)->items)); 
-        NOB_ASSERT((&chunk->data)->items != NULL && "Buy more RAM lol");                          
-    } 
-
+    nob_da_reserve(&chunk->data, count);
     if (fread(chunk->data.items, 1, count, in) < count)
     {
         return false;
     }
-    chunk->data.count += count;
+    chunk->data.count = count;
 
     return true;
 }

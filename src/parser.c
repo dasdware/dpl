@@ -7,6 +7,7 @@ const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
 
     [AST_NODE_LITERAL] = "AST_NODE_LITERAL",
     [AST_NODE_OBJECT_LITERAL] = "AST_NODE_OBJECT_LITERAL",
+    [AST_NODE_ARRAY_LITERAL] = "AST_NODE_ARRAY_LITERAL",
     [AST_NODE_UNARY] = "AST_NODE_UNARY",
     [AST_NODE_BINARY] = "AST_NODE_BINARY",
     [AST_NODE_FUNCTIONCALL] = "AST_NODE_FUNCTIONCALL",
@@ -22,7 +23,7 @@ const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
     [AST_NODE_INTERPOLATION] = "AST_NODE_INTERPOLATION",
 };
 
-static_assert(COUNT_AST_NODE_KINDS == 15,
+static_assert(COUNT_AST_NODE_KINDS == 16,
               "Count of ast node kinds has changed, please update bound node kind names map.");
 
 const char *dpl_parse_nodekind_name(DPL_AstNodeKind kind)
@@ -84,6 +85,13 @@ void dpl_parse_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
             nob_sb_append_cstr(sb, ": ");
             dpl_parse_build_type_name(field.type, sb);
         }
+        nob_sb_append_cstr(sb, "]");
+    }
+    break;
+    case TYPE_ARRAY:
+    {
+        nob_sb_append_cstr(sb, "[");
+        dpl_parse_build_type_name(ast_type->as.array.element_type, sb);
         nob_sb_append_cstr(sb, "]");
     }
     break;
@@ -157,6 +165,19 @@ void dpl_parse_print(DPL_Ast_Node *node, size_t level)
             dpl_parse_print_indent(level + 1);
             printf("<field #%zu>\n", i);
             dpl_parse_print(object_literal.fields[i], level + 2);
+        }
+        break;
+    }
+    break;
+    case AST_NODE_ARRAY_LITERAL:
+    {
+        DPL_Ast_ArrayLiteral array_literal = node->as.array_literal;
+        printf("\n");
+        for (size_t i = 0; i < array_literal.element_count; ++i)
+        {
+            dpl_parse_print_indent(level + 1);
+            printf("<element #%zu>\n", i);
+            dpl_parse_print(array_literal.elements[i], level + 2);
         }
         break;
     }
@@ -425,6 +446,21 @@ DPL_Ast_Type *dpl_parse_type(DPL_Parser *parser)
 
         return object_type;
     }
+    case TOKEN_OPEN_BRACKET:
+    {
+        dpl_parse_next_token(parser);
+
+        DPL_Ast_Type *element_type = dpl_parse_type(parser);
+        DPL_Token close_bracket = dpl_parse_expect_token(parser, TOKEN_CLOSE_BRACKET);
+
+        DPL_Ast_Type *object_type = arena_alloc(parser->memory, sizeof(DPL_Ast_Type));
+        object_type->kind = TYPE_ARRAY;
+        object_type->first = type_begin;
+        object_type->last = close_bracket;
+        object_type->as.array.element_type = element_type;
+
+        return object_type;
+    }
     default:
         DPL_TOKEN_ERROR(parser->lexer->source, type_begin, "Invalid %s in type reference, expected %s.", dpl_lexer_token_kind_name(type_begin.kind),
                         dpl_lexer_token_kind_name(TOKEN_IDENTIFIER));
@@ -647,6 +683,30 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
                                 &object_literal->as.object_literal.fields);
 
         return object_literal;
+    }
+    break;
+    case TOKEN_OPEN_BRACKET:
+    {
+        bool first = true;
+        DPL_Ast_Nodes tmp_elements = {0};
+        while (dpl_parse_peek_token(parser).kind != TOKEN_CLOSE_BRACKET)
+        {
+            if (!first)
+            {
+                dpl_parse_expect_token(parser, TOKEN_COMMA);
+            }
+
+            DPL_Ast_Node *field = dpl_parse_expression(parser);
+            nob_da_append(&tmp_elements, field);
+
+            first = false;
+        }
+
+        DPL_Ast_Node *array_literal = dpl_parse_allocate_node(parser, AST_NODE_ARRAY_LITERAL, token, dpl_parse_next_token(parser));
+        dpl_parse_move_nodelist(parser, tmp_elements, &array_literal->as.array_literal.element_count,
+                                &array_literal->as.array_literal.elements);
+
+        return array_literal;
     }
     break;
     case TOKEN_STRING_INTERPOLATION:

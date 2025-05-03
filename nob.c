@@ -130,7 +130,7 @@ void build(Nob_String_View program, int *argc, char ***argv)
         {
             if (have_built)
             {
-                nob_log(NOB_ERROR, "Flag --debug cannot be set after a target has already been built.\n", target);
+                nob_log(NOB_ERROR, "Flag --debug cannot be set after a target has already been built.\n");
                 usage(program, true);
                 exit(1);
             }
@@ -150,7 +150,7 @@ void build(Nob_String_View program, int *argc, char ***argv)
         }
         else
         {
-            nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", target);
+            nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", SV_Arg(target));
             usage(program, true);
             exit(1);
         }
@@ -179,7 +179,7 @@ void cmd(Nob_String_View program, int *argc, char ***argv)
     }
     else
     {
-        nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", target);
+        nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", SV_Arg(target));
         usage(program, true);
         exit(1);
     }

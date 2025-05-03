@@ -182,6 +182,17 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
         dplp_write_interpolation(program, count);
     }
     break;
+    case BOUND_NODE_ARRAY:
+    {
+        dplp_write_begin_array(program);
+        size_t count = node->as.array.element_count;
+        for (size_t i = 0; i < count; ++i)
+        {
+            dpl_generate(generator, node->as.array.elements[i], program);
+        }
+        dplp_write_end_array(program);
+    }
+    break;
     default:
         DW_UNIMPLEMENTED_MSG("`%s`", dpl_bind_nodekind_name(node->kind));
     }

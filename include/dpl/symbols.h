@@ -44,6 +44,8 @@ typedef enum
     TYPE_FUNCTION,
     TYPE_OBJECT,
     TYPE_ALIAS,
+    TYPE_ARRAY,
+    TYPE_MULTI,
 
     COUNT_SYMBOL_TYPE_KINDS,
 } DPL_Symbol_Type_Kind;
@@ -84,6 +86,11 @@ typedef struct
 
 typedef struct
 {
+    DPL_Symbol *element_type;
+} DPL_Symbol_Type_Array;
+
+typedef struct
+{
     size_t argument_count;
     DPL_Symbol **arguments;
     DPL_Symbol *returns;
@@ -96,8 +103,10 @@ typedef struct
     {
         DPL_Symbol_Type_Base_Kind base;
         DPL_Symbol_Type_Object object;
+        DPL_Symbol_Type_Array array;
         DPL_Symbol_Type_Signature function;
         DPL_Symbol *alias;
+        DPL_Symbol_Type_Array multi;
     } as;
 } DPL_Symbol_Type;
 
@@ -223,6 +232,8 @@ DPL_Symbol *dpl_symbols_find_type_base(DPL_SymbolStack *stack, DPL_Symbol_Type_B
 #define dpl_symbols_find_type_boolean(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_BOOLEAN)
 #define dpl_symbols_find_type_none(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_NONE)
 DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query);
+DPL_Symbol *dpl_symbols_find_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
+// DPL_Symbol *dpl_symbols_find_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
 DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack, Nob_String_View name, size_t arguments_count, DPL_Symbol **arguments);
 DPL_Symbol *dpl_symbols_find_function1(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *arg0);
 DPL_Symbol *dpl_symbols_find_function1_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0);
@@ -230,6 +241,8 @@ DPL_Symbol *dpl_symbols_find_function2(DPL_SymbolStack *stack, Nob_String_View n
 DPL_Symbol *dpl_symbols_find_function2_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0, DPL_Symbol *arg1);
 
 DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query);
+DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
+// DPL_Symbol *dpl_symbols_check_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
 
 // Common
 DPL_Symbol *dpl_symbols_push(DPL_SymbolStack *stack, DPL_Symbol_Kind kind, Nob_String_View name);
@@ -242,6 +255,7 @@ bool dpl_symbols_pop_boundary(DPL_SymbolStack *stack);
 // Types
 DPL_Symbol *dpl_symbols_push_type_base_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol_Type_Base_Kind base_kind);
 DPL_Symbol *dpl_symbols_push_type_object_cstr(DPL_SymbolStack *stack, const char *name, size_t field_count);
+DPL_Symbol *dpl_symbols_push_type_array_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type);
 DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type);
 
 bool dpl_symbols_is_type_base(DPL_Symbol *symbol, DPL_Symbol_Type_Base_Kind kind);

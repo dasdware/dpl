@@ -15,7 +15,7 @@ static DPL_Value dpl_vm_intrinsic_make_object(DPL_VirtualMachine *vm, size_t fie
 
 void dpl_vm_intrinsic_boolean_tostring(DPL_VirtualMachine *vm)
 {
-    // function toString(Boolean): String := 
+    // function toString(Boolean): String :=
     //   <native>;
     DPL_Value value = dplv_peek(vm);
     dplv_return_string(vm, 1,
@@ -24,7 +24,7 @@ void dpl_vm_intrinsic_boolean_tostring(DPL_VirtualMachine *vm)
 
 void dpl_vm_intrinsic_number_tostring(DPL_VirtualMachine *vm)
 {
-    // function toString(Number): String := 
+    // function toString(Number): String :=
     //   <native>;
     DPL_Value value = dplv_peek(vm);
     dplv_return_string(vm, 1,
@@ -70,7 +70,7 @@ static void dpl_vm_intrinsic_number_iterator_next(DPL_VirtualMachine *vm)
 
 void dpl_vm_intrinsic_string_length(DPL_VirtualMachine *vm)
 {
-    // function length(String): Number := 
+    // function length(String): Number :=
     //   <native>;
     DPL_Value value = dplv_peek(vm);
     dplv_return_number(vm, 1, value.as.string.count);
@@ -95,6 +95,14 @@ void dpl_vm_intrinsic_print(DPL_VirtualMachine *vm)
     }
 }
 
+void dpl_vm_intrinsic_array_length(DPL_VirtualMachine *vm)
+{
+    // function length([T]): Number :=
+    //   <native>;
+    DPL_Value value = dplv_peek(vm);
+    dplv_return_number(vm, 1, dpl_value_array_element_count(value.as.array));
+}
+
 const DPL_Intrinsic_Callback INTRINSIC_CALLBACKS[COUNT_INTRINSICS] = {
     [INTRINSIC_BOOLEAN_PRINT] = dpl_vm_intrinsic_print,
     [INTRINSIC_BOOLEAN_TOSTRING] = dpl_vm_intrinsic_boolean_tostring,
@@ -106,9 +114,11 @@ const DPL_Intrinsic_Callback INTRINSIC_CALLBACKS[COUNT_INTRINSICS] = {
 
     [INTRINSIC_STRING_LENGTH] = dpl_vm_intrinsic_string_length,
     [INTRINSIC_STRING_PRINT] = dpl_vm_intrinsic_print,
+
+    [INTRINSIC_ARRAY_LENGTH] = dpl_vm_intrinsic_array_length,
 };
 
-static_assert(COUNT_INTRINSICS == 8,
+static_assert(COUNT_INTRINSICS == 9,
               "Count of intrinsic kinds has changed, please update intrinsic kind names map.");
 
 void dpl_vm_call_intrinsic(DPL_VirtualMachine *vm, DPL_Intrinsic_Kind kind)

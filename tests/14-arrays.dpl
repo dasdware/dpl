@@ -1,0 +1,9 @@
+var ns: [Number] := [0, 1, 2, 3, 4];
+print("${ns.length()}\n");
+
+
+#function add(ns1: [Number], ns2: [Number])
+#    := [..ns1, ..ns2];
+
+#for (var n in (numbers + [5]))
+#  print("${n}\n");
