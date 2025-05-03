@@ -24,7 +24,7 @@ const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
 };
 
 static_assert(COUNT_AST_NODE_KINDS == 16,
-              "Count of ast node kinds has changed, please update bound node kind names map.");
+              "Count of ast node kinds has changed, please update ast node kind names map.");
 
 const char *dpl_parse_nodekind_name(DPL_AstNodeKind kind)
 {
@@ -751,37 +751,51 @@ DPL_Ast_Node *dpl_parse_dot(DPL_Parser *parser)
     DPL_Ast_Node *expression = dpl_parse_primary(parser);
 
     DPL_Token operator_candidate = dpl_parse_peek_token(parser);
-    while (operator_candidate.kind == TOKEN_DOT)
+    while (operator_candidate.kind == TOKEN_DOT || operator_candidate.kind == TOKEN_OPEN_BRACKET)
     {
         dpl_parse_next_token(parser);
-        DPL_Ast_Node *new_expression = dpl_parse_primary(parser);
 
-        if (new_expression->kind == AST_NODE_SYMBOL)
+        if (operator_candidate.kind == TOKEN_DOT)
         {
-            DPL_Ast_Node *field_access = dpl_parse_allocate_node(parser, AST_NODE_FIELD_ACCESS, expression->first, new_expression->last);
-            field_access->as.field_access.expression = expression;
-            field_access->as.field_access.field = new_expression;
-            expression = field_access;
-        }
-        else if (new_expression->kind == AST_NODE_FUNCTIONCALL)
-        {
-            DPL_Ast_FunctionCall *fc = &new_expression->as.function_call;
-            fc->arguments = arena_realloc(parser->memory, fc->arguments,
-                                          fc->argument_count * sizeof(DPL_Ast_Node *),
-                                          (fc->argument_count + 1) * sizeof(DPL_Ast_Node *));
-            fc->argument_count++;
-
-            for (size_t i = fc->argument_count - 1; i > 0; --i)
+            DPL_Ast_Node *new_expression = dpl_parse_primary(parser);
+            if (new_expression->kind == AST_NODE_SYMBOL)
             {
-                fc->arguments[i] = fc->arguments[i - 1];
+                DPL_Ast_Node *field_access = dpl_parse_allocate_node(parser, AST_NODE_FIELD_ACCESS, expression->first, new_expression->last);
+                field_access->as.field_access.expression = expression;
+                field_access->as.field_access.field = new_expression;
+                expression = field_access;
             }
+            else if (new_expression->kind == AST_NODE_FUNCTIONCALL)
+            {
+                DPL_Ast_FunctionCall *fc = &new_expression->as.function_call;
+                fc->arguments = arena_realloc(parser->memory, fc->arguments,
+                                            fc->argument_count * sizeof(DPL_Ast_Node *),
+                                            (fc->argument_count + 1) * sizeof(DPL_Ast_Node *));
+                fc->argument_count++;
 
-            fc->arguments[0] = expression;
-            expression = new_expression;
+                for (size_t i = fc->argument_count - 1; i > 0; --i)
+                {
+                    fc->arguments[i] = fc->arguments[i - 1];
+                }
+
+                fc->arguments[0] = expression;
+                expression = new_expression;
+            }
+            else
+            {
+                DPL_AST_ERROR(parser->lexer->source, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
+            }
         }
         else
         {
-            DPL_AST_ERROR(parser->lexer->source, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
+            DPL_Ast_Node *new_expression = dpl_parse_expression(parser);
+            DPL_Token closing_bracket = dpl_parse_expect_token(parser, TOKEN_CLOSE_BRACKET);
+
+            DPL_Ast_Node *binary = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, closing_bracket);
+            binary->as.binary.operator = operator_candidate;
+            binary->as.binary.left = expression;
+            binary->as.binary.right = new_expression;
+            expression = binary;
         }
 
         operator_candidate = dpl_parse_peek_token(parser);

@@ -1,5 +1,9 @@
-var ns: [Number] := [0, 1, 2, 3, 4];
+var ns: [Number] := [10, 20, 30, 40, 50];
 print("${ns.length()}\n");
+
+for (var i in 0..(ns.length()-1)) {
+    print("#${i+1}: ${ns[i]}\n");
+};
 
 
 #function add(ns1: [Number], ns2: [Number])

@@ -262,6 +262,7 @@ DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbo
 
         DPL_Symbol *number_t = dpl_symbols_find_type_number(stack);
         dpl_symbols_push_function_intrinsic(stack, "length", number_t, DPL_SYMBOLS(array_type), INTRINSIC_ARRAY_LENGTH);
+        dpl_symbols_push_function_intrinsic(stack, "element", element_type, DPL_SYMBOLS(array_type, number_t), INTRINSIC_ARRAY_ELEMENT);
     }
     return array_type;
 }

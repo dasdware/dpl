@@ -917,6 +917,8 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
         return dpl_bind_binary(binding, node, "equal");
     case TOKEN_BANG_EQUAL:
         return dpl_bind_binary(binding, node, "notEqual");
+    case TOKEN_OPEN_BRACKET:
+        return dpl_bind_binary(binding, node, "element");
     case TOKEN_AND_AND:
     case TOKEN_PIPE_PIPE:
     {

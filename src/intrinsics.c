@@ -14,9 +14,10 @@ const char *INTRINSIC_KIND_NAMES[COUNT_INTRINSICS] = {
     [INTRINSIC_STRING_LENGTH] = "length(String): Number",
     [INTRINSIC_STRING_PRINT] = "print(String): String",
     [INTRINSIC_ARRAY_LENGTH] = "<T>length([T]): Number",
+    [INTRINSIC_ARRAY_ELEMENT] = "element([T], Number): T",
 };
 
-static_assert(COUNT_INTRINSICS == 9,
+static_assert(COUNT_INTRINSICS == 10,
               "Count of intrinsic kinds has changed, please update intrinsic kind names map.");
 
 const char *dpl_intrinsic_kind_name(DPL_Intrinsic_Kind kind)

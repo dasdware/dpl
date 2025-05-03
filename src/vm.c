@@ -468,10 +468,15 @@ void dplv_run(DPL_VirtualMachine *vm)
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
-    if (vm->stack_top == 0)
+    return dplv_peekn(vm, 1);
+}
+
+DPL_Value dplv_peekn(DPL_VirtualMachine *vm, size_t n)
+{
+    if (vm->stack_top < n)
     {
         DW_ERROR("Fatal Error: Stack underflow in program execution.");
     }
 
-    return vm->stack[vm->stack_top - 1];
+    return vm->stack[vm->stack_top - n];
 }
