@@ -48,13 +48,14 @@ static_assert(COUNT_SYMBOL_BOUNDARY_KINDS == 3,
               "Count of symbol boundary kinds has changed, please update symbol kind names map.");
 
 const char *SYMBOL_TYPE_BASE_KIND_NAMES[COUNT_SYMBOL_TYPE_BASE_KINDS] = {
-    [TYPE_BASE_NUMBER] = "number",
-    [TYPE_BASE_STRING] = "string",
-    [TYPE_BASE_BOOLEAN] = "boolean",
-    [TYPE_BASE_NONE] = "none",
+    [TYPE_BASE_NUMBER] = TYPENAME_NUMBER,
+    [TYPE_BASE_STRING] = TYPENAME_STRING,
+    [TYPE_BASE_BOOLEAN] = TYPENAME_BOOLEAN,
+    [TYPE_BASE_NONE] = TYPENAME_NONE,
+    [TYPE_BASE_EMPTY_ARRAY] = TYPENAME_EMPTY_ARRAY,
 };
 
-static_assert(COUNT_SYMBOL_TYPE_BASE_KINDS == 4,
+static_assert(COUNT_SYMBOL_TYPE_BASE_KINDS == 5,
               "Count of symbol base type kinds has changed, please update symbol kind names map.");
 
 Nob_String_Builder error_sb = {0};
@@ -283,6 +284,41 @@ DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbo
 //     return array_type;
 // }
 
+DPL_Symbol *dpl_symbols_resolve_type_alias(DPL_Symbol *type)
+{
+    while (type && type->as.type.kind == TYPE_ALIAS)
+    {
+        type = type->as.type.as.alias;
+    }
+    return type;
+}
+
+bool dpl_symbols_type_assignable(DPL_Symbol *from, DPL_Symbol *to)
+{
+    // Type `None` cannot be assigned to or from
+    if (dpl_symbols_is_type_base(to, TYPE_BASE_NONE) || dpl_symbols_is_type_base(from, TYPE_BASE_NONE))
+    {
+        return false;
+    }
+
+    DPL_Symbol *resolved_from = dpl_symbols_resolve_type_alias(from);
+    DPL_Symbol *resolved_to = dpl_symbols_resolve_type_alias(to);
+
+    // Equal types can be assigned to each other
+    if (resolved_from == resolved_to)
+    {
+        return true;
+    }
+
+    // The empty array can be assigned to any other array type
+    if (dpl_symbols_is_type_base(resolved_from, TYPE_BASE_EMPTY_ARRAY) && dpl_symbols_is_type_array(resolved_to))
+    {
+        return true;
+    }
+
+    return false;
+}
+
 DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack,
                                       Nob_String_View name, size_t arguments_count, DPL_Symbol **arguments)
 {
@@ -296,7 +332,7 @@ DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack,
     DPL_Symbol_Function *f = &candidate->as.function;
     for (size_t i = 0; i < arguments_count; ++i)
     {
-        if (f->signature.arguments[i] != arguments[i])
+        if (!dpl_symbols_type_assignable(arguments[i], f->signature.arguments[i]))
         {
             is_match = false;
             break;
@@ -483,6 +519,11 @@ DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View 
 bool dpl_symbols_is_type_base(DPL_Symbol *symbol, DPL_Symbol_Type_Base_Kind kind)
 {
     return symbol->kind == SYMBOL_TYPE && symbol->as.type.kind == TYPE_BASE && symbol->as.type.as.base == kind;
+}
+
+bool dpl_symbols_is_type_array(DPL_Symbol *symbol)
+{
+    return symbol->kind == SYMBOL_TYPE && symbol->as.type.kind == TYPE_ARRAY;
 }
 
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value)

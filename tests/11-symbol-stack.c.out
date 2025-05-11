@@ -3,9 +3,9 @@ Found argument bar: Boolean successfully.
 Cannot find symbol  `x`.
 Found variable x: String successfully.
 |   1 |  -1 | boundary |                                          | module                         | 
-|   2 |  -1 | type     | Number                                   | base: number                   | 
-|   3 |  -1 | type     | String                                   | base: string                   | 
-|   4 |  -1 | type     | Boolean                                  | base: boolean                  | 
+|   2 |  -1 | type     | Number                                   | base: Number                   | 
+|   3 |  -1 | type     | String                                   | base: String                   | 
+|   4 |  -1 | type     | Boolean                                  | base: Boolean                  | 
 |   1 |  -1 | boundary |                                          | scope                          | 
 |   2 |  -1 | constant | PI: Number                               | value: 3.141590                | 
 |   3 |   0 | variable | x: String                                | scope_index: 0                 | 

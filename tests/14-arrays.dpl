@@ -5,6 +5,12 @@ for (var i in 0..(ns.length()-1)) {
     print("#${i+1}: ${ns[i]}\n");
 };
 
+var empty := [];
+print("${empty.length()}\n");
+
+var strings: [String] := empty;
+print("${strings.length()}\n");
+
 
 #function add(ns1: [Number], ns2: [Number])
 #    := [..ns1, ..ns2];

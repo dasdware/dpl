@@ -50,20 +50,6 @@ const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind)
     return BOUND_NODE_KIND_NAMES[kind];
 }
 
-static DPL_Symbol *dpl_bind_resolve_type_alias(DPL_Symbol *type)
-{
-    while (type && type->as.type.kind == TYPE_ALIAS)
-    {
-        type = type->as.type.as.alias;
-    }
-    return type;
-}
-
-static bool dpl_bind_type_assignable(DPL_Symbol *from, DPL_Symbol *to)
-{
-    return dpl_bind_resolve_type_alias(from) == dpl_bind_resolve_type_alias(to);
-}
-
 static void dpl_bind_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
 {
     switch (ast_type->kind)
@@ -134,10 +120,7 @@ static DPL_Symbol *dpl_bind_type(DPL_Binding *binding, DPL_Ast_Type *ast_type)
     if (ast_type->kind == TYPE_OBJECT)
     {
         DPL_Ast_TypeObject object_type = ast_type->as.object;
-
-        DPL_Symbol *new_object_type = dpl_symbols_push_type_object_cstr(binding->symbols, type_name, object_type.field_count);
-        DPL_Symbol_Type_ObjectField *fields = new_object_type->as.type.as.object.fields;
-
+        DPL_Symbol_Type_ObjectQuery type_query = {0};
         for (size_t i = 0; i < object_type.field_count; ++i)
         {
             DPL_Ast_TypeField ast_field = object_type.fields[i];
@@ -147,11 +130,23 @@ static DPL_Symbol *dpl_bind_type(DPL_Binding *binding, DPL_Ast_Type *ast_type)
                 DPL_AST_ERROR(binding->source, ast_field.type, "Unable to bind type `%s` for field `" SV_Fmt "`.",
                               dpl_bind_type_name(ast_field.type), SV_Arg(ast_field.name.text));
             }
-            fields[i].name = ast_field.name.text;
-            fields[i].type = bound_field_type;
+
+            nob_da_append(
+                &type_query,
+                ((DPL_Symbol_Type_ObjectField){
+                    .name = ast_field.name.text,
+                    .type = bound_field_type,
+                }));
         }
 
-        return new_object_type;
+        DPL_Symbol *bound_type = dpl_symbols_check_type_object_query(binding->symbols, type_query);
+        nob_da_free(type_query);
+        return bound_type;
+    }
+
+    if (ast_type->kind == TYPE_ARRAY)
+    {
+        return dpl_symbols_check_type_array_query(binding->symbols, dpl_bind_type(binding, ast_type->as.array.element_type));
     }
 
     return NULL;
@@ -176,7 +171,7 @@ static void dpl_bind_check_assignment(DPL_Binding *binding, const char *what, DP
                           dpl_bind_type_name(decl->type), what, SV_Arg(decl->name.text));
         }
 
-        if (!dpl_bind_type_assignable(expression_type, declared_type))
+        if (!dpl_symbols_type_assignable(expression_type, declared_type))
         {
             DPL_AST_ERROR(binding->source, node,
                           "Cannot assign expression of type `" SV_Fmt "` to %s `" SV_Fmt "` of type `" SV_Fmt "`.",
@@ -234,7 +229,7 @@ DPL_Bound_Node *dpl_bind_create_varref(DPL_Binding *binding, DPL_Symbol *var)
 
 DPL_Bound_Node *dpl_bind_create_load_field(DPL_Binding *binding, DPL_Bound_Node *expression, size_t field_index)
 {
-    DPL_Symbol *resolved_type = dpl_bind_resolve_type_alias(expression->type);
+    DPL_Symbol *resolved_type = dpl_symbols_resolve_type_alias(expression->type);
 
     DPL_Bound_Node *load_field = dpl_bind_allocate_node(binding, BOUND_NODE_LOAD_FIELD, resolved_type->as.type.as.object.fields[field_index].type);
     load_field->as.load_field.expression = expression;
@@ -779,12 +774,6 @@ DPL_Bound_Node *dpl_bind_array_literal(DPL_Binding *binding, DPL_Ast_Node *node)
     dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
 
     DPL_Ast_ArrayLiteral *array_literal = &node->as.array_literal;
-    if (array_literal->element_count == 0)
-    {
-        // TODO: Think about "empty array" type that can be assigned to any other array type
-        DPL_AST_ERROR(binding->source, node, "Array literals must contain at least one element.");
-    }
-
     DPL_Bound_Nodes tmp_elements = {0};
     for (size_t i = 0; i < array_literal->element_count; ++i)
     {
@@ -802,10 +791,16 @@ DPL_Bound_Node *dpl_bind_array_literal(DPL_Binding *binding, DPL_Ast_Node *node)
 
     dpl_symbols_pop_boundary(binding->symbols);
 
+    DPL_Symbol *array_type = dpl_symbols_find_type_empty_array(binding->symbols);
+    if (array_literal->element_count > 0)
+    {
+        array_type = dpl_symbols_check_type_array_query(binding->symbols, tmp_elements.items[0]->type);
+    }
+
     DPL_Bound_Node *bound_node = dpl_bind_allocate_node(
         binding,
         BOUND_NODE_ARRAY,
-        dpl_symbols_check_type_array_query(binding->symbols, tmp_elements.items[0]->type));
+        array_type);
     dpl_bind_move_nodelist(binding, tmp_elements, &bound_node->as.array.element_count, &bound_node->as.array.elements);
 
     return bound_node;
@@ -1074,7 +1069,7 @@ DPL_Bound_Node *dpl_bind_function(DPL_Binding *binding, DPL_Ast_Node *node)
     for (size_t i = 0; i < function->signature.argument_count; ++i)
     {
         DPL_Ast_FunctionArgument arg = function->signature.arguments[i];
-        DPL_Symbol *arg_type = dpl_bind_resolve_type_alias(dpl_bind_type(binding, arg.type));
+        DPL_Symbol *arg_type = dpl_symbols_resolve_type_alias(dpl_bind_type(binding, arg.type));
         if (!arg_type)
         {
             DPL_AST_ERROR(binding->source, arg.type,
@@ -1097,7 +1092,7 @@ DPL_Bound_Node *dpl_bind_function(DPL_Binding *binding, DPL_Ast_Node *node)
 
     if (function->signature.type)
     {
-        DPL_Symbol *return_type = dpl_bind_resolve_type_alias(dpl_bind_type(binding, function->signature.type));
+        DPL_Symbol *return_type = dpl_symbols_resolve_type_alias(dpl_bind_type(binding, function->signature.type));
         if (!return_type)
         {
             DPL_AST_ERROR(binding->source, function->signature.type,

@@ -25,6 +25,7 @@ void dpl_init(DPL *dpl)
     DPL_Symbol *string_t = dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_STRING, TYPE_BASE_STRING);
     DPL_Symbol *boolean_t = dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_BOOLEAN, TYPE_BASE_BOOLEAN);
     dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_NONE, TYPE_BASE_NONE);
+    dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_EMPTY_ARRAY, TYPE_BASE_EMPTY_ARRAY);
 
     // Operators on base types
 
