@@ -427,6 +427,11 @@ void dplv_run(DPL_VirtualMachine *vm)
         break;
         case INST_BEGIN_ARRAY:
         {
+            if (vm->stack_top >= vm->stack_capacity)
+            {
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
+            }
+
             ++vm->stack_top;
             TOP0 = dpl_value_make_array_slot();
         }
@@ -443,6 +448,27 @@ void dplv_run(DPL_VirtualMachine *vm)
                 }
             }
         }
+        break;
+        case INST_SPREAD:
+        {
+            DPL_Value value = TOP0;
+
+            size_t count = dpl_value_array_element_count(value.as.array);
+            if ((vm->stack_top + count - 1) >= vm->stack_capacity)
+            {
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
+            }
+
+            for (size_t i = 0; i < count; ++i)
+            {
+                vm->stack[vm->stack_top - 1 + i] = dplv_reference(
+                    vm, dpl_value_array_get_element(value.as.array, i));
+            }
+            vm->stack_top += count - 1;
+
+            dplv_release(vm, value);
+        }
+
         break;
         default:
             printf("\n=======================================\n");

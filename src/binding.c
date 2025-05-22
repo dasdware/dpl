@@ -36,9 +36,10 @@ const char *BOUND_NODE_KIND_NAMES[COUNT_BOUND_NODE_KINDS] = {
     [BOUND_NODE_WHILE_LOOP] = "BOUND_NODE_WHILE_LOOP",
     [BOUND_NODE_LOAD_FIELD] = "BOUND_NODE_LOAD_FIELD",
     [BOUND_NODE_INTERPOLATION] = "BOUND_NODE_INTERPOLATION",
+    [BOUND_NODE_SPREAD] = "BOUND_NODE_SPREAD",
 };
 
-static_assert(COUNT_BOUND_NODE_KINDS == 13,
+static_assert(COUNT_BOUND_NODE_KINDS == 14,
               "Count of bound node kinds has changed, please update bound node kind names map.");
 
 const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind)
@@ -775,16 +776,41 @@ DPL_Bound_Node *dpl_bind_array_literal(DPL_Binding *binding, DPL_Ast_Node *node)
 
     DPL_Ast_ArrayLiteral *array_literal = &node->as.array_literal;
     DPL_Bound_Nodes tmp_elements = {0};
+    DPL_Symbol *tmp_element_type = NULL;
     for (size_t i = 0; i < array_literal->element_count; ++i)
     {
-        DPL_Bound_Node *bound_element = dpl_bind_node(binding, array_literal->elements[i]);
-        if (i > 0 && bound_element->type != tmp_elements.items[0]->type)
+        DPL_Ast_Node *element = array_literal->elements[i];
+        DPL_Bound_Node *bound_element = NULL;
+        DPL_Symbol *bound_element_type = NULL;
+        if (element->kind == AST_NODE_UNARY && element->as.unary.operator.kind == TOKEN_DOT_DOT)
+        {
+            DPL_Bound_Node *bound_spread_target = dpl_bind_node(binding, element->as.unary.operand);
+            if (!dpl_symbols_is_type_array(bound_spread_target->type))
+            {
+                DPL_AST_ERROR(binding->source, element, "Only array types can be spread into arrays.");
+            }
+            bound_element_type = bound_spread_target->type->as.type.as.array.element_type;
+            bound_element = dpl_bind_allocate_node(binding, BOUND_NODE_SPREAD,
+                                                   dpl_symbols_check_type_multi_query(binding->symbols, bound_element_type));
+            bound_element->as.spread = bound_spread_target;
+        }
+        else
+        {
+            bound_element = dpl_bind_node(binding, element);
+            bound_element_type = bound_element->type;
+        }
+
+        if (tmp_element_type == NULL)
+        {
+            tmp_element_type = bound_element_type;
+        }
+        else if (bound_element_type != tmp_element_type)
         {
             DPL_AST_ERROR_WITH_NOTE(binding->source,
                                     array_literal->elements[0], "Array type is defined here.",
-                                    array_literal->elements[i], "Element of type `" SV_Fmt "` cannot be put into an array of type `[" SV_Fmt "]`.",
-                                    SV_Arg(bound_element->type->name),
-                                    SV_Arg(tmp_elements.items[0]->type->name));
+                                    element, "Element of type `" SV_Fmt "` cannot be put into an array of type `[" SV_Fmt "]`.",
+                                    SV_Arg(bound_element_type->name),
+                                    SV_Arg(tmp_element_type->name));
         }
         nob_da_append(&tmp_elements, bound_element);
     }
@@ -1598,6 +1624,19 @@ void dpl_bind_print(DPL_Binding *binding, DPL_Bound_Node *node, size_t level)
         {
             dpl_bind_print(binding, node->as.array.elements[i], level + 1);
         }
+
+        for (size_t i = 0; i < level; ++i)
+        {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_SPREAD:
+    {
+        printf("$spread(\n");
+
+        dpl_bind_print(binding, node->as.spread, level + 1);
 
         for (size_t i = 0; i < level; ++i)
         {

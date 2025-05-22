@@ -26,6 +26,7 @@ typedef enum
     BOUND_NODE_WHILE_LOOP,
     BOUND_NODE_LOAD_FIELD,
     BOUND_NODE_INTERPOLATION,
+    BOUND_NODE_SPREAD,
 
     COUNT_BOUND_NODE_KINDS,
 } DPL_BoundNodeKind;
@@ -121,6 +122,7 @@ struct DPL_Bound_Node
         DPL_Bound_WhileLoop while_loop;
         DPL_Bound_LoadField load_field;
         DPL_Bound_Interpolation interpolation;
+        DPL_Bound_Node *spread;
     } as;
 };
 

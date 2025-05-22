@@ -193,6 +193,12 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
         dplp_write_end_array(program);
     }
     break;
+    case BOUND_NODE_SPREAD:
+    {
+        dpl_generate(generator, node->as.spread, program);
+        dplp_write_spread(program);
+    }
+    break;
     default:
         DW_UNIMPLEMENTED_MSG("`%s`", dpl_bind_nodekind_name(node->kind));
     }

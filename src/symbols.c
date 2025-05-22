@@ -200,24 +200,24 @@ DPL_Symbol *dpl_symbols_find_type_array_query(DPL_SymbolStack *stack, DPL_Symbol
     return NULL;
 }
 
-// DPL_Symbol *dpl_symbols_find_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
-// {
-//     STACK_FOREACH_BEGIN(stack, symbol)
-//     if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_MULTI)
-//     {
-//         continue;
-//     }
+DPL_Symbol *dpl_symbols_find_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    STACK_FOREACH_BEGIN(stack, symbol)
+    if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_MULTI)
+    {
+        continue;
+    }
 
-//     DPL_Symbol_Type_Array *array_type = &symbol->as.type.as.array;
-//     if (array_type->element_type == element_type)
-//     {
-//         return symbol;
-//     }
-//     STACK_FOREACH_END
+    DPL_Symbol_Type_Array *array_type = &symbol->as.type.as.array;
+    if (array_type->element_type == element_type)
+    {
+        return symbol;
+    }
+    STACK_FOREACH_END
 
-//     // TODO: Prepare error message(?)
-//     return NULL;
-// }
+    // TODO: Prepare error message(?)
+    return NULL;
+}
 
 DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query)
 {
@@ -268,21 +268,21 @@ DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbo
     return array_type;
 }
 
-// DPL_Symbol *dpl_symbols_check_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
-// {
-//     DPL_Symbol *array_type = dpl_symbols_find_type_multi_query(stack, element_type);
-//     if (!array_type)
-//     {
-//         Nob_String_Builder sb_name = {0};
-//         nob_sb_append_sv(&sb_name, element_type->name);
-//         nob_sb_append_cstr(&sb_name, "..");
-//         nob_sb_append_null(&sb_name);
+DPL_Symbol *dpl_symbols_check_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    DPL_Symbol *array_type = dpl_symbols_find_type_multi_query(stack, element_type);
+    if (!array_type)
+    {
+        Nob_String_Builder sb_name = {0};
+        nob_sb_append_sv(&sb_name, element_type->name);
+        nob_sb_append_cstr(&sb_name, "..");
+        nob_sb_append_null(&sb_name);
 
-//         array_type = dpl_symbols_push_type_multi_cstr(stack, sb_name.items, element_type);
-//         nob_sb_free(sb_name);
-//     }
-//     return array_type;
-// }
+        array_type = dpl_symbols_push_type_multi_cstr(stack, sb_name.items, element_type);
+        nob_sb_free(sb_name);
+    }
+    return array_type;
+}
 
 DPL_Symbol *dpl_symbols_resolve_type_alias(DPL_Symbol *type)
 {
@@ -513,6 +513,19 @@ DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View 
         .kind = TYPE_ALIAS,
         .as.alias = type,
     };
+    return symbol;
+}
+
+DPL_Symbol *dpl_symbols_push_type_multi_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type)
+{
+    DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_TYPE, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.type = (DPL_Symbol_Type){
+        .kind = TYPE_MULTI,
+        .as.multi = {
+            .element_type = element_type,
+        }};
     return symbol;
 }
 
