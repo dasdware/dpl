@@ -16,6 +16,10 @@ for (var i in 0..(ns.length()-1)) {
     print("#${i+1}: ${ns[i]}\n");
 };
 
+for (var i in ns) {
+    print("#${i}\n");
+};
+
 #function add(ns1: [Number], ns2: [Number])
 #    := [..ns1, ..ns2];
 

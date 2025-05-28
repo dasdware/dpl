@@ -11,6 +11,11 @@
 #define DPL_SYMBOLS(...) \
     DPL_ARG_COUNT(__VA_ARGS__), (DPL_Symbol *[]) { __VA_ARGS__ }
 
+#define DPL_OBJECT_FIELD(field_name, field_type) \
+    ((DPL_Symbol_Type_ObjectField){              \
+        .name = nob_sv_from_cstr(field_name),    \
+        .type = field_type})
+
 typedef struct DPL_Symbol DPL_Symbol;
 
 typedef enum

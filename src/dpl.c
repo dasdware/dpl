@@ -10,11 +10,6 @@
 
 #define DPL_ERROR DW_ERROR
 
-#define DPL_OBJECT_FIELD(field_name, field_type) \
-    ((DPL_Symbol_Type_ObjectField){              \
-        .name = nob_sv_from_cstr(field_name),    \
-        .type = field_type})
-
 void dpl_init(DPL *dpl)
 {
     // SYMBOL STACK

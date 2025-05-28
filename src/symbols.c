@@ -262,8 +262,20 @@ DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbo
         nob_sb_free(sb_name);
 
         DPL_Symbol *number_t = dpl_symbols_find_type_number(stack);
+        DPL_Symbol *boolean_t = dpl_symbols_find_type_boolean(stack);
+
+        DPL_Symbol_Type_ObjectQuery iterator_query = {0};
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("array", array_type));
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("current", element_type));
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("finished", boolean_t));
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("index", number_t));
+        DPL_Symbol *iterator_t = dpl_symbols_check_type_object_query(stack, iterator_query);
+        nob_da_free(iterator_query);
+
         dpl_symbols_push_function_intrinsic(stack, "length", number_t, DPL_SYMBOLS(array_type), INTRINSIC_ARRAY_LENGTH);
         dpl_symbols_push_function_intrinsic(stack, "element", element_type, DPL_SYMBOLS(array_type, number_t), INTRINSIC_ARRAY_ELEMENT);
+        dpl_symbols_push_function_intrinsic(stack, "iterator", iterator_t, DPL_SYMBOLS(array_type), INTRINSIC_ARRAY_ITERATOR);
+        dpl_symbols_push_function_intrinsic(stack, "next", iterator_t, DPL_SYMBOLS(iterator_t), INTRINSIC_ARRAYITERATOR_NEXT);
     }
     return array_type;
 }
@@ -816,6 +828,21 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
         case TYPE_OBJECT:
         {
             nob_sb_append_cstr(sb, "object");
+        }
+        break;
+        case TYPE_ALIAS:
+        {
+            nob_sb_append_cstr(sb, "alias");
+        }
+        break;
+        case TYPE_ARRAY:
+        {
+            nob_sb_append_cstr(sb, "array");
+        }
+        break;
+        case TYPE_MULTI:
+        {
+            nob_sb_append_cstr(sb, "multi");
         }
         break;
         default:

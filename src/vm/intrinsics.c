@@ -108,15 +108,71 @@ void dpl_vm_intrinsic_array_element(DPL_VirtualMachine *vm)
     // function element([T], Number): T :=
     //   <native>
     size_t index = dplv_peek(vm).as.number;
-    DW_MemoryTable_Item* array = dplv_peekn(vm, 2).as.array;
+    DW_MemoryTable_Item *array = dplv_peekn(vm, 2).as.array;
     size_t array_size = dpl_value_array_element_count(array);
 
-    if (index >= array_size) {
+    if (index >= array_size)
+    {
         DW_ERROR("Array index out of bounds (size: %zu, index: %zu).", array_size, index);
     }
 
     DPL_Value result = dpl_value_array_get_element(array, index);
     dplv_return(vm, 2, result);
+}
+
+void dpl_vm_intrinsic_array_iterator(DPL_VirtualMachine *vm)
+{
+    // function iterator(array: [T]): Iterator<T>
+    //     := $[
+    //         current := if (array.length() > 0) array[0] else none,
+    //         finished := array.length() == 0,
+    //         index := 0,
+    //         array := array
+    //     ];
+
+    DPL_Value array = dplv_peek(vm);
+
+    size_t count = dpl_value_array_element_count(array.as.array);
+    DPL_Value iterator = dpl_vm_intrinsic_make_object(
+        vm,
+        DPL_VALUES(
+            dplv_reference(vm, array),
+            (count > 0) ? dpl_value_array_get_element(array.as.array, 0) : dpl_value_make_number(0),
+            dpl_value_make_boolean(count == 0),
+            dpl_value_make_number(0)));
+
+    dplv_return(vm, 1, iterator);
+}
+
+void dpl_vm_intrinsic_arrayiterator_next(DPL_VirtualMachine *vm)
+{
+    // function next(it: NumberArrayIterator): NumberArrayIterator
+    //     := {
+    //         var index := it.index + 1;
+    //         var finished := index >= it.array.length();
+    //         if (finished)
+    //             $[finished, current := -1, index, array := it.array]
+    //         else
+    //             $[finished, current := it.array[index], index, array := it.array]
+    //     };
+
+    DPL_Value it = dplv_peek(vm);
+
+    DPL_Value array = dpl_value_object_get_field(it.as.object, 0);
+    size_t count = dpl_value_array_element_count(array.as.array);
+
+    DPL_Value index = dpl_value_object_get_field(it.as.object, 3);
+    size_t next_index = index.as.number + 1;
+
+    DPL_Value next_it = dpl_vm_intrinsic_make_object(
+        vm,
+        DPL_VALUES(
+            dplv_reference(vm, array),
+            (next_index < count) ? dpl_value_array_get_element(array.as.array, next_index) : dpl_value_make_number(0),
+            dpl_value_make_boolean(next_index >= count),
+            dpl_value_make_number(next_index)));
+
+    dplv_return(vm, 1, next_it);
 }
 
 const DPL_Intrinsic_Callback INTRINSIC_CALLBACKS[COUNT_INTRINSICS] = {
@@ -132,10 +188,12 @@ const DPL_Intrinsic_Callback INTRINSIC_CALLBACKS[COUNT_INTRINSICS] = {
     [INTRINSIC_STRING_PRINT] = dpl_vm_intrinsic_print,
 
     [INTRINSIC_ARRAY_LENGTH] = dpl_vm_intrinsic_array_length,
-    [INTRINSIC_ARRAY_ELEMENT] =  dpl_vm_intrinsic_array_element
+    [INTRINSIC_ARRAY_ELEMENT] = dpl_vm_intrinsic_array_element,
+    [INTRINSIC_ARRAY_ITERATOR] = dpl_vm_intrinsic_array_iterator,
+    [INTRINSIC_ARRAYITERATOR_NEXT] = dpl_vm_intrinsic_arrayiterator_next,
 };
 
-static_assert(COUNT_INTRINSICS == 10,
+static_assert(COUNT_INTRINSICS == 12,
               "Count of intrinsic kinds has changed, please update intrinsic kind names map.");
 
 void dpl_vm_call_intrinsic(DPL_VirtualMachine *vm, DPL_Intrinsic_Kind kind)
