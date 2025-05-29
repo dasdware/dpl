@@ -10,11 +10,6 @@
 
 #define DPL_ERROR DW_ERROR
 
-#define DPL_OBJECT_FIELD(field_name, field_type) \
-    ((DPL_Symbol_Type_ObjectField){              \
-        .name = nob_sv_from_cstr(field_name),    \
-        .type = field_type})
-
 void dpl_init(DPL *dpl)
 {
     // SYMBOL STACK
@@ -25,6 +20,7 @@ void dpl_init(DPL *dpl)
     DPL_Symbol *string_t = dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_STRING, TYPE_BASE_STRING);
     DPL_Symbol *boolean_t = dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_BOOLEAN, TYPE_BASE_BOOLEAN);
     dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_NONE, TYPE_BASE_NONE);
+    dpl_symbols_push_type_base_cstr(&dpl->symbols, TYPENAME_EMPTY_ARRAY, TYPE_BASE_EMPTY_ARRAY);
 
     // Operators on base types
 

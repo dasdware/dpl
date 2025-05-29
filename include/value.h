@@ -17,6 +17,7 @@ typedef enum
     VALUE_STRING,
     VALUE_BOOLEAN,
     VALUE_OBJECT,
+    VALUE_ARRAY,
 } DPL_ValueKind;
 
 typedef struct
@@ -28,6 +29,7 @@ typedef struct
         Nob_String_View string;
         bool boolean;
         DW_MemoryTable_Item *object;
+        DW_MemoryTable_Item *array;
     } as;
 } DPL_Value;
 
@@ -45,6 +47,10 @@ const char *dpl_value_format_boolean(bool value);
 DPL_Value dpl_value_make_object(DW_MemoryTable_Item *value);
 uint8_t dpl_value_object_field_count(DW_MemoryTable_Item *object);
 DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item *object, uint8_t field_index);
+
+DPL_Value dpl_value_make_array_slot();
+uint8_t dpl_value_array_element_count(DW_MemoryTable_Item *array);
+DPL_Value dpl_value_array_get_element(DW_MemoryTable_Item *array, uint8_t element_index);
 
 void dpl_value_print_number(double value);
 void dpl_value_print_string(Nob_String_View value);

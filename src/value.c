@@ -19,9 +19,11 @@ const char *dpl_value_kind_name(DPL_ValueKind kind)
         return "boolean";
     case VALUE_OBJECT:
         return "object";
+    case VALUE_ARRAY:
+        return "array";
     }
 
-    DW_ERROR("ERROR: Invalid value kind `%02X`.", kind);
+    DW_UNIMPLEMENTED_MSG("ERROR: Invalid value kind `%02X`.", kind);
 }
 
 DPL_Value dpl_value_make_number(double value)
@@ -54,6 +56,14 @@ DPL_Value dpl_value_make_object(DW_MemoryTable_Item *value)
         .kind = VALUE_OBJECT,
         .as = {
             .object = value}};
+}
+
+DPL_Value dpl_value_make_array_slot()
+{
+    return (DPL_Value){
+        .kind = VALUE_ARRAY,
+        .as = {
+            .array = NULL}};
 }
 
 #define EPSILON 0.00001
@@ -148,6 +158,33 @@ void dpl_value_print_object(DW_MemoryTable_Item *object)
     printf("]");
 }
 
+uint8_t dpl_value_array_element_count(DW_MemoryTable_Item *array)
+{
+    return array->length / sizeof(DPL_Value);
+}
+
+DPL_Value dpl_value_array_get_element(DW_MemoryTable_Item *array, uint8_t element_index)
+{
+    return ((DPL_Value *)array->data)[element_index];
+}
+
+void dpl_value_print_array(DW_MemoryTable_Item *array)
+{
+    if (array == NULL)
+    {
+        printf("[%s slot]", dpl_value_kind_name(VALUE_ARRAY));
+        return;
+    }
+
+    uint8_t element_count = dpl_value_array_element_count(array);
+    printf("[%s(%d): ", dpl_value_kind_name(VALUE_ARRAY), element_count);
+    for (uint8_t element_index = 0; element_index < element_count; ++element_index)
+    {
+        dpl_value_print(dpl_value_array_get_element(array, element_index));
+    }
+    printf("]");
+}
+
 void dpl_value_print(DPL_Value value)
 {
     switch (value.kind)
@@ -163,6 +200,9 @@ void dpl_value_print(DPL_Value value)
         break;
     case VALUE_OBJECT:
         dpl_value_print_object(value.as.object);
+        break;
+    case VALUE_ARRAY:
+        dpl_value_print_array(value.as.array);
         break;
     default:
         DW_UNIMPLEMENTED_MSG("Cannot debug print value of kind `%s`.",

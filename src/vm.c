@@ -89,6 +89,10 @@ DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
     {
         mt_reference(&vm->stack_memory, value.as.object);
     }
+    else if (value.kind == VALUE_ARRAY)
+    {
+        mt_reference(&vm->stack_memory, value.as.array);
+    }
     return value;
 }
 
@@ -108,6 +112,17 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
             }
         }
         mt_release(&vm->stack_memory, value.as.object);
+    }
+    else if (value.kind == VALUE_ARRAY)
+    {
+        if (mt_will_release(&vm->stack_memory, value.as.array))
+        {
+            for (size_t i = 0; i < dpl_value_array_element_count(value.as.array); ++i)
+            {
+                dplv_release(vm, dpl_value_array_get_element(value.as.array, i));
+            }
+        }
+        mt_release(&vm->stack_memory, value.as.array);
     }
 }
 
@@ -410,6 +425,51 @@ void dplv_run(DPL_VirtualMachine *vm)
             dplv_return(vm, count + 1, dplv_reference(vm, TOP0));
         }
         break;
+        case INST_BEGIN_ARRAY:
+        {
+            if (vm->stack_top >= vm->stack_capacity)
+            {
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
+            }
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_array_slot();
+        }
+        break;
+        case INST_END_ARRAY:
+        {
+            for (size_t i = vm->stack_top; i > 0; --i)
+            {
+                if (vm->stack[i - 1].kind == VALUE_ARRAY && vm->stack[i - 1].as.array == NULL)
+                {
+                    size_t element_count = vm->stack_top - i;
+                    vm->stack[i - 1].as.array = mt_allocate_data(&vm->stack_memory, &vm->stack[i], sizeof(DPL_Value) * element_count);
+                    vm->stack_top -= element_count;
+                }
+            }
+        }
+        break;
+        case INST_SPREAD:
+        {
+            DPL_Value value = TOP0;
+
+            size_t count = dpl_value_array_element_count(value.as.array);
+            if ((vm->stack_top + count - 1) >= vm->stack_capacity)
+            {
+                DW_ERROR("Fatal Error: Stack overflow in program execution.");
+            }
+
+            for (size_t i = 0; i < count; ++i)
+            {
+                vm->stack[vm->stack_top - 1 + i] = dplv_reference(
+                    vm, dpl_value_array_get_element(value.as.array, i));
+            }
+            vm->stack_top += count - 1;
+
+            dplv_release(vm, value);
+        }
+
+        break;
         default:
             printf("\n=======================================\n");
             _dplv_trace_stack(vm);
@@ -434,10 +494,15 @@ void dplv_run(DPL_VirtualMachine *vm)
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm)
 {
-    if (vm->stack_top == 0)
+    return dplv_peekn(vm, 1);
+}
+
+DPL_Value dplv_peekn(DPL_VirtualMachine *vm, size_t n)
+{
+    if (vm->stack_top < n)
     {
         DW_ERROR("Fatal Error: Stack underflow in program execution.");
     }
 
-    return vm->stack[vm->stack_top - 1];
+    return vm->stack[vm->stack_top - n];
 }

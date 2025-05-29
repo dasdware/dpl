@@ -11,6 +11,11 @@
 #define DPL_SYMBOLS(...) \
     DPL_ARG_COUNT(__VA_ARGS__), (DPL_Symbol *[]) { __VA_ARGS__ }
 
+#define DPL_OBJECT_FIELD(field_name, field_type) \
+    ((DPL_Symbol_Type_ObjectField){              \
+        .name = nob_sv_from_cstr(field_name),    \
+        .type = field_type})
+
 typedef struct DPL_Symbol DPL_Symbol;
 
 typedef enum
@@ -44,6 +49,8 @@ typedef enum
     TYPE_FUNCTION,
     TYPE_OBJECT,
     TYPE_ALIAS,
+    TYPE_ARRAY,
+    TYPE_MULTI,
 
     COUNT_SYMBOL_TYPE_KINDS,
 } DPL_Symbol_Type_Kind;
@@ -54,6 +61,7 @@ typedef enum
     TYPE_BASE_STRING,
     TYPE_BASE_BOOLEAN,
     TYPE_BASE_NONE,
+    TYPE_BASE_EMPTY_ARRAY,
 
     COUNT_SYMBOL_TYPE_BASE_KINDS,
 } DPL_Symbol_Type_Base_Kind;
@@ -62,6 +70,7 @@ typedef enum
 #define TYPENAME_STRING "String"
 #define TYPENAME_BOOLEAN "Boolean"
 #define TYPENAME_NONE "None"
+#define TYPENAME_EMPTY_ARRAY "[]"
 
 typedef struct
 {
@@ -84,6 +93,11 @@ typedef struct
 
 typedef struct
 {
+    DPL_Symbol *element_type;
+} DPL_Symbol_Type_Array;
+
+typedef struct
+{
     size_t argument_count;
     DPL_Symbol **arguments;
     DPL_Symbol *returns;
@@ -96,8 +110,10 @@ typedef struct
     {
         DPL_Symbol_Type_Base_Kind base;
         DPL_Symbol_Type_Object object;
+        DPL_Symbol_Type_Array array;
         DPL_Symbol_Type_Signature function;
         DPL_Symbol *alias;
+        DPL_Symbol_Type_Array multi;
     } as;
 } DPL_Symbol_Type;
 
@@ -222,7 +238,10 @@ DPL_Symbol *dpl_symbols_find_type_base(DPL_SymbolStack *stack, DPL_Symbol_Type_B
 #define dpl_symbols_find_type_string(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_STRING)
 #define dpl_symbols_find_type_boolean(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_BOOLEAN)
 #define dpl_symbols_find_type_none(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_NONE)
+#define dpl_symbols_find_type_empty_array(symbols) dpl_symbols_find_type_base((symbols), TYPE_BASE_EMPTY_ARRAY)
 DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query);
+DPL_Symbol *dpl_symbols_find_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
+DPL_Symbol *dpl_symbols_find_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
 DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack, Nob_String_View name, size_t arguments_count, DPL_Symbol **arguments);
 DPL_Symbol *dpl_symbols_find_function1(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *arg0);
 DPL_Symbol *dpl_symbols_find_function1_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0);
@@ -230,6 +249,11 @@ DPL_Symbol *dpl_symbols_find_function2(DPL_SymbolStack *stack, Nob_String_View n
 DPL_Symbol *dpl_symbols_find_function2_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *arg0, DPL_Symbol *arg1);
 
 DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query);
+DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
+DPL_Symbol *dpl_symbols_check_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type);
+
+DPL_Symbol *dpl_symbols_resolve_type_alias(DPL_Symbol *type);
+bool dpl_symbols_type_assignable(DPL_Symbol *from, DPL_Symbol *to);
 
 // Common
 DPL_Symbol *dpl_symbols_push(DPL_SymbolStack *stack, DPL_Symbol_Kind kind, Nob_String_View name);
@@ -242,9 +266,12 @@ bool dpl_symbols_pop_boundary(DPL_SymbolStack *stack);
 // Types
 DPL_Symbol *dpl_symbols_push_type_base_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol_Type_Base_Kind base_kind);
 DPL_Symbol *dpl_symbols_push_type_object_cstr(DPL_SymbolStack *stack, const char *name, size_t field_count);
+DPL_Symbol *dpl_symbols_push_type_array_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type);
+DPL_Symbol *dpl_symbols_push_type_multi_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type);
 DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type);
 
 bool dpl_symbols_is_type_base(DPL_Symbol *symbol, DPL_Symbol_Type_Base_Kind kind);
+bool dpl_symbols_is_type_array(DPL_Symbol *symbol);
 
 // Constants
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value);

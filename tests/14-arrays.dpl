@@ -1,0 +1,27 @@
+var ns: [Number] := [10, 20, 30, 40, 50];
+print("${ns.length()}\n");
+
+for (var i in 0..(ns.length()-1)) {
+   print("#${i+1}: ${ns[i]}\n");
+};
+
+var empty := [];
+print("${empty.length()}\n");
+
+var strings: [String] := empty;
+print("${strings.length()}\n");
+
+ns := [0, ..ns, (ns.length() + 1) * 10];
+for (var i in 0..(ns.length()-1)) {
+    print("#${i+1}: ${ns[i]}\n");
+};
+
+for (var i in ns) {
+    print("#${i}\n");
+};
+
+#function add(ns1: [Number], ns2: [Number])
+#    := [..ns1, ..ns2];
+
+#for (var n in (numbers + [5]))
+#  print("${n}\n");

@@ -7,6 +7,7 @@ const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
 
     [AST_NODE_LITERAL] = "AST_NODE_LITERAL",
     [AST_NODE_OBJECT_LITERAL] = "AST_NODE_OBJECT_LITERAL",
+    [AST_NODE_ARRAY_LITERAL] = "AST_NODE_ARRAY_LITERAL",
     [AST_NODE_UNARY] = "AST_NODE_UNARY",
     [AST_NODE_BINARY] = "AST_NODE_BINARY",
     [AST_NODE_FUNCTIONCALL] = "AST_NODE_FUNCTIONCALL",
@@ -22,8 +23,8 @@ const char *AST_NODE_KIND_NAMES[COUNT_AST_NODE_KINDS] = {
     [AST_NODE_INTERPOLATION] = "AST_NODE_INTERPOLATION",
 };
 
-static_assert(COUNT_AST_NODE_KINDS == 15,
-              "Count of ast node kinds has changed, please update bound node kind names map.");
+static_assert(COUNT_AST_NODE_KINDS == 16,
+              "Count of ast node kinds has changed, please update ast node kind names map.");
 
 const char *dpl_parse_nodekind_name(DPL_AstNodeKind kind)
 {
@@ -72,7 +73,7 @@ void dpl_parse_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
         break;
     case TYPE_OBJECT:
     {
-        nob_sb_append_cstr(sb, "[");
+        nob_sb_append_cstr(sb, "$[");
         for (size_t i = 0; i < ast_type->as.object.field_count; ++i)
         {
             if (i > 0)
@@ -84,6 +85,13 @@ void dpl_parse_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
             nob_sb_append_cstr(sb, ": ");
             dpl_parse_build_type_name(field.type, sb);
         }
+        nob_sb_append_cstr(sb, "]");
+    }
+    break;
+    case TYPE_ARRAY:
+    {
+        nob_sb_append_cstr(sb, "[");
+        dpl_parse_build_type_name(ast_type->as.array.element_type, sb);
         nob_sb_append_cstr(sb, "]");
     }
     break;
@@ -157,6 +165,19 @@ void dpl_parse_print(DPL_Ast_Node *node, size_t level)
             dpl_parse_print_indent(level + 1);
             printf("<field #%zu>\n", i);
             dpl_parse_print(object_literal.fields[i], level + 2);
+        }
+        break;
+    }
+    break;
+    case AST_NODE_ARRAY_LITERAL:
+    {
+        DPL_Ast_ArrayLiteral array_literal = node->as.array_literal;
+        printf("\n");
+        for (size_t i = 0; i < array_literal.element_count; ++i)
+        {
+            dpl_parse_print_indent(level + 1);
+            printf("<element #%zu>\n", i);
+            dpl_parse_print(array_literal.elements[i], level + 2);
         }
         break;
     }
@@ -372,7 +393,7 @@ DPL_Ast_Type *dpl_parse_type(DPL_Parser *parser)
         name_type->as.name = type_begin;
         return name_type;
     }
-    case TOKEN_OPEN_BRACKET:
+    case TOKEN_OPEN_DOLLAR_BRACKET:
     {
         dpl_parse_next_token(parser);
 
@@ -422,6 +443,21 @@ DPL_Ast_Type *dpl_parse_type(DPL_Parser *parser)
 
         nob_da_free(tmp_fields);
         dpl_parse_next_token(parser);
+
+        return object_type;
+    }
+    case TOKEN_OPEN_BRACKET:
+    {
+        dpl_parse_next_token(parser);
+
+        DPL_Ast_Type *element_type = dpl_parse_type(parser);
+        DPL_Token close_bracket = dpl_parse_expect_token(parser, TOKEN_CLOSE_BRACKET);
+
+        DPL_Ast_Type *object_type = arena_alloc(parser->memory, sizeof(DPL_Ast_Type));
+        object_type->kind = TYPE_ARRAY;
+        object_type->first = type_begin;
+        object_type->last = close_bracket;
+        object_type->as.array.element_type = element_type;
 
         return object_type;
     }
@@ -625,7 +661,7 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
         node->as.symbol = token;
         return node;
     }
-    case TOKEN_OPEN_BRACKET:
+    case TOKEN_OPEN_DOLLAR_BRACKET:
     {
         bool first = true;
         DPL_Ast_Nodes tmp_fields = {0};
@@ -647,6 +683,30 @@ DPL_Ast_Node *dpl_parse_primary(DPL_Parser *parser)
                                 &object_literal->as.object_literal.fields);
 
         return object_literal;
+    }
+    break;
+    case TOKEN_OPEN_BRACKET:
+    {
+        bool first = true;
+        DPL_Ast_Nodes tmp_elements = {0};
+        while (dpl_parse_peek_token(parser).kind != TOKEN_CLOSE_BRACKET)
+        {
+            if (!first)
+            {
+                dpl_parse_expect_token(parser, TOKEN_COMMA);
+            }
+
+            DPL_Ast_Node *field = dpl_parse_expression(parser);
+            nob_da_append(&tmp_elements, field);
+
+            first = false;
+        }
+
+        DPL_Ast_Node *array_literal = dpl_parse_allocate_node(parser, AST_NODE_ARRAY_LITERAL, token, dpl_parse_next_token(parser));
+        dpl_parse_move_nodelist(parser, tmp_elements, &array_literal->as.array_literal.element_count,
+                                &array_literal->as.array_literal.elements);
+
+        return array_literal;
     }
     break;
     case TOKEN_STRING_INTERPOLATION:
@@ -691,37 +751,51 @@ DPL_Ast_Node *dpl_parse_dot(DPL_Parser *parser)
     DPL_Ast_Node *expression = dpl_parse_primary(parser);
 
     DPL_Token operator_candidate = dpl_parse_peek_token(parser);
-    while (operator_candidate.kind == TOKEN_DOT)
+    while (operator_candidate.kind == TOKEN_DOT || operator_candidate.kind == TOKEN_OPEN_BRACKET)
     {
         dpl_parse_next_token(parser);
-        DPL_Ast_Node *new_expression = dpl_parse_primary(parser);
 
-        if (new_expression->kind == AST_NODE_SYMBOL)
+        if (operator_candidate.kind == TOKEN_DOT)
         {
-            DPL_Ast_Node *field_access = dpl_parse_allocate_node(parser, AST_NODE_FIELD_ACCESS, expression->first, new_expression->last);
-            field_access->as.field_access.expression = expression;
-            field_access->as.field_access.field = new_expression;
-            expression = field_access;
-        }
-        else if (new_expression->kind == AST_NODE_FUNCTIONCALL)
-        {
-            DPL_Ast_FunctionCall *fc = &new_expression->as.function_call;
-            fc->arguments = arena_realloc(parser->memory, fc->arguments,
-                                          fc->argument_count * sizeof(DPL_Ast_Node *),
-                                          (fc->argument_count + 1) * sizeof(DPL_Ast_Node *));
-            fc->argument_count++;
-
-            for (size_t i = fc->argument_count - 1; i > 0; --i)
+            DPL_Ast_Node *new_expression = dpl_parse_primary(parser);
+            if (new_expression->kind == AST_NODE_SYMBOL)
             {
-                fc->arguments[i] = fc->arguments[i - 1];
+                DPL_Ast_Node *field_access = dpl_parse_allocate_node(parser, AST_NODE_FIELD_ACCESS, expression->first, new_expression->last);
+                field_access->as.field_access.expression = expression;
+                field_access->as.field_access.field = new_expression;
+                expression = field_access;
             }
+            else if (new_expression->kind == AST_NODE_FUNCTIONCALL)
+            {
+                DPL_Ast_FunctionCall *fc = &new_expression->as.function_call;
+                fc->arguments = arena_realloc(parser->memory, fc->arguments,
+                                            fc->argument_count * sizeof(DPL_Ast_Node *),
+                                            (fc->argument_count + 1) * sizeof(DPL_Ast_Node *));
+                fc->argument_count++;
 
-            fc->arguments[0] = expression;
-            expression = new_expression;
+                for (size_t i = fc->argument_count - 1; i > 0; --i)
+                {
+                    fc->arguments[i] = fc->arguments[i - 1];
+                }
+
+                fc->arguments[0] = expression;
+                expression = new_expression;
+            }
+            else
+            {
+                DPL_AST_ERROR(parser->lexer->source, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
+            }
         }
         else
         {
-            DPL_AST_ERROR(parser->lexer->source, new_expression, "Right-hand operand of operator `.` must be either a symbol or a function call.");
+            DPL_Ast_Node *new_expression = dpl_parse_expression(parser);
+            DPL_Token closing_bracket = dpl_parse_expect_token(parser, TOKEN_CLOSE_BRACKET);
+
+            DPL_Ast_Node *binary = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, closing_bracket);
+            binary->as.binary.operator = operator_candidate;
+            binary->as.binary.left = expression;
+            binary->as.binary.right = new_expression;
+            expression = binary;
         }
 
         operator_candidate = dpl_parse_peek_token(parser);
@@ -735,11 +809,11 @@ DPL_Ast_Node *dpl_parse_unary(DPL_Parser *parser)
     DPL_Token operator_candidate = dpl_parse_peek_token(parser);
     if (operator_candidate.kind == TOKEN_MINUS || operator_candidate.kind == TOKEN_BANG || operator_candidate.kind == TOKEN_DOT_DOT)
     {
-        DPL_Token operator= dpl_parse_next_token(parser);
+        DPL_Token operator = dpl_parse_next_token(parser);
         DPL_Ast_Node *operand = dpl_parse_unary(parser);
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_UNARY, operator, operand->last);
-        new_expression->as.unary.operator= operator;
+        new_expression->as.unary.operator = operator;
         new_expression->as.unary.operand = operand;
         return new_expression;
     }
@@ -759,7 +833,7 @@ DPL_Ast_Node *dpl_parse_range(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
     }
@@ -779,7 +853,7 @@ DPL_Ast_Node *dpl_parse_multiplicative(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -801,7 +875,7 @@ DPL_Ast_Node *dpl_parse_additive(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -823,7 +897,7 @@ DPL_Ast_Node *dpl_parse_comparison(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -845,7 +919,7 @@ DPL_Ast_Node *dpl_parse_equality(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -867,7 +941,7 @@ DPL_Ast_Node *dpl_parse_and(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 
@@ -889,7 +963,7 @@ DPL_Ast_Node *dpl_parse_or(DPL_Parser *parser)
 
         DPL_Ast_Node *new_expression = dpl_parse_allocate_node(parser, AST_NODE_BINARY, expression->first, rhs->last);
         new_expression->as.binary.left = expression;
-        new_expression->as.binary.operator= operator_candidate;
+        new_expression->as.binary.operator = operator_candidate;
         new_expression->as.binary.right = rhs;
         expression = new_expression;
 

@@ -48,13 +48,14 @@ static_assert(COUNT_SYMBOL_BOUNDARY_KINDS == 3,
               "Count of symbol boundary kinds has changed, please update symbol kind names map.");
 
 const char *SYMBOL_TYPE_BASE_KIND_NAMES[COUNT_SYMBOL_TYPE_BASE_KINDS] = {
-    [TYPE_BASE_NUMBER] = "number",
-    [TYPE_BASE_STRING] = "string",
-    [TYPE_BASE_BOOLEAN] = "boolean",
-    [TYPE_BASE_NONE] = "none",
+    [TYPE_BASE_NUMBER] = TYPENAME_NUMBER,
+    [TYPE_BASE_STRING] = TYPENAME_STRING,
+    [TYPE_BASE_BOOLEAN] = TYPENAME_BOOLEAN,
+    [TYPE_BASE_NONE] = TYPENAME_NONE,
+    [TYPE_BASE_EMPTY_ARRAY] = TYPENAME_EMPTY_ARRAY,
 };
 
-static_assert(COUNT_SYMBOL_TYPE_BASE_KINDS == 4,
+static_assert(COUNT_SYMBOL_TYPE_BASE_KINDS == 5,
               "Count of symbol base type kinds has changed, please update symbol kind names map.");
 
 Nob_String_Builder error_sb = {0};
@@ -180,13 +181,51 @@ DPL_Symbol *dpl_symbols_find_type_object_query(DPL_SymbolStack *stack, DPL_Symbo
     return NULL;
 }
 
+DPL_Symbol *dpl_symbols_find_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    STACK_FOREACH_BEGIN(stack, symbol)
+    if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_ARRAY)
+    {
+        continue;
+    }
+
+    DPL_Symbol_Type_Array *array_type = &symbol->as.type.as.array;
+    if (array_type->element_type == element_type)
+    {
+        return symbol;
+    }
+    STACK_FOREACH_END
+
+    // TODO: Prepare error message(?)
+    return NULL;
+}
+
+DPL_Symbol *dpl_symbols_find_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    STACK_FOREACH_BEGIN(stack, symbol)
+    if (symbol->kind != SYMBOL_TYPE || symbol->as.type.kind != TYPE_MULTI)
+    {
+        continue;
+    }
+
+    DPL_Symbol_Type_Array *array_type = &symbol->as.type.as.array;
+    if (array_type->element_type == element_type)
+    {
+        return symbol;
+    }
+    STACK_FOREACH_END
+
+    // TODO: Prepare error message(?)
+    return NULL;
+}
+
 DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symbol_Type_ObjectQuery query)
 {
     DPL_Symbol *object_type = dpl_symbols_find_type_object_query(stack, query);
     if (!object_type)
     {
         Nob_String_Builder sb_name = {0};
-        nob_sb_append_cstr(&sb_name, "[");
+        nob_sb_append_cstr(&sb_name, "$[");
         for (size_t i = 0; i < query.count; ++i)
         {
             if (i > 0)
@@ -208,6 +247,90 @@ DPL_Symbol *dpl_symbols_check_type_object_query(DPL_SymbolStack *stack, DPL_Symb
     return object_type;
 }
 
+DPL_Symbol *dpl_symbols_check_type_array_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    DPL_Symbol *array_type = dpl_symbols_find_type_array_query(stack, element_type);
+    if (!array_type)
+    {
+        Nob_String_Builder sb_name = {0};
+        nob_sb_append_cstr(&sb_name, "[");
+        nob_sb_append_sv(&sb_name, element_type->name);
+        nob_sb_append_cstr(&sb_name, "]");
+        nob_sb_append_null(&sb_name);
+
+        array_type = dpl_symbols_push_type_array_cstr(stack, sb_name.items, element_type);
+        nob_sb_free(sb_name);
+
+        DPL_Symbol *number_t = dpl_symbols_find_type_number(stack);
+        DPL_Symbol *boolean_t = dpl_symbols_find_type_boolean(stack);
+
+        DPL_Symbol_Type_ObjectQuery iterator_query = {0};
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("array", array_type));
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("current", element_type));
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("finished", boolean_t));
+        nob_da_append(&iterator_query, DPL_OBJECT_FIELD("index", number_t));
+        DPL_Symbol *iterator_t = dpl_symbols_check_type_object_query(stack, iterator_query);
+        nob_da_free(iterator_query);
+
+        dpl_symbols_push_function_intrinsic(stack, "length", number_t, DPL_SYMBOLS(array_type), INTRINSIC_ARRAY_LENGTH);
+        dpl_symbols_push_function_intrinsic(stack, "element", element_type, DPL_SYMBOLS(array_type, number_t), INTRINSIC_ARRAY_ELEMENT);
+        dpl_symbols_push_function_intrinsic(stack, "iterator", iterator_t, DPL_SYMBOLS(array_type), INTRINSIC_ARRAY_ITERATOR);
+        dpl_symbols_push_function_intrinsic(stack, "next", iterator_t, DPL_SYMBOLS(iterator_t), INTRINSIC_ARRAYITERATOR_NEXT);
+    }
+    return array_type;
+}
+
+DPL_Symbol *dpl_symbols_check_type_multi_query(DPL_SymbolStack *stack, DPL_Symbol *element_type)
+{
+    DPL_Symbol *array_type = dpl_symbols_find_type_multi_query(stack, element_type);
+    if (!array_type)
+    {
+        Nob_String_Builder sb_name = {0};
+        nob_sb_append_sv(&sb_name, element_type->name);
+        nob_sb_append_cstr(&sb_name, "..");
+        nob_sb_append_null(&sb_name);
+
+        array_type = dpl_symbols_push_type_multi_cstr(stack, sb_name.items, element_type);
+        nob_sb_free(sb_name);
+    }
+    return array_type;
+}
+
+DPL_Symbol *dpl_symbols_resolve_type_alias(DPL_Symbol *type)
+{
+    while (type && type->as.type.kind == TYPE_ALIAS)
+    {
+        type = type->as.type.as.alias;
+    }
+    return type;
+}
+
+bool dpl_symbols_type_assignable(DPL_Symbol *from, DPL_Symbol *to)
+{
+    // Type `None` cannot be assigned to or from
+    if (dpl_symbols_is_type_base(to, TYPE_BASE_NONE) || dpl_symbols_is_type_base(from, TYPE_BASE_NONE))
+    {
+        return false;
+    }
+
+    DPL_Symbol *resolved_from = dpl_symbols_resolve_type_alias(from);
+    DPL_Symbol *resolved_to = dpl_symbols_resolve_type_alias(to);
+
+    // Equal types can be assigned to each other
+    if (resolved_from == resolved_to)
+    {
+        return true;
+    }
+
+    // The empty array can be assigned to any other array type
+    if (dpl_symbols_is_type_base(resolved_from, TYPE_BASE_EMPTY_ARRAY) && dpl_symbols_is_type_array(resolved_to))
+    {
+        return true;
+    }
+
+    return false;
+}
+
 DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack,
                                       Nob_String_View name, size_t arguments_count, DPL_Symbol **arguments)
 {
@@ -221,7 +344,7 @@ DPL_Symbol *dpl_symbols_find_function(DPL_SymbolStack *stack,
     DPL_Symbol_Function *f = &candidate->as.function;
     for (size_t i = 0; i < arguments_count; ++i)
     {
-        if (f->signature.arguments[i] != arguments[i])
+        if (!dpl_symbols_type_assignable(arguments[i], f->signature.arguments[i]))
         {
             is_match = false;
             break;
@@ -380,6 +503,19 @@ DPL_Symbol *dpl_symbols_push_type_object_cstr(DPL_SymbolStack *stack, const char
     return symbol;
 }
 
+DPL_Symbol *dpl_symbols_push_type_array_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type)
+{
+    DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_TYPE, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.type = (DPL_Symbol_Type){
+        .kind = TYPE_ARRAY,
+        .as.array = {
+            .element_type = element_type,
+        }};
+    return symbol;
+}
+
 DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View name, DPL_Symbol *type)
 {
     DPL_Symbol *symbol = dpl_symbols_push(stack, SYMBOL_TYPE, name);
@@ -392,9 +528,27 @@ DPL_Symbol *dpl_symbols_push_type_alias(DPL_SymbolStack *stack, Nob_String_View 
     return symbol;
 }
 
+DPL_Symbol *dpl_symbols_push_type_multi_cstr(DPL_SymbolStack *stack, const char *name, DPL_Symbol *element_type)
+{
+    DPL_Symbol *symbol = dpl_symbols_push_cstr(stack, SYMBOL_TYPE, name);
+    ABORT_IF_NULL(symbol);
+
+    symbol->as.type = (DPL_Symbol_Type){
+        .kind = TYPE_MULTI,
+        .as.multi = {
+            .element_type = element_type,
+        }};
+    return symbol;
+}
+
 bool dpl_symbols_is_type_base(DPL_Symbol *symbol, DPL_Symbol_Type_Base_Kind kind)
 {
     return symbol->kind == SYMBOL_TYPE && symbol->as.type.kind == TYPE_BASE && symbol->as.type.as.base == kind;
+}
+
+bool dpl_symbols_is_type_array(DPL_Symbol *symbol)
+{
+    return symbol->kind == SYMBOL_TYPE && symbol->as.type.kind == TYPE_ARRAY;
 }
 
 DPL_Symbol *dpl_symbols_push_constant_number_cstr(DPL_SymbolStack *stack, const char *name, double value)
@@ -674,6 +828,21 @@ static void dpl_symbols_print_flags(DPL_Symbol *symbol, Nob_String_Builder *sb)
         case TYPE_OBJECT:
         {
             nob_sb_append_cstr(sb, "object");
+        }
+        break;
+        case TYPE_ALIAS:
+        {
+            nob_sb_append_cstr(sb, "alias");
+        }
+        break;
+        case TYPE_ARRAY:
+        {
+            nob_sb_append_cstr(sb, "array");
+        }
+        break;
+        case TYPE_MULTI:
+        {
+            nob_sb_append_cstr(sb, "multi");
         }
         break;
         default:

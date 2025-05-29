@@ -42,6 +42,9 @@ typedef enum
     INST_CREATE_OBJECT,
     INST_LOAD_FIELD,
     INST_INTERPOLATION,
+    INST_BEGIN_ARRAY,
+    INST_END_ARRAY,
+    INST_SPREAD,
 } DPL_Instruction_Kind;
 
 typedef struct
@@ -103,6 +106,10 @@ void dplp_patch_jump(DPL_Program *program, size_t offset);
 void dplp_write_loop(DPL_Program *program, size_t target);
 
 void dplp_write_interpolation(DPL_Program *program, size_t count);
+
+void dplp_write_begin_array(DPL_Program *program);
+void dplp_write_end_array(DPL_Program *program);
+void dplp_write_spread(DPL_Program *program);
 
 const char *dplp_inst_kind_name(DPL_Instruction_Kind kind);
 

@@ -15,6 +15,7 @@ typedef enum
 {
     BOUND_NODE_VALUE,
     BOUND_NODE_OBJECT,
+    BOUND_NODE_ARRAY,
     BOUND_NODE_FUNCTIONCALL,
     BOUND_NODE_SCOPE,
     BOUND_NODE_VARREF,
@@ -25,6 +26,7 @@ typedef enum
     BOUND_NODE_WHILE_LOOP,
     BOUND_NODE_LOAD_FIELD,
     BOUND_NODE_INTERPOLATION,
+    BOUND_NODE_SPREAD,
 
     COUNT_BOUND_NODE_KINDS,
 } DPL_BoundNodeKind;
@@ -42,6 +44,12 @@ typedef struct
     size_t field_count;
     DPL_Bound_ObjectField *fields;
 } DPL_Bound_Object;
+
+typedef struct
+{
+    size_t element_count;
+    DPL_Bound_Node **elements;
+} DPL_Bound_Array;
 
 typedef struct
 {
@@ -103,6 +111,7 @@ struct DPL_Bound_Node
     {
         DPL_Symbol_Constant value;
         DPL_Bound_Object object;
+        DPL_Bound_Array array;
         DPL_Bound_FunctionCall function_call;
         DPL_Bound_Scope scope;
         size_t varref;
@@ -113,6 +122,7 @@ struct DPL_Bound_Node
         DPL_Bound_WhileLoop while_loop;
         DPL_Bound_LoadField load_field;
         DPL_Bound_Interpolation interpolation;
+        DPL_Bound_Node *spread;
     } as;
 };
 

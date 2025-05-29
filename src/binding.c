@@ -6,14 +6,16 @@
 #include <dpl/binding.h>
 #include <dpl/lexer.h>
 
-typedef struct {
-    DPL_Bound_Node** items;
+typedef struct
+{
+    DPL_Bound_Node **items;
     size_t count;
     size_t capacity;
 } DPL_Bound_Nodes;
 
-typedef struct {
-    DPL_Bound_ObjectField* items;
+typedef struct
+{
+    DPL_Bound_ObjectField *items;
     size_t count;
     size_t capacity;
 } DPL_Bound_ObjectFields;
@@ -23,6 +25,7 @@ typedef struct {
 const char *BOUND_NODE_KIND_NAMES[COUNT_BOUND_NODE_KINDS] = {
     [BOUND_NODE_VALUE] = "BOUND_NODE_VALUE",
     [BOUND_NODE_OBJECT] = "BOUND_NODE_OBJECT",
+    [BOUND_NODE_ARRAY] = "BOUND_NODE_ARRAY",
     [BOUND_NODE_FUNCTIONCALL] = "BOUND_NODE_FUNCTIONCALL",
     [BOUND_NODE_SCOPE] = "BOUND_NODE_SCOPE",
     [BOUND_NODE_VARREF] = "BOUND_NODE_VARREF",
@@ -33,9 +36,10 @@ const char *BOUND_NODE_KIND_NAMES[COUNT_BOUND_NODE_KINDS] = {
     [BOUND_NODE_WHILE_LOOP] = "BOUND_NODE_WHILE_LOOP",
     [BOUND_NODE_LOAD_FIELD] = "BOUND_NODE_LOAD_FIELD",
     [BOUND_NODE_INTERPOLATION] = "BOUND_NODE_INTERPOLATION",
+    [BOUND_NODE_SPREAD] = "BOUND_NODE_SPREAD",
 };
 
-static_assert(COUNT_BOUND_NODE_KINDS == 12,
+static_assert(COUNT_BOUND_NODE_KINDS == 14,
               "Count of bound node kinds has changed, please update bound node kind names map.");
 
 const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind)
@@ -47,20 +51,6 @@ const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind)
     return BOUND_NODE_KIND_NAMES[kind];
 }
 
-static DPL_Symbol *dpl_bind_resolve_type_alias(DPL_Symbol *type)
-{
-    while (type && type->as.type.kind == TYPE_ALIAS)
-    {
-        type = type->as.type.as.alias;
-    }
-    return type;
-}
-
-static bool dpl_bind_type_assignable(DPL_Symbol *from, DPL_Symbol *to)
-{
-    return dpl_bind_resolve_type_alias(from) == dpl_bind_resolve_type_alias(to);
-}
-
 static void dpl_bind_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
 {
     switch (ast_type->kind)
@@ -70,7 +60,7 @@ static void dpl_bind_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder 
         break;
     case TYPE_OBJECT:
     {
-        nob_sb_append_cstr(sb, "[");
+        nob_sb_append_cstr(sb, "$[");
         for (size_t i = 0; i < ast_type->as.object.field_count; ++i)
         {
             if (i > 0)
@@ -82,6 +72,13 @@ static void dpl_bind_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder 
             nob_sb_append_cstr(sb, ": ");
             dpl_bind_build_type_name(field.type, sb);
         }
+        nob_sb_append_cstr(sb, "]");
+    }
+    break;
+    case TYPE_ARRAY:
+    {
+        nob_sb_append_cstr(sb, "[");
+        dpl_bind_build_type_name(ast_type->as.array.element_type, sb);
         nob_sb_append_cstr(sb, "]");
     }
     break;
@@ -124,10 +121,7 @@ static DPL_Symbol *dpl_bind_type(DPL_Binding *binding, DPL_Ast_Type *ast_type)
     if (ast_type->kind == TYPE_OBJECT)
     {
         DPL_Ast_TypeObject object_type = ast_type->as.object;
-
-        DPL_Symbol *new_object_type = dpl_symbols_push_type_object_cstr(binding->symbols, type_name, object_type.field_count);
-        DPL_Symbol_Type_ObjectField *fields = new_object_type->as.type.as.object.fields;
-
+        DPL_Symbol_Type_ObjectQuery type_query = {0};
         for (size_t i = 0; i < object_type.field_count; ++i)
         {
             DPL_Ast_TypeField ast_field = object_type.fields[i];
@@ -137,11 +131,23 @@ static DPL_Symbol *dpl_bind_type(DPL_Binding *binding, DPL_Ast_Type *ast_type)
                 DPL_AST_ERROR(binding->source, ast_field.type, "Unable to bind type `%s` for field `" SV_Fmt "`.",
                               dpl_bind_type_name(ast_field.type), SV_Arg(ast_field.name.text));
             }
-            fields[i].name = ast_field.name.text;
-            fields[i].type = bound_field_type;
+
+            nob_da_append(
+                &type_query,
+                ((DPL_Symbol_Type_ObjectField){
+                    .name = ast_field.name.text,
+                    .type = bound_field_type,
+                }));
         }
 
-        return new_object_type;
+        DPL_Symbol *bound_type = dpl_symbols_check_type_object_query(binding->symbols, type_query);
+        nob_da_free(type_query);
+        return bound_type;
+    }
+
+    if (ast_type->kind == TYPE_ARRAY)
+    {
+        return dpl_symbols_check_type_array_query(binding->symbols, dpl_bind_type(binding, ast_type->as.array.element_type));
     }
 
     return NULL;
@@ -166,7 +172,7 @@ static void dpl_bind_check_assignment(DPL_Binding *binding, const char *what, DP
                           dpl_bind_type_name(decl->type), what, SV_Arg(decl->name.text));
         }
 
-        if (!dpl_bind_type_assignable(expression_type, declared_type))
+        if (!dpl_symbols_type_assignable(expression_type, declared_type))
         {
             DPL_AST_ERROR(binding->source, node,
                           "Cannot assign expression of type `" SV_Fmt "` to %s `" SV_Fmt "` of type `" SV_Fmt "`.",
@@ -224,7 +230,7 @@ DPL_Bound_Node *dpl_bind_create_varref(DPL_Binding *binding, DPL_Symbol *var)
 
 DPL_Bound_Node *dpl_bind_create_load_field(DPL_Binding *binding, DPL_Bound_Node *expression, size_t field_index)
 {
-    DPL_Symbol *resolved_type = dpl_bind_resolve_type_alias(expression->type);
+    DPL_Symbol *resolved_type = dpl_symbols_resolve_type_alias(expression->type);
 
     DPL_Bound_Node *load_field = dpl_bind_allocate_node(binding, BOUND_NODE_LOAD_FIELD, resolved_type->as.type.as.object.fields[field_index].type);
     load_field->as.load_field.expression = expression;
@@ -382,7 +388,7 @@ static DPL_Symbol_Constant dpl_bind_fold_constant_literal(DPL_Binding *binding, 
 
 static DPL_Symbol_Constant dpl_bind_fold_constant_binary(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    DPL_Token operator= node->as.binary.operator;
+    DPL_Token operator = node->as.binary.operator;
     DPL_Symbol_Constant lhs_value = dpl_bind_fold_constant(binding, node->as.binary.left);
     DPL_Symbol_Constant rhs_value = dpl_bind_fold_constant(binding, node->as.binary.right);
 
@@ -764,6 +770,68 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
     return bound_node;
 }
 
+DPL_Bound_Node *dpl_bind_array_literal(DPL_Binding *binding, DPL_Ast_Node *node)
+{
+    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+
+    DPL_Ast_ArrayLiteral *array_literal = &node->as.array_literal;
+    DPL_Bound_Nodes tmp_elements = {0};
+    DPL_Symbol *tmp_element_type = NULL;
+    for (size_t i = 0; i < array_literal->element_count; ++i)
+    {
+        DPL_Ast_Node *element = array_literal->elements[i];
+        DPL_Bound_Node *bound_element = NULL;
+        DPL_Symbol *bound_element_type = NULL;
+        if (element->kind == AST_NODE_UNARY && element->as.unary.operator.kind == TOKEN_DOT_DOT)
+        {
+            DPL_Bound_Node *bound_spread_target = dpl_bind_node(binding, element->as.unary.operand);
+            if (!dpl_symbols_is_type_array(bound_spread_target->type))
+            {
+                DPL_AST_ERROR(binding->source, element, "Only array types can be spread into arrays.");
+            }
+            bound_element_type = bound_spread_target->type->as.type.as.array.element_type;
+            bound_element = dpl_bind_allocate_node(binding, BOUND_NODE_SPREAD,
+                                                   dpl_symbols_check_type_multi_query(binding->symbols, bound_element_type));
+            bound_element->as.spread = bound_spread_target;
+        }
+        else
+        {
+            bound_element = dpl_bind_node(binding, element);
+            bound_element_type = bound_element->type;
+        }
+
+        if (tmp_element_type == NULL)
+        {
+            tmp_element_type = bound_element_type;
+        }
+        else if (bound_element_type != tmp_element_type)
+        {
+            DPL_AST_ERROR_WITH_NOTE(binding->source,
+                                    array_literal->elements[0], "Array type is defined here.",
+                                    element, "Element of type `" SV_Fmt "` cannot be put into an array of type `[" SV_Fmt "]`.",
+                                    SV_Arg(bound_element_type->name),
+                                    SV_Arg(tmp_element_type->name));
+        }
+        nob_da_append(&tmp_elements, bound_element);
+    }
+
+    dpl_symbols_pop_boundary(binding->symbols);
+
+    DPL_Symbol *array_type = dpl_symbols_find_type_empty_array(binding->symbols);
+    if (array_literal->element_count > 0)
+    {
+        array_type = dpl_symbols_check_type_array_query(binding->symbols, tmp_elements.items[0]->type);
+    }
+
+    DPL_Bound_Node *bound_node = dpl_bind_allocate_node(
+        binding,
+        BOUND_NODE_ARRAY,
+        array_type);
+    dpl_bind_move_nodelist(binding, tmp_elements, &bound_node->as.array.element_count, &bound_node->as.array.elements);
+
+    return bound_node;
+}
+
 static DPL_Bound_Node *dpl_bind_literal(DPL_Binding *binding, DPL_Ast_Node *node)
 {
     switch (node->as.literal.value.kind)
@@ -829,7 +897,7 @@ static DPL_Bound_Node *dpl_bind_field_access(DPL_Binding *binding, DPL_Ast_Node 
 
 static DPL_Bound_Node *dpl_bind_unary_operator(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    DPL_Token operator= node->as.unary.operator;
+    DPL_Token operator = node->as.unary.operator;
     switch (operator.kind)
     {
     case TOKEN_MINUS:
@@ -841,13 +909,13 @@ static DPL_Bound_Node *dpl_bind_unary_operator(DPL_Binding *binding, DPL_Ast_Nod
     }
 
     DPL_AST_ERROR(binding->source, node,
-                  "Cannot resolve function for unary operator \"" SV_Fmt "\".",
+                  "Cannot resolve function for unary operator `" SV_Fmt "`.",
                   SV_Arg(operator.text));
 }
 
 DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    DPL_Token operator= node->as.binary.operator;
+    DPL_Token operator = node->as.binary.operator;
     switch (operator.kind)
     {
     case TOKEN_PLUS:
@@ -870,6 +938,8 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
         return dpl_bind_binary(binding, node, "equal");
     case TOKEN_BANG_EQUAL:
         return dpl_bind_binary(binding, node, "notEqual");
+    case TOKEN_OPEN_BRACKET:
+        return dpl_bind_binary(binding, node, "element");
     case TOKEN_AND_AND:
     case TOKEN_PIPE_PIPE:
     {
@@ -885,7 +955,7 @@ DPL_Bound_Node *dpl_bind_binary_operator(DPL_Binding *binding, DPL_Ast_Node *nod
         }
 
         DPL_Bound_Node *bound_node = dpl_bind_allocate_node(binding, BOUND_NODE_LOGICAL_OPERATOR, dpl_symbols_find_type_boolean(binding->symbols));
-        bound_node->as.logical_operator.operator= node->as.binary.operator;
+        bound_node->as.logical_operator.operator = node->as.binary.operator;
         bound_node->as.logical_operator.lhs = lhs;
         bound_node->as.logical_operator.rhs = rhs;
         return bound_node;
@@ -1025,7 +1095,7 @@ DPL_Bound_Node *dpl_bind_function(DPL_Binding *binding, DPL_Ast_Node *node)
     for (size_t i = 0; i < function->signature.argument_count; ++i)
     {
         DPL_Ast_FunctionArgument arg = function->signature.arguments[i];
-        DPL_Symbol *arg_type = dpl_bind_resolve_type_alias(dpl_bind_type(binding, arg.type));
+        DPL_Symbol *arg_type = dpl_symbols_resolve_type_alias(dpl_bind_type(binding, arg.type));
         if (!arg_type)
         {
             DPL_AST_ERROR(binding->source, arg.type,
@@ -1048,7 +1118,7 @@ DPL_Bound_Node *dpl_bind_function(DPL_Binding *binding, DPL_Ast_Node *node)
 
     if (function->signature.type)
     {
-        DPL_Symbol *return_type = dpl_bind_resolve_type_alias(dpl_bind_type(binding, function->signature.type));
+        DPL_Symbol *return_type = dpl_symbols_resolve_type_alias(dpl_bind_type(binding, function->signature.type));
         if (!return_type)
         {
             DPL_AST_ERROR(binding->source, function->signature.type,
@@ -1302,6 +1372,8 @@ DPL_Bound_Node *dpl_bind_node(DPL_Binding *binding, DPL_Ast_Node *node)
         return dpl_bind_literal(binding, node);
     case AST_NODE_OBJECT_LITERAL:
         return dpl_bind_object_literal(binding, node);
+    case AST_NODE_ARRAY_LITERAL:
+        return dpl_bind_array_literal(binding, node);
     case AST_NODE_FIELD_ACCESS:
         return dpl_bind_field_access(binding, node);
     case AST_NODE_UNARY:
@@ -1354,11 +1426,11 @@ void dpl_bind_print(DPL_Binding *binding, DPL_Bound_Node *node, size_t level)
 
     if (node->type)
     {
-        printf("[" SV_Fmt "] ", SV_Arg(node->type->name));
+        printf("<" SV_Fmt "> ", SV_Arg(node->type->name));
     }
     else
     {
-        printf("[<unknown>] ");
+        printf("<unknown> ");
     }
 
     switch (node->kind)
@@ -1536,6 +1608,35 @@ void dpl_bind_print(DPL_Binding *binding, DPL_Bound_Node *node, size_t level)
         {
             dpl_bind_print(binding, node->as.interpolation.expressions[i], level + 1);
         }
+
+        for (size_t i = 0; i < level; ++i)
+        {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_ARRAY:
+    {
+        printf("$array(\n");
+
+        for (size_t i = 0; i < node->as.array.element_count; ++i)
+        {
+            dpl_bind_print(binding, node->as.array.elements[i], level + 1);
+        }
+
+        for (size_t i = 0; i < level; ++i)
+        {
+            printf("  ");
+        }
+        printf(")\n");
+    }
+    break;
+    case BOUND_NODE_SPREAD:
+    {
+        printf("$spread(\n");
+
+        dpl_bind_print(binding, node->as.spread, level + 1);
 
         for (size_t i = 0; i < level; ++i)
         {

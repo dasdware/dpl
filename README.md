@@ -60,9 +60,9 @@ DPL is an expression based and statically typed programming language that is com
 
 Since all expressions yield a value, they also have a type. Types are considered compatible, if they have the same structure. If, for example, two object type definitions have the same structure (individual fields and their types), they are considered compatible even if they have different names.
 
-#### Builtin Types
+#### Base Types
 
-The following types are built directly into the language:
+The following base types are built directly into the language:
 
 | Type      | Examples        | Description                                                                                                                                                                                                                        |
 | --------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -70,14 +70,23 @@ The following types are built directly into the language:
 | `String`  | `""`, `"Foo"`   | A string of characters, delimited by double quotes. A string may contain escape sequences: `\"` represents a literal double quote, `\n` is a linebreak, `\r` a carriage return and `\t` a tab.                                     |
 | `Boolean` | `true`, `false` | A boolean value. Can be either `true` or `false`.                                                                                                                                                                                  |
 | `None`    | -               | A type representing an expression that yields no value. There is no way to produce a value of this type. This type is only temporary and used for loops since they can be run zero times and therefore could have no value at all. |
+| `[]`      | `[]`            | A type representing an empty array. Its only value is the empty array `[]` that can be assigned to any other array type.                                                                                                           |
 
-#### User-defined Types
+#### Arrays
 
-User defined types can be declared in a DPL program. They are used to form more complex structures from basic types.
+Array types can be declared in a DPL program. They are used to build collections of values.
 
-| Type   | Declaration example      | Value example      | Description                                                                                                                                  |
-| ------ | ------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Object | `[x: number, y: number]` | `[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
+| Type  | Declaration example | Value example  | Description                                                                                                                 |
+| ----- | ------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Array | `[Number]`          | `[0, 1, 2, 3]` | Arrays can be used to put data into collections. See the [section on array operations](#array-operations) for more details. |
+
+#### Objects
+
+Object types can be declared in a DPL program. They are used to form more complex structures from basic types.
+
+| Type   | Declaration example       | Value example       | Description                                                                                                                                  |
+| ------ | ------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Object | `$[x: Number, y: Number]` | `$[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
 
 ### Function calls
 
@@ -152,6 +161,19 @@ Logical operators combine two `Boolean` values and yield another `Boolean`. Sinc
 | `&&`        | `-`      | Logical and. Yields `true`, if both operands are `true`, `false` otherwise.      |
 | `\|\|`      | `-`      | Logical or. Yields `true`, if at least one operand is `true`, `false` otherwise. |
 
+### Access operators
+
+```bash
+var xs := [1, 2, 3];
+print(xs[2]); # 2
+```
+
+Access operators are used to access individual bits of more complex data structures.
+
+| Operator | Function  | Description                                                                                                                        |
+| -------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `[]`     | `element` | Takes two operands: 1) a value of an arbitrary type and 2) a `Number`. It returns the n-th element (0-based) of the first operand. |
+
 ### Variables
 
 ```bash
@@ -204,23 +226,55 @@ constant PI: Number := "foo"; # Cannot assign expression of type `String`
 
 This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the constant type is inferred from the initializer.
 
+### Array operations
+
+Arrays can be composed via array literals. These consist of a comma-separated list of expressions enclosed in `[ ... ]`-parentheses:
+
+```bash
+# Simple array declarations:
+var p1 := [1, 2]; # [1, 2]
+
+# Array elements cannot be modified after the arrays have been created.
+# However, you can easily create new arrays by spreading the old ones.
+var p2 := [0, ..p1, 3]; # [0, 1, 2, 3]
+
+# Alternatively, you can access individual elements:
+var n := p1[1]; # 2
+
+# This can also be used to create new arrays:
+var p3 := [p1[0], 3]; # [1, 3]
+
+# Some functions are always declared intrinsically for an array type:
+
+# length([T]): Number - Get the length of the given array.
+var l := p3.length() # 2
+
+# iterator([T]): ArrayIterator<T>,
+# next(ArrayIterator<T>): ArrayIterator<T> - Functions conforming to
+#  the iterator interface allowing to use for loops easily.
+
+for (var n in p3) {
+    print("${n}\n"); # prints 1 and 3
+}
+```
+
 ### Object composition
 
-Objects can be composed via object literals. These consist of a comma-separated list of expressions enclosed in `[]`-parenthesis:
+Objects can be composed via object literals. These consist of a comma-separated list of expressions enclosed in `$[ ... ]`-parentheses:
 
 ```bash
 # Fields can be assigned with assignments:
-var p1 := [ x := 1, y := 2 ];
+var p1 := $[ x := 1, y := 2 ];
 
 # If the fields exist as variables, they can be used directly
 var x := 1;
 var y := 2;
-var p2 := [ x, y ]; # is the same as p1
+var p2 := $[ x, y ]; # is the same as p1
 
 # Fields cannot be modified after the objects have been created.
 # However, you can easily create new objects by spreading the old ones
 # and then overriding inidividual fields.
-var p3 := [ ..p2, x := 3 ];
+var p3 := $[ ..p2, x := 3 ];
 ```
 
 ### String interpolation
@@ -354,7 +408,6 @@ function test(a: Number): Number := "foo";
 
 If the return type is ommitted, it is inferred from the `<BodyClause>` expression.
 
-
 ### For loops, iterators and ranges
 
 ```bash
@@ -368,13 +421,13 @@ For loops can be used to iterate over a specific number of elements. In order to
 
 An iterator is an object of type `I` that satisfies the following requirements:
 
-1. It has the form `[finished: Boolean, current: T]`. The field `finished` denotes whether the iterator has finished (`true`) its iteration or if there are more elements to process (`false`). The field `current` contains the current value of the iterator. It can be of any type `T`. Aside from these two fields, iterators may have any additional fields for bookkeeping (e.g. a maximum value).
+1. It has the form `$[finished: Boolean, current: T]`. The field `finished` denotes whether the iterator has finished (`true`) its iteration or if there are more elements to process (`false`). The field `current` contains the current value of the iterator. It can be of any type `T`. Aside from these two fields, iterators may have any additional fields for bookkeeping (e.g. a maximum value).
 2. There is a function `next(I): I`, which calculates the next iteration for the iterator. The return value contains updated fields `finished` and `current`. For the loop to finish, `finished` should be eventually `true`.
 
 With these requirements, for loops can be desugared to simple while loops:
 
 ```bash
-function next(iterator: [current: Number, finished: Boolean, to: Number]): [current: Number, finished: Boolean, to: Number] := {
+function next(iterator: $[current: Number, finished: Boolean, to: Number]): $[current: Number, finished: Boolean, to: Number] := {
   var current := iterator.current + 1;
   [ ..iterator, finished := current > iterator.to, current ]
 };
@@ -382,7 +435,7 @@ function next(iterator: [current: Number, finished: Boolean, to: Number]): [curr
 # for (var i in <iterator>)
 #   print("${i}\n");
 {
-    var it := [current: 0, finished: false, to: 8];
+    var it := $[current: 0, finished: false, to: 8];
     while (!(it.finished)) {
         var i := it.current;
 
@@ -398,8 +451,8 @@ function next(iterator: [current: Number, finished: Boolean, to: Number]): [curr
 A range is an expression that can be converted to an iterator by calling an available `iterator` function:
 
 ```bash
-function iterator(range: [from: Number, to: Number]) :=
-  [ current: range.from, finished: range.from >= to, to: range.to ];
+function iterator(range: $[from: Number, to: Number]) :=
+  $[ current: range.from, finished: range.from >= to, to: range.to ];
 ```
 
-The compiler transforms expressions using the binary operator `..` automatically to objects of the form `[from: T, to: T]`. For example, `0..8` becomes `[from: 0, to: 8]`.
+The compiler transforms expressions using the binary operator `..` automatically to objects of the form `$[from: T, to: T]`. For example, `0..8` becomes `$[from: 0, to: 8]`.
