@@ -70,6 +70,15 @@ The following base types are built directly into the language:
 | `String`  | `""`, `"Foo"`   | A string of characters, delimited by double quotes. A string may contain escape sequences: `\"` represents a literal double quote, `\n` is a linebreak, `\r` a carriage return and `\t` a tab.                                     |
 | `Boolean` | `true`, `false` | A boolean value. Can be either `true` or `false`.                                                                                                                                                                                  |
 | `None`    | -               | A type representing an expression that yields no value. There is no way to produce a value of this type. This type is only temporary and used for loops since they can be run zero times and therefore could have no value at all. |
+| `[]`      | `[]`            | A type representing an empty array. Its only value is the empty array `[]` that can be assigned to any other array type.                                                                                                           |
+
+#### Arrays
+
+Array types can be declared in a DPL program. They are used to build collections of values.
+
+| Type  | Declaration example | Value example  | Description                                                                                                                 |
+| ----- | ------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Array | `[Number]`          | `[0, 1, 2, 3]` | Arrays can be used to put data into collections. See the [section on array operations](#array-operations) for more details. |
 
 #### Objects
 
@@ -77,7 +86,7 @@ Object types can be declared in a DPL program. They are used to form more comple
 
 | Type   | Declaration example       | Value example       | Description                                                                                                                                  |
 | ------ | ------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Object | `$[x: number, y: number]` | `$[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
+| Object | `$[x: Number, y: Number]` | `$[x := 1, y := 2]` | Objects can be used to structure data into more complex bits. See the [section on object composition](#object-composition) for more details. |
 
 ### Function calls
 
@@ -152,6 +161,19 @@ Logical operators combine two `Boolean` values and yield another `Boolean`. Sinc
 | `&&`        | `-`      | Logical and. Yields `true`, if both operands are `true`, `false` otherwise.      |
 | `\|\|`      | `-`      | Logical or. Yields `true`, if at least one operand is `true`, `false` otherwise. |
 
+### Access operators
+
+```bash
+var xs := [1, 2, 3];
+print(xs[2]); # 2
+```
+
+Access operators are used to access individual bits of more complex data structures.
+
+| Operator | Function  | Description                                                                                                                        |
+| -------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `[]`     | `element` | Takes two operands: 1) a value of an arbitrary type and 2) a `Number`. It returns the n-th element (0-based) of the first operand. |
+
 ### Variables
 
 ```bash
@@ -204,9 +226,41 @@ constant PI: Number := "foo"; # Cannot assign expression of type `String`
 
 This is useful if the expression is more complex and you want to be sure that you get the correct type. If the type declaration is omitted, the constant type is inferred from the initializer.
 
+### Array operations
+
+Arrays can be composed via array literals. These consist of a comma-separated list of expressions enclosed in `[ ... ]`-parentheses:
+
+```bash
+# Simple array declarations:
+var p1 := [1, 2]; # [1, 2]
+
+# Array elements cannot be modified after the arrays have been created.
+# However, you can easily create new arrays by spreading the old ones.
+var p2 := [0, ..p1, 3]; # [0, 1, 2, 3]
+
+# Alternatively, you can access individual elements:
+var n := p1[1]; # 2
+
+# This can also be used to create new arrays:
+var p3 := [p1[0], 3]; # [1, 3]
+
+# Some functions are always declared intrinsically for an array type:
+
+# length([T]): Number - Get the length of the given array.
+var l := p3.length() # 2
+
+# iterator([T]): ArrayIterator<T>,
+# next(ArrayIterator<T>): ArrayIterator<T> - Functions conforming to
+#  the iterator interface allowing to use for loops easily.
+
+for (var n in p3) {
+    print("${n}\n"); # prints 1 and 3
+}
+```
+
 ### Object composition
 
-Objects can be composed via object literals. These consist of a comma-separated list of expressions enclosed in `[]`-parenthesis:
+Objects can be composed via object literals. These consist of a comma-separated list of expressions enclosed in `$[ ... ]`-parentheses:
 
 ```bash
 # Fields can be assigned with assignments:
