@@ -2,7 +2,7 @@ name: nob.h CI
 
 on:
   push:
-    branches: ["master", "dasdware/issue*"]
+    branches: ["master", "dasdware/issue*", "dpl-*"]
   pull_request:
     branches: ["master"]
 
