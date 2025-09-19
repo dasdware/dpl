@@ -238,14 +238,15 @@ DPL_Bound_Node *dpl_bind_create_load_field(DPL_Binding *binding, DPL_Bound_Node 
     return load_field;
 }
 
-DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node *condition, DPL_Bound_Node *body)
+DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node *condition, DPL_Bound_Node *body, DPL_Symbol* result_var)
 {
-    // TODO: At the moment, loops do not produce values and therefore are of type `none`.
-    //       This should change in the future, where they can yield optional values or
-    //       arrays.
-    DPL_Bound_Node *while_loop = dpl_bind_allocate_node(binding, BOUND_NODE_WHILE_LOOP, dpl_symbols_find_type_none(binding->symbols));
+    DPL_Symbol* loop_type = dpl_symbols_check_type_array_query(binding->symbols, body->type);
+    body->persistent = true;
+
+    DPL_Bound_Node *while_loop = dpl_bind_allocate_node(binding, BOUND_NODE_WHILE_LOOP, loop_type);
     while_loop->as.while_loop.condition = condition;
     while_loop->as.while_loop.body = body;
+    while_loop->as.while_loop.result_var = result_var;
     return while_loop;
 }
 
@@ -1181,6 +1182,7 @@ DPL_Bound_Node *dpl_bind_while_loop(DPL_Binding *binding, DPL_Ast_Node *node)
 {
     DPL_Ast_WhileLoop *while_loop = &node->as.while_loop;
 
+    DPL_Symbol* result_var = dpl_symbols_push_var_cstr(binding->symbols, "", TYPENAME_NONE);
     DPL_Bound_Node *bound_condition = dpl_bind_node(binding, while_loop->condition);
     if (!dpl_symbols_is_type_base(bound_condition->type, TYPE_BASE_BOOLEAN))
     {
@@ -1194,7 +1196,8 @@ DPL_Bound_Node *dpl_bind_while_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     return dpl_bind_create_while_loop(
         binding,
         bound_condition,
-        dpl_bind_node(binding, while_loop->body));
+        dpl_bind_node(binding, while_loop->body),
+        result_var);
 }
 
 typedef struct
@@ -1257,7 +1260,6 @@ bool dpl_bind_resolve_iterator(DPL_Binding *binding, DPL_Symbol *type, DPL_Bindi
 
 DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-
     DPL_Ast_ForLoop *for_loop = &node->as.for_loop;
 
     dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
@@ -1293,6 +1295,8 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     DPL_Bound_Node *init_assignment = bound_iterator_initializer;
     init_assignment->persistent = true;
 
+    DPL_Symbol* result_var = dpl_symbols_push_var_cstr(binding->symbols, "", TYPENAME_NONE);
+
     DPL_Bound_Node *while_condition = dpl_bind_unary_function_call(
         binding,
         dpl_bind_create_load_field(
@@ -1311,6 +1315,8 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     current_assignment->persistent = true;
 
     DPL_Bound_Node *inner_body = dpl_bind_node(binding, for_loop->body);
+    inner_body->persistent = true;
+    DPL_Symbol *inner_body_result_var = dpl_symbols_push_var(binding->symbols, SV_NULL, inner_body->type);
 
     DPL_Bound_Node *next_assignment = dpl_bind_create_assignment(
         binding,
@@ -1320,12 +1326,16 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
             dpl_bind_create_varref(binding, iterator_var),
             "next"));
 
+    DPL_Bound_Node *inner_body_varref = dpl_bind_create_varref(binding, inner_body_result_var);
+
     dpl_symbols_pop_boundary(binding->symbols);
 
     DPL_Bound_Node *while_loop = dpl_bind_create_while_loop(
         binding,
         while_condition,
-        dpl_bind_create_scope(binding, DPL_BOUND_NODES(current_assignment, inner_body, next_assignment)));
+        dpl_bind_create_scope(binding,
+            DPL_BOUND_NODES(current_assignment, inner_body, next_assignment, inner_body_varref)),
+        result_var);
 
     DPL_Bound_Node *scope = dpl_bind_create_scope(binding, DPL_BOUND_NODES(init_assignment, while_loop));
 

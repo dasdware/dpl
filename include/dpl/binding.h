@@ -88,6 +88,7 @@ typedef struct
 {
     DPL_Bound_Node *condition;
     DPL_Bound_Node *body;
+    DPL_Symbol *result_var;
 } DPL_Bound_WhileLoop;
 
 typedef struct
