@@ -8,6 +8,10 @@
 
 #define DPLC_OUTPUT BUILD_OUTPUT("dplc.exe")
 #define DPL_OUTPUT BUILD_OUTPUT("dpl.exe")
+#define DPLG_OUTPUT BUILD_OUTPUT("dplg.exe")
+
+#define RAYLIB_SRC_DIR "thirdparty/raylib/src/"
+#define RAYLIB_BUILD_DIR BUILD_DIR "raylib/"
 
 #define COMMAND_DELIM nob_sv_from_cstr("--")
 
@@ -16,9 +20,11 @@
 #define COMMAND_HELP nob_sv_from_cstr("help")
 #define COMMAND_RUN nob_sv_from_cstr("run")
 #define COMMAND_TEST nob_sv_from_cstr("test")
+#define COMMAND_DEBUG nob_sv_from_cstr("debug")
 
 #define TARGET_DPLC nob_sv_from_cstr("dplc")
 #define TARGET_DPL nob_sv_from_cstr("dpl")
+#define TARGET_DPLG nob_sv_from_cstr("dplg")
 
 void usage(Nob_String_View program, bool help_hint)
 {
@@ -112,6 +118,107 @@ void build_dpl(bool debug_build)
     nob_cmd_free(cmd);
 }
 
+bool build_raylib() {
+    static const char *raylib_modules[] = {
+        "rcore",
+        "raudio",
+        "rglfw",
+        "rmodels",
+        "rshapes",
+        "rtext",
+        "rtextures",
+        "utils",
+    };
+
+    bool result = true;
+    Nob_Cmd cmd = {0};
+    Nob_File_Paths object_files = {0};
+
+    if (!nob_mkdir_if_not_exists(RAYLIB_BUILD_DIR)) {
+        nob_return_defer(true);
+    }
+
+    Nob_Procs procs = {0};
+    for (size_t i = 0; i < NOB_ARRAY_LEN(raylib_modules); ++i) {
+        const char *input_path = nob_temp_sprintf(RAYLIB_SRC_DIR "%s.c", raylib_modules[i]);
+        const char *output_path = nob_temp_sprintf(RAYLIB_BUILD_DIR "%s.o", raylib_modules[i]);
+
+        nob_da_append(&object_files, output_path);
+
+        if (nob_needs_rebuild(output_path, &input_path, 1)) {
+            cmd.count = 0;
+            nob_cmd_append(&cmd, "gcc");
+            nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
+            nob_cmd_append(&cmd, "-I./include/");
+            nob_cmd_append(&cmd, "-I./thirdparty/");
+
+            nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP");
+            nob_cmd_append(&cmd, "-fPIC");
+            nob_cmd_append(&cmd, "-I./" RAYLIB_SRC_DIR "/external/glfw/include");
+            nob_cmd_append(&cmd, "-c", input_path);
+            nob_cmd_append(&cmd, "-o", output_path);
+
+            Nob_Proc proc = nob_cmd_run_async(cmd);
+            nob_da_append(&procs, proc);
+        }
+
+        // break;
+    }
+    cmd.count = 0;
+
+    if (!nob_procs_wait(procs)) nob_return_defer(false);
+
+    const char *libraylib_path = RAYLIB_BUILD_DIR "/libraylib.a";
+
+    if (nob_needs_rebuild(libraylib_path, object_files.items, object_files.count)) {
+        nob_cmd_append(&cmd, "ar", "-crs", libraylib_path);
+        for (size_t i = 0; i < NOB_ARRAY_LEN(raylib_modules); ++i) {
+            const char *input_path = nob_temp_sprintf("%s/%s.o", RAYLIB_BUILD_DIR, raylib_modules[i]);
+            nob_cmd_append(&cmd, input_path);
+        }
+        if (!nob_cmd_run_sync(cmd)) nob_return_defer(false);
+    }
+
+defer:
+    nob_cmd_free(cmd);
+    nob_da_free(object_files);
+    return result;
+}
+
+void build_dplg(bool debug_build)
+{
+    if (!build_raylib()) return;
+
+    Nob_Cmd cmd = {0};
+    cmd.count = 0;
+    nob_cmd_append(&cmd, "gcc");
+    nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb", "-static");
+    nob_cmd_append(&cmd, "-I./include/");
+    nob_cmd_append(&cmd, "-I./thirdparty/");
+    nob_cmd_append(&cmd, "-I./" RAYLIB_SRC_DIR);
+    nob_cmd_append(&cmd, "-I./thirdparty/raygui/src/");
+    nob_cmd_append(&cmd, "-L./" RAYLIB_BUILD_DIR);
+    if (debug_build)
+    {
+        nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
+    }
+    nob_cmd_append(&cmd,
+                    "./dplg.c", );
+    nob_cmd_append(&cmd, "-lraylib");
+    nob_cmd_append(&cmd, "-lgdi32");
+    nob_cmd_append(&cmd, "-lwinmm");
+    nob_cmd_append(&cmd, "-lm");
+    nob_cmd_append(&cmd, "-o", DPLG_OUTPUT);
+
+    bool success = nob_cmd_run_sync(cmd);
+    if (!success)
+    {
+        exit(1);
+    }
+
+    nob_cmd_free(cmd);
+}
+
 void build(Nob_String_View program, int *argc, char ***argv)
 {
     nob_mkdir_if_not_exists(BUILD_DIR);
@@ -148,6 +255,11 @@ void build(Nob_String_View program, int *argc, char ***argv)
             build_dpl(debug_build);
             have_built = true;
         }
+        else if (nob_sv_eq(target, TARGET_DPLG))
+        {
+            build_dplg(debug_build);
+            have_built = true;
+        }
         else
         {
             nob_log(NOB_ERROR, "Unknown build target \"" SV_Fmt "\".\n", SV_Arg(target));
@@ -160,6 +272,7 @@ void build(Nob_String_View program, int *argc, char ***argv)
     {
         build_dplc(debug_build);
         build_dpl(debug_build);
+        build_dplg(debug_build);
     }
 }
 
@@ -222,12 +335,16 @@ void help(Nob_String_View program, int *argc, char ***argv)
         "* help : Print this help message.\n"
         "* run  : Run the given dpl file. Uses the targets dplc and dpl for\n"
         "         compiling and running.\n"
+        "* debug: Run the given dpl file in the debugger. Uses the targets dplc\n"
+        "         and dplg for compiling and running.\n"
         "\n"
         "Targets:\n"
         "* dpl  : The DPL Virtual Machine. Can be used to run program files\n"
         "         (*.dplp).\n"
         "* dplc : The DPL Compiler. Can be used to create program files\n"
         "         (*.dplp) from source files (*.dpl).\n"
+        "* dplg : The DPL Debugger. Can be used to debug program files\n"
+        "         (*.dplp).\n"
         "\n"
         "Examples:\n"
         "* Show this help:\n"
@@ -251,11 +368,11 @@ void build_dplc_output(Nob_String_Builder *output_path, const char *dpl_file)
     nob_sb_append_null(output_path);
 }
 
-void run(Nob_String_View program, int *argc, char ***argv)
+void run_or_debug(Nob_String_View program, int *argc, char ***argv, const char* command, const char* run_target)
 {
     if (*argc == 0)
     {
-        nob_log(NOB_ERROR, "No program provided for command `run`.");
+        nob_log(NOB_ERROR, "No program provided for command `%s`.", command);
         usage(program, true);
         exit(1);
     }
@@ -308,7 +425,7 @@ void run(Nob_String_View program, int *argc, char ***argv)
     {
         cmd.count = 0;
 
-        nob_cmd_append(&cmd, DPL_OUTPUT);
+        nob_cmd_append(&cmd, run_target);
         if (debug)
         {
             nob_cmd_append(&cmd, "-d");
@@ -328,6 +445,16 @@ void run(Nob_String_View program, int *argc, char ***argv)
 
     nob_cmd_free(cmd);
     nob_sb_free(output_path);
+}
+
+void run(Nob_String_View program, int *argc, char ***argv)
+{
+    run_or_debug(program, argc, argv, "run", DPL_OUTPUT);
+}
+
+void debug(Nob_String_View program, int *argc, char ***argv)
+{
+    run_or_debug(program, argc, argv, "debug", DPLG_OUTPUT);
 }
 
 typedef struct
@@ -565,6 +692,10 @@ int main(int argc, char **argv)
         else if (nob_sv_eq(command, COMMAND_RUN))
         {
             run(program, &argc, &argv);
+        }
+        else if (nob_sv_eq(command, COMMAND_DEBUG))
+        {
+            debug(program, &argc, &argv);
         }
         else if (nob_sv_eq(command, COMMAND_TEST))
         {
