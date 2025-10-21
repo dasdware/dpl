@@ -203,6 +203,13 @@ void build_dplg(bool debug_build)
         nob_cmd_append(&cmd, "-DDPL_LEAKCHECK");
     }
     nob_cmd_append(&cmd,
+                    "./src/program.c",
+                    "./src/intrinsics.c",
+                    "./src/vm/intrinsics.c",
+                    "./src/value.c",
+                    "./src/vm.c",
+                    "./src/debugger/instructions.c",
+                    "./src/debugger/ui.c",
                     "./dplg.c", );
     nob_cmd_append(&cmd, "-lraylib");
     nob_cmd_append(&cmd, "-lgdi32");
