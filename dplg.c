@@ -61,12 +61,15 @@ int main(int argc, char** argv)
     const char* window_title = nob_temp_sprintf("%s - DPL Debugger", program_to_run);
     InitWindow(DPLG_SCREEN_WIDTH, DPLG_SCREEN_HEIGHT, window_title);
 
+    GuiLoadStyle("thirdparty/raygui/styles/genesis/style_genesis.rgs");
+    GuiSetStyle(LABEL, TEXT_COLOR_PRESSED, GuiGetStyle(TOGGLE, BASE_COLOR_PRESSED));
+
     SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     while (!WindowShouldClose())
     {
         BeginDrawing();
         {
-            ClearBackground(RAYWHITE);
+            ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
             LayoutBeginScreen(0);
             {
