@@ -30,12 +30,18 @@ typedef struct DPL_VirtualMachine
     size_t callstack_top;
     DPL_CallFrame *callstack;
 
+    DW_ByteStream program_stream;
+    DW_ByteStream constants_stream;
+
     Arena memory;
 } DPL_VirtualMachine;
 
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program);
 void dplv_free(DPL_VirtualMachine *vm);
 
+void dplv_run_begin(DPL_VirtualMachine *vm);
+void dplv_run_end(DPL_VirtualMachine *vm);
+void dplv_run_step(DPL_VirtualMachine *vm);
 void dplv_run(DPL_VirtualMachine *vm);
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm);
