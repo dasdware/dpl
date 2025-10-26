@@ -7,6 +7,8 @@
 
 #include <dpl/program.h>
 
+#include <dpl/vm/vm.h>
+
 #include <dpl/debugger/instructions.h>
 #include <dpl/debugger/ui.h>
 
@@ -46,6 +48,11 @@ int main(int argc, char** argv)
     DPL_Program program = {0};
     dplp_load(&program, program_to_run);
 
+    DPL_VirtualMachine vm = {0};
+    dplv_init(&vm, &program);
+
+    dplv_run_begin(&vm);
+
     DPLG_Instructions instructions = {0};
     dplg_load_instructions(&instructions, &program);
 
@@ -56,13 +63,14 @@ int main(int argc, char** argv)
             .width = DPLG_INSTRUCTION_WIDTH,
             .height = instructions.count * DPLG_INSTRUCTION_HEIGHT
         },
+        .vm = &vm,
+        .active_instruction = -1,
     };
 
     const char* window_title = nob_temp_sprintf("%s - DPL Debugger", program_to_run);
     InitWindow(DPLG_SCREEN_WIDTH, DPLG_SCREEN_HEIGHT, window_title);
 
     GuiLoadStyle("thirdparty/raygui/styles/genesis/style_genesis.rgs");
-    GuiSetStyle(LABEL, TEXT_COLOR_PRESSED, GuiGetStyle(TOGGLE, BASE_COLOR_PRESSED));
 
     SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     while (!WindowShouldClose())
@@ -71,15 +79,24 @@ int main(int argc, char** argv)
         {
             ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-            LayoutBeginScreen(0);
+            LayoutBeginScreen(8);
             {
                 LayoutBeginAnchored(RLD_DEFAULT, 5);
+                {
+                    LayoutBeginStack(RL_ANCHOR_TOP(30), DIRECTION_HORIZONTAL, 0, 4);
+                    {
+                        if (GuiButton(LayoutRectangle(RL_SIZE(70)), "Step (S)") || IsKeyPressed(KEY_S))
+                        {
+                            dplv_run_step(&vm);
+                        }
+                    }
+                    LayoutEnd();
 
-                dplg_ui_instructions(
-                    &instructions,
-                    LayoutRectangle(RL_ANCHOR_LEFT(DPLG_INSTRUCTION_WIDTH + 2 * 20)),
-                    &instructions_state);
-
+                    dplg_ui_instructions(
+                        &instructions,
+                        LayoutRectangle(RL_ANCHOR_LEFT(DPLG_INSTRUCTION_WIDTH + 2 * 20)),
+                        &instructions_state);
+                }
                 LayoutEnd();
             }
             LayoutEnd();
@@ -89,7 +106,10 @@ int main(int argc, char** argv)
 
     CloseWindow();
 
+    dplv_run_end(&vm);
+
     nob_sb_free(instructions_state.sb);
+    dplv_free(&vm);
     dplp_free(&program);
     return 0;
 }

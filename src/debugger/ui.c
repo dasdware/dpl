@@ -64,6 +64,19 @@ static void dplg_ui__append_parameter(Nob_String_Builder* sb, const DPLG_Instruc
     }
 }
 
+static int dplg_ui__find_active_instruction(const DPLG_Instructions* instructions,
+                                            const DPLG_UI_InstructionsState* state)
+{
+    for (size_t i = 0; i < instructions->count; i++)
+    {
+        if (instructions->items[i].ip == state->vm->program_stream.position)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static void dplg_ui__instruction_item(DPLG_Instruction* instruction, DPLG_UI_InstructionsState* state)
 {
     state->sb.count = 0;
@@ -78,36 +91,65 @@ static void dplg_ui__instruction_item(DPLG_Instruction* instruction, DPLG_UI_Ins
         .width = state->view.width,
         .height = instruction->bounds.height,
     };
+    if (instruction->ip == state->vm->program_stream.position)
+    {
+        DrawRectangleRec(bounds, DARKBLUE);
+    }
+    else if (instruction->is_breakpoint)
+    {
+        DrawRectangleRec(
+            bounds,
+            GetColor(GuiGetStyle(TOGGLE, BASE_COLOR_PRESSED))
+        );
+    }
+
     LayoutBeginRectangle(RLD_DEFAULT, LayoutPaddingSymmetric(bounds, 4, 4));
     {
         LayoutBeginStack(RLD_DEFAULT, DIRECTION_HORIZONTAL, 0, 8);
         {
-            int old_state = GuiGetState();
             GuiToggle(LayoutRectangle(RL_SIZE(DPLG_INSTRUCTION_HEIGHT)), "#132#", &instruction->is_breakpoint);
-
-            if (instruction->is_breakpoint)
-            {
-                GuiSetState(STATE_PRESSED);
-            }
-            else
-            {
-                GuiSetState(STATE_NORMAL);
-            }
 
             GuiLabel(LayoutRectangle(RL_SIZE(40)), TextFormat("%zu", instruction->ip));
             GuiLabel(LayoutRectangle(RLD_REMAINING), state->sb.items);
-
-            GuiSetState(old_state);
         }
         LayoutEnd();
     }
     LayoutEnd();
 }
 
-void dplg_ui_instructions(const DPLG_Instructions* instructions, Rectangle bounds, DPLG_UI_InstructionsState* state)
+void dplg_ui_instructions(const DPLG_Instructions* instructions, const Rectangle bounds,
+                          DPLG_UI_InstructionsState* state)
 {
-    GuiGroupBox(LayoutPadding(bounds, 10, 20, 10, 10), "Instructions");
+    GuiGroupBox(LayoutPadding(bounds, 2, 12, 10, 2), "Instructions");
     const Rectangle insets = LayoutPadding(bounds, 20, 30, 20, 20);
+
+    int active_instruction = dplg_ui__find_active_instruction(instructions, state);
+    if (active_instruction != state->active_instruction)
+    {
+        if (active_instruction == 0)
+        {
+            state->scroll.y = 0;
+        }
+        else
+        {
+            const Rectangle item_bounds = instructions->items[active_instruction].bounds;
+            const float item_top = state->scroll.y + item_bounds.y;
+            if (item_top < 0)
+            {
+                state->scroll.y -= item_top;
+            }
+            else
+            {
+                const float item_bottom = state->scroll.y + item_bounds.y + item_bounds.height;
+                if (item_bottom > state->view.height)
+                {
+                    state->scroll.y -= item_bottom - state->view.height;
+                }
+            }
+        }
+
+        state->active_instruction = active_instruction;
+    }
 
     GuiScrollPanel(insets, NULL, state->content, &state->scroll, &state->view);
     BeginScissorMode(state->view.x, state->view.y, state->view.width,
