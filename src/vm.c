@@ -8,8 +8,20 @@
 #include "error.h"
 #include "math.h"
 
+int dplv_print(void* context, char const *str, ...)
+{
+    DW_UNUSED(context);
+
+    va_list args;
+    va_start(args, str);
+    int n = vprintf(str, args);
+    va_end(args);
+    return n;
+}
+
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program)
 {
+    vm->print_callback = dplv_print;
     vm->program = program;
 
     if (vm->stack_capacity == 0)

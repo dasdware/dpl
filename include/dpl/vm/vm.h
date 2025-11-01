@@ -14,9 +14,15 @@ typedef struct
     size_t return_ip;
 } DPL_CallFrame;
 
+typedef int (*DPL_VirtualMachine_PrintCallback) (void* context, char const *str, ...);
+
+
 typedef struct DPL_VirtualMachine
 {
     DPL_Program *program;
+
+    DPL_VirtualMachine_PrintCallback print_callback;
+    void* print_context;
 
     bool debug;
     bool trace;

@@ -82,13 +82,13 @@ void dpl_vm_intrinsic_print(DPL_VirtualMachine *vm)
     switch (value.kind)
     {
     case VALUE_NUMBER:
-        printf("%s", dpl_value_format_number(value.as.number));
+        vm->print_callback(vm->print_context, "%s", dpl_value_format_number(value.as.number));
         break;
     case VALUE_STRING:
-        printf(SV_Fmt, SV_Arg(value.as.string));
+        vm->print_callback(vm->print_context, SV_Fmt, SV_Arg(value.as.string));
         break;
     case VALUE_BOOLEAN:
-        printf("%s", dpl_value_format_boolean(value.as.boolean));
+        vm->print_callback(vm->print_context, "%s", dpl_value_format_boolean(value.as.boolean));
         break;
     default:
         DW_ERROR("ERROR: `print` function callback cannot print values of kind `%s`.", dpl_value_kind_name(value.kind));
