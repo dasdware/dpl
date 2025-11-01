@@ -67,12 +67,16 @@ int main(int argc, char** argv)
         .active_instruction = -1,
     };
 
+    DPLG_UI_TerminalState terminal_state = {0};
+    vm.print_context = &terminal_state;
+    vm.print_callback = dplg_ui_terminal_append;
+
     const char* window_title = nob_temp_sprintf("%s - DPL Debugger", program_to_run);
     InitWindow(DPLG_SCREEN_WIDTH, DPLG_SCREEN_HEIGHT, window_title);
 
     GuiLoadStyle("thirdparty/raygui/styles/genesis/style_genesis.rgs");
 
-    SetTargetFPS(60); // Set our game to run at 60 frames-per-second
+    SetTargetFPS(60);
     while (!WindowShouldClose())
     {
         BeginDrawing();
@@ -94,8 +98,10 @@ int main(int argc, char** argv)
 
                     dplg_ui_instructions(
                         &instructions,
-                        LayoutRectangle(RL_ANCHOR_LEFT(DPLG_INSTRUCTION_WIDTH + 2 * 20)),
+                        LayoutRectangle(RL_ANCHOR_LEFT(DPLG_INSTRUCTION_WIDTH + 14)),
                         &instructions_state);
+
+                    dplg_ui_terminal(LayoutRectangle(RL_ANCHOR_BOTTOM(250)), &terminal_state);
                 }
                 LayoutEnd();
             }
@@ -109,6 +115,9 @@ int main(int argc, char** argv)
     dplv_run_end(&vm);
 
     nob_sb_free(instructions_state.sb);
+    nob_sb_free(terminal_state.sb);
+    nob_da_free(terminal_state.lines);
+
     dplv_free(&vm);
     dplp_free(&program);
     return 0;

@@ -168,3 +168,60 @@ void dplg_ui_instructions(const DPLG_Instructions* instructions, const Rectangle
     }
     dplg_ui__end_titled_group();
 }
+
+void dplg_ui_terminal(const Rectangle bounds, DPLG_UI_TerminalState* state)
+{
+    dplg_ui__begin_titled_group(bounds, "Terminal", state->content, &state->view, &state->scroll);
+    for (size_t i = 0; i < state->lines.count; i++)
+    {
+        const Rectangle line_bounds = {
+            .x = state->view.x + state->scroll.x + DPLG_TEXT_PADDING,
+            .y = state->view.y + state->scroll.y + i * DPLG_TERMINAL_LINE_HEIGHT,
+            .width = state->content.width,
+            .height = DPLG_TERMINAL_LINE_HEIGHT,
+        };
+        GuiLabel(line_bounds, TextFormat(SV_Fmt, SV_Arg(state->lines.items[i])));
+    }
+    dplg_ui__end_titled_group();
+}
+
+int dplg_ui_terminal_append(void* state, const char* str, ...)
+{
+    DPLG_UI_TerminalState* terminal_state = state;
+    va_list args;
+
+    va_start(args, str);
+    const int n = vsnprintf(NULL, 0, str, args);
+    va_end(args);
+
+    // NOTE: the new_capacity needs to be +1 because of the null terminator.
+    // However, further below we increase sb->count by n, not n + 1.
+    // This is because we don't want the sb to include the null terminator. The user can always sb_append_null() if they want it
+    nob_da_reserve(&terminal_state->sb, terminal_state->sb.count + n + 1);
+    char *dest = terminal_state->sb.items + terminal_state->sb.count;
+    va_start(args, str);
+    vsnprintf(dest, n + 1, str, args);
+    va_end(args);
+
+    terminal_state->sb.count += n;
+
+    terminal_state->content.width = 0;
+    terminal_state->content.height = 0;
+
+    terminal_state->lines.count = 0;
+    Nob_String_View lines = nob_sv_from_parts(terminal_state->sb.items, terminal_state->sb.count);
+
+    while (lines.count > 0)
+    {
+        const Nob_String_View line = nob_sv_chop_by_delim(&lines, '\n');
+        nob_da_append(&terminal_state->lines, line);
+        terminal_state->content.width = max(
+            terminal_state->content.width,
+            MeasureText(TextFormat(SV_Fmt, SV_Arg(line)), DPLG_TEXT_HEIGHT) + 2 * DPLG_TEXT_PADDING);
+        terminal_state->content.height += DPLG_TERMINAL_LINE_HEIGHT;
+    }
+
+    terminal_state->scroll.y = 1000*1000.f;
+
+    return n;
+}
