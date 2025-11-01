@@ -181,20 +181,28 @@ Rectangle LayoutRectangle(int data)
     {
         int size = RL_SIZE(data);
         if (RL_IS_ANCHOR_TOP(data)) {
+            result.x += layout->as.anchored.inset_left;
             result.y += layout->as.anchored.inset_top;
             result.height = size;
+            result.width -= layout->as.anchored.inset_left - layout->as.anchored.inset_right;
             layout->as.anchored.inset_top += size + layout->as.anchored.gap;
         } else if (RL_IS_ANCHOR_BOTTOM(data)) {
+            result.x += layout->as.anchored.inset_left;
             result.y += result.height - layout->as.anchored.inset_bottom - size;
             result.height = size;
+            result.width -= layout->as.anchored.inset_left - layout->as.anchored.inset_right;
             layout->as.anchored.inset_bottom += size + layout->as.anchored.gap;
         } else if (RL_IS_ANCHOR_LEFT(data)) {
             result.x += layout->as.anchored.inset_left;
+            result.y += layout->as.anchored.inset_top;
             result.width = size;
+            result.height -= layout->as.anchored.inset_top + layout->as.anchored.inset_bottom;
             layout->as.anchored.inset_left += size + layout->as.anchored.gap;
         } else if (RL_IS_ANCHOR_RIGHT(data)) {
             result.x += result.width - layout->as.anchored.inset_right - size;
+            result.y += layout->as.anchored.inset_top;
             result.width = size;
+            result.height -= layout->as.anchored.inset_top + layout->as.anchored.inset_bottom;
             layout->as.anchored.inset_right += size + layout->as.anchored.gap;
         } else if (RL_IS_REMAINING(data) || RL_IS_DEFAULT(data)) {
             result.x += layout->as.anchored.inset_left;
