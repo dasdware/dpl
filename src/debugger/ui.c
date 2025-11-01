@@ -4,6 +4,19 @@
 #include <raygui.h>
 #include <rllayout.h>
 
+static void dplg_ui__begin_titled_group(const Rectangle bounds, const char* title, const Rectangle content,
+                                        Rectangle* view, Vector2* scroll)
+{
+    GuiScrollPanel(bounds, title, content, scroll, view);
+    BeginScissorMode(view->x, view->y, view->width, view->height);
+}
+
+static void dplg_ui__end_titled_group()
+{
+    EndScissorMode();
+}
+
+
 static void dplg_ui__sb_append_sv_escaped(Nob_String_Builder* sb, Nob_String_View sv)
 {
     nob_sb_append_cstr(sb, "\"");
@@ -120,9 +133,6 @@ static void dplg_ui__instruction_item(DPLG_Instruction* instruction, DPLG_UI_Ins
 void dplg_ui_instructions(const DPLG_Instructions* instructions, const Rectangle bounds,
                           DPLG_UI_InstructionsState* state)
 {
-    GuiGroupBox(LayoutPadding(bounds, 2, 12, 10, 2), "Instructions");
-    const Rectangle insets = LayoutPadding(bounds, 20, 30, 20, 20);
-
     int active_instruction = dplg_ui__find_active_instruction(instructions, state);
     if (active_instruction != state->active_instruction)
     {
@@ -151,12 +161,10 @@ void dplg_ui_instructions(const DPLG_Instructions* instructions, const Rectangle
         state->active_instruction = active_instruction;
     }
 
-    GuiScrollPanel(insets, NULL, state->content, &state->scroll, &state->view);
-    BeginScissorMode(state->view.x, state->view.y, state->view.width,
-                     state->view.height);
+    dplg_ui__begin_titled_group(bounds, "Instructions", state->content, &state->view, &state->scroll);
     for (size_t i = 0; i < instructions->count; i++)
     {
         dplg_ui__instruction_item(&instructions->items[i], state);
     }
-    EndScissorMode();
+    dplg_ui__end_titled_group();
 }
