@@ -3,19 +3,7 @@
 #include <raylib.h>
 #include <raygui.h>
 #include <rllayout.h>
-
-static void dplg_ui__begin_titled_group(const Rectangle bounds, const char* title, const Rectangle content,
-                                        Rectangle* view, Vector2* scroll)
-{
-    GuiScrollPanel(bounds, title, content, scroll, view);
-    BeginScissorMode(view->x, view->y, view->width, view->height);
-}
-
-static void dplg_ui__end_titled_group()
-{
-    EndScissorMode();
-}
-
+#include <math.h>
 
 static void dplg_ui__sb_append_sv_escaped(Nob_String_Builder* sb, Nob_String_View sv)
 {
@@ -44,37 +32,100 @@ static void dplg_ui__sb_append_sv_escaped(Nob_String_Builder* sb, Nob_String_Vie
     nob_sb_append_cstr(sb, "\"");
 }
 
-static void dplg_ui__append_parameter(Nob_String_Builder* sb, const DPLG_Instruction_Parameter parameter)
+static void dplg_ui__append_value(Nob_String_Builder* sb, DPL_Value value);
+
+static void dplg_ui__append_value_number(Nob_String_Builder* sb, double value)
 {
-    if (parameter.kind == PARAMETER_EMPTY)
+    nob_sb_appendf(sb, "[%s: ", dpl_value_kind_name(VALUE_NUMBER));
+
+    const double abs_value = fabs(value);
+    if (abs_value - floorf(abs_value) < DPL_VALUE_EPSILON)
     {
+        nob_sb_appendf(sb, "%i", (int)round(value));
+    }
+    else
+    {
+        nob_sb_appendf(sb, "%f", value);
+    }
+
+    nob_sb_append_cstr(sb, "]");
+}
+
+static void dplg_ui__append_value_string(Nob_String_Builder* sb, const Nob_String_View value)
+{
+    nob_sb_appendf(sb, "[%s: ", dpl_value_kind_name(VALUE_STRING));
+    dplg_ui__sb_append_sv_escaped(sb, value);
+    nob_sb_append_cstr(sb, "]");
+}
+
+static void dplg_ui__append_value_boolean(Nob_String_Builder* sb, const bool value)
+{
+    nob_sb_appendf(sb, "[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), value ? "true" : "false");
+}
+
+static void dplg_ui__append_value_object(Nob_String_Builder* sb, DW_MemoryTable_Item* object)
+{
+    const uint8_t field_count = dpl_value_object_field_count(object);
+    nob_sb_appendf(sb, "[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);
+    for (uint8_t field_index = 0; field_index < field_count; ++field_index)
+    {
+        dplg_ui__append_value(sb, dpl_value_object_get_field(object, field_index));
+    }
+    nob_sb_append_cstr(sb, "]");
+}
+
+static void dplg_ui__append_value_array(Nob_String_Builder* sb, DW_MemoryTable_Item* array)
+{
+    if (array == NULL)
+    {
+        nob_sb_appendf(sb, "[%s slot]", dpl_value_kind_name(VALUE_ARRAY));
         return;
     }
 
-    nob_sb_append_cstr(sb, " ");
-
-    switch (parameter.kind)
+    const uint8_t element_count = dpl_value_array_element_count(array);
+    nob_sb_appendf(sb, "[%s(%d): ", dpl_value_kind_name(VALUE_ARRAY), element_count);
+    for (uint8_t element_index = 0; element_index < element_count; ++element_index)
     {
-    case PARAMETER_NUMBER:
-        nob_sb_appendf(sb, "[%f]", parameter.as.number);
-        return;
-    case PARAMETER_BOOLEAN:
-        nob_sb_append_cstr(sb, parameter.as.boolean ? "[true]" : "false");
-        return;
-    case PARAMETER_STRING:
-        nob_sb_append_cstr(sb, "[");
-        dplg_ui__sb_append_sv_escaped(sb, parameter.as.string);
-        nob_sb_append_cstr(sb, "]");
-        return;
-    case PARAMETER_SIZE:
-        nob_sb_appendf(sb, "[%zu]", parameter.as.size);
-        return;
-    case PARAMETER_CSTR:
-        nob_sb_append_cstr(sb, "[");
-        dplg_ui__sb_append_sv_escaped(sb, nob_sv_from_cstr(parameter.as.cstr));
-        nob_sb_append_cstr(sb, "]");
+        dplg_ui__append_value(sb, dpl_value_array_get_element(array, element_index));
+    }
+    nob_sb_append_cstr(sb, "]");
+}
+
+static void dplg_ui__append_value(Nob_String_Builder* sb, const DPL_Value value)
+{
+    switch (value.kind)
+    {
+    case VALUE_NUMBER:
+        dplg_ui__append_value_number(sb, value.as.number);
+        break;
+    case VALUE_STRING:
+        dplg_ui__append_value_string(sb, value.as.string);
+        break;
+    case VALUE_BOOLEAN:
+        dplg_ui__append_value_boolean(sb, value.as.boolean);
+        break;
+    case VALUE_OBJECT:
+        dplg_ui__append_value_object(sb, value.as.object);
+        break;
+    case VALUE_ARRAY:
+        dplg_ui__append_value_array(sb, value.as.array);
+        break;
     default:
+        DW_UNIMPLEMENTED_MSG("Cannot debug print value of kind `%s`.",
+                             dpl_value_kind_name(value.kind));
     }
+}
+
+static void dplg_ui__begin_titled_group(const Rectangle bounds, const char* title, const Rectangle content,
+                                        Rectangle* view, Vector2* scroll)
+{
+    GuiScrollPanel(bounds, title, content, scroll, view);
+    BeginScissorMode(view->x, view->y, view->width, view->height);
+}
+
+static void dplg_ui__end_titled_group()
+{
+    EndScissorMode();
 }
 
 static int dplg_ui__find_active_instruction(const DPLG_Instructions* instructions,
@@ -94,8 +145,16 @@ static void dplg_ui__instruction_item(DPLG_Instruction* instruction, DPLG_UI_Ins
 {
     state->sb.count = 0;
     nob_sb_append_cstr(&state->sb, instruction->name);
-    dplg_ui__append_parameter(&state->sb, instruction->parameter0);
-    dplg_ui__append_parameter(&state->sb, instruction->parameter1);
+    if (instruction->parameter_count > 0)
+    {
+        nob_sb_append_cstr(&state->sb," ");
+        dplg_ui__append_value(&state->sb, instruction->parameter0);
+    }
+    if (instruction->parameter_count > 1)
+    {
+        nob_sb_append_cstr(&state->sb," ");
+        dplg_ui__append_value(&state->sb, instruction->parameter1);
+    }
     nob_sb_append_null(&state->sb);
 
     const Rectangle bounds = {

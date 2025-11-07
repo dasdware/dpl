@@ -11,6 +11,8 @@
 #define DPL_VALUES(...) \
     DPL_ARG_COUNT(__VA_ARGS__), (DPL_Value[]) { __VA_ARGS__ }
 
+#define DPL_VALUE_EPSILON 0.00001
+
 typedef enum
 {
     VALUE_NUMBER,

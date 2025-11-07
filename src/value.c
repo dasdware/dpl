@@ -66,11 +66,9 @@ DPL_Value dpl_value_make_array_slot()
             .array = NULL}};
 }
 
-#define EPSILON 0.00001
-
 int dpl_value_compare_numbers(double a, double b)
 {
-    if (fabs(a - b) < EPSILON)
+    if (fabs(a - b) < DPL_VALUE_EPSILON)
     {
         return 0;
     }
@@ -85,7 +83,7 @@ const char *dpl_value_format_number(double value)
 {
     static char buffer[16];
     double abs_value = fabs(value);
-    if (abs_value - floorf(abs_value) < EPSILON)
+    if (abs_value - floorf(abs_value) < DPL_VALUE_EPSILON)
     {
         snprintf(buffer, 16, "%i", (int)round(value));
     }
@@ -212,7 +210,7 @@ void dpl_value_print(DPL_Value value)
 
 bool dpl_value_number_equals(double number1, double number2)
 {
-    return fabs(number1 - number2) < EPSILON;
+    return fabs(number1 - number2) < DPL_VALUE_EPSILON;
 }
 
 bool dpl_value_string_equals(Nob_String_View string1, Nob_String_View string2)

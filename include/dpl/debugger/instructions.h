@@ -4,30 +4,7 @@
 #include <raylib.h>
 
 #include <dpl/program.h>
-
-typedef enum
-{
-    PARAMETER_EMPTY,
-    PARAMETER_NUMBER,
-    PARAMETER_BOOLEAN,
-    PARAMETER_STRING,
-    PARAMETER_SIZE,
-    PARAMETER_CSTR,
-} DPLG_Instruction_Parameter_Kind;
-
-typedef struct
-{
-    DPLG_Instruction_Parameter_Kind kind;
-
-    union
-    {
-        double number;
-        bool boolean;
-        Nob_String_View string;
-        size_t size;
-        const char* cstr;
-    } as;
-} DPLG_Instruction_Parameter;
+#include <value.h>
 
 typedef struct
 {
@@ -36,8 +13,9 @@ typedef struct
     size_t ip;
     DPL_Instruction_Kind kind;
     const char* name;
-    DPLG_Instruction_Parameter parameter0;
-    DPLG_Instruction_Parameter parameter1;
+    DPL_Value parameter0;
+    DPL_Value parameter1;
+    size_t parameter_count;
 } DPLG_Instruction;
 
 typedef struct
