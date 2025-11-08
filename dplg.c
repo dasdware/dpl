@@ -71,6 +71,9 @@ int main(int argc, char** argv)
     vm.print_context = &terminal_state;
     vm.print_callback = dplg_ui_terminal_append;
 
+    DPLG_UI_StackState stack_state = {0};
+    dplg_ui_stack_calculate(&vm, &stack_state);
+
     const char* window_title = nob_temp_sprintf("%s - DPL Debugger", program_to_run);
     InitWindow(DPLG_SCREEN_WIDTH, DPLG_SCREEN_HEIGHT, window_title);
 
@@ -92,6 +95,7 @@ int main(int argc, char** argv)
                         if (GuiButton(LayoutRectangle(RL_SIZE(70)), "Step (S)") || IsKeyPressed(KEY_S))
                         {
                             dplv_run_step(&vm);
+                            dplg_ui_stack_calculate(&vm, &stack_state);
                         }
                     }
                     LayoutEnd();
@@ -102,6 +106,8 @@ int main(int argc, char** argv)
                         &instructions_state);
 
                     dplg_ui_terminal(LayoutRectangle(RL_ANCHOR_BOTTOM(250)), &terminal_state);
+
+                    dplg_ui_stack(LayoutRectangle(RLD_REMAINING), &stack_state);
                 }
                 LayoutEnd();
             }

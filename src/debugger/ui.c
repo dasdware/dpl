@@ -284,3 +284,74 @@ int dplg_ui_terminal_append(void* state, const char* str, ...)
 
     return n;
 }
+
+void dplg_ui_stack_calculate(const DPL_VirtualMachine* vm, DPLG_UI_StackState* stack)
+{
+    stack->entries.count = 0;
+
+    size_t offset = 0;
+    for (size_t i = 0; i < vm->stack_top; ++i)
+    {
+        const DPL_Value value = vm->stack[i];
+        size_t height = DPLG_STACKENTRY_HEIGHT;
+
+        const DPLG_UI_StackEntry entry = {
+            .value = value,
+            .bounds = {
+                .x = 0,
+                .y = offset,
+                .width = 500,
+                .height = height,
+            }
+        };
+        nob_da_append(&stack->entries, entry);
+
+        offset += height;
+    }
+
+    stack->bounds = (Rectangle) {
+        .x = 0,
+        .y = 0,
+        .width = 500,
+        .height = offset,
+    };
+}
+
+void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
+{
+    Nob_String_Builder sb = {0};
+
+    Rectangle view;
+    dplg_ui__begin_titled_group(
+        bounds,
+        "Stack",
+        (Rectangle) {
+            .width = bounds.width,
+            .height = stack->bounds.height,
+        },
+        &view,
+        &stack->scroll
+    );
+
+    view = LayoutPaddingAll(view, 2);
+    for (size_t i = 0; i < stack->entries.count; i++)
+    {
+        const DPLG_UI_StackEntry entry = stack->entries.items[i];
+        const Rectangle view_bounds = LayoutPaddingSymmetric(((Rectangle) {
+            .x = view.x + entry.bounds.x + stack->scroll.x,
+            .y = view.y + entry.bounds.y + stack->scroll.y,
+            .width = view.width,
+            .height = entry.bounds.height,
+        }), 0, 1);
+
+        sb.count = 0;
+        nob_sb_appendf(&sb, "#%02llu ", i);
+        dplg_ui__append_value(&sb, entry.value);
+        nob_sb_append_null(&sb);
+
+        DrawRectangleRec(view_bounds, GetColor(0x3E4550FF));
+        GuiLabel(LayoutPaddingAll(view_bounds, 4), sb.items);
+    }
+
+    dplg_ui__end_titled_group();
+}

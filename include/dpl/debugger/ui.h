@@ -14,6 +14,8 @@
 
 #define DPLG_TERMINAL_LINE_HEIGHT 24
 
+#define DPLG_STACKENTRY_HEIGHT (DPLG_TEXT_HEIGHT + 2 * DPLG_TEXT_PADDING)
+
 typedef struct {
     Nob_String_Builder sb;
     Rectangle content;
@@ -43,5 +45,28 @@ typedef struct {
 
 void dplg_ui_terminal(const Rectangle bounds, DPLG_UI_TerminalState* state);
 int dplg_ui_terminal_append(void* state, const char* str, ...);
+
+typedef struct
+{
+    DPL_Value value;
+    Rectangle bounds;
+} DPLG_UI_StackEntry;
+
+typedef struct
+{
+    DPLG_UI_StackEntry* items;
+    size_t count;
+    size_t capacity;
+} DPLG_UI_StackEntries;
+
+typedef struct
+{
+    DPLG_UI_StackEntries entries;
+    Rectangle bounds;
+    Vector2 scroll;
+} DPLG_UI_StackState;
+
+void dplg_ui_stack_calculate(const DPL_VirtualMachine* vm, DPLG_UI_StackState* stack);
+void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack);
 
 #endif // __DPL_DEBUGGER_UI_H
