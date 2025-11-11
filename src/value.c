@@ -218,6 +218,50 @@ bool dpl_value_string_equals(Nob_String_View string1, Nob_String_View string2)
     return nob_sv_eq(string1, string2);
 }
 
+bool dpl_value_boolean_equals(const bool boolean1, const bool boolean2)
+{
+    return (boolean1 == boolean2);
+}
+
+bool dpl_value_object_equals(DW_MemoryTable_Item *object1, DW_MemoryTable_Item *object2)
+{
+    const size_t count = dpl_value_object_field_count(object1);
+    if (count != dpl_value_object_field_count(object2))
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (!dpl_value_equals(dpl_value_object_get_field(object1, i), dpl_value_object_get_field(object2, i)))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool dpl_value_array_equals(DW_MemoryTable_Item *array1, DW_MemoryTable_Item *array2)
+{
+    const size_t count = dpl_value_array_element_count(array1);
+    if (count != dpl_value_array_element_count(array2))
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        if (!dpl_value_equals(dpl_value_array_get_element(array1, i), dpl_value_array_get_element(array2, i)))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 bool dpl_value_equals(DPL_Value value1, DPL_Value value2)
 {
     if (value1.kind != value2.kind)
@@ -231,6 +275,12 @@ bool dpl_value_equals(DPL_Value value1, DPL_Value value2)
         return dpl_value_number_equals(value1.as.number, value2.as.number);
     case VALUE_STRING:
         return dpl_value_string_equals(value1.as.string, value2.as.string);
+    case VALUE_BOOLEAN:
+        return dpl_value_boolean_equals(value1.as.boolean, value2.as.boolean);
+    case VALUE_OBJECT:
+        return dpl_value_object_equals(value1.as.object, value2.as.object);
+    case VALUE_ARRAY:
+        return dpl_value_array_equals(value1.as.array, value2.as.array);
     default:
         DW_ERROR("Cannot compare values of unknown kind `%d`.", value1.kind);
     }

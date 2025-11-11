@@ -46,9 +46,18 @@ typedef struct {
 void dplg_ui_terminal(const Rectangle bounds, DPLG_UI_TerminalState* state);
 int dplg_ui_terminal_append(void* state, const char* str, ...);
 
+typedef enum
+{
+    STACK_ENTRY_UNCHANGED,
+    STACK_ENTRY_ADDED,
+    STACK_ENTRY_CHANGED,
+    STACK_ENTRY_DELETED,
+} DPLG_UI_StackEntryState;
+
 typedef struct
 {
     DPL_Value value;
+    DPLG_UI_StackEntryState state;
     Rectangle bounds;
 } DPLG_UI_StackEntry;
 

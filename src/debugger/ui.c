@@ -147,12 +147,12 @@ static void dplg_ui__instruction_item(DPLG_Instruction* instruction, DPLG_UI_Ins
     nob_sb_append_cstr(&state->sb, instruction->name);
     if (instruction->parameter_count > 0)
     {
-        nob_sb_append_cstr(&state->sb," ");
+        nob_sb_append_cstr(&state->sb, " ");
         dplg_ui__append_value(&state->sb, instruction->parameter0);
     }
     if (instruction->parameter_count > 1)
     {
-        nob_sb_append_cstr(&state->sb," ");
+        nob_sb_append_cstr(&state->sb, " ");
         dplg_ui__append_value(&state->sb, instruction->parameter1);
     }
     nob_sb_append_null(&state->sb);
@@ -257,7 +257,7 @@ int dplg_ui_terminal_append(void* state, const char* str, ...)
     // However, further below we increase sb->count by n, not n + 1.
     // This is because we don't want the sb to include the null terminator. The user can always sb_append_null() if they want it
     nob_da_reserve(&terminal_state->sb, terminal_state->sb.count + n + 1);
-    char *dest = terminal_state->sb.items + terminal_state->sb.count;
+    char* dest = terminal_state->sb.items + terminal_state->sb.count;
     va_start(args, str);
     vsnprintf(dest, n + 1, str, args);
     va_end(args);
@@ -280,40 +280,59 @@ int dplg_ui_terminal_append(void* state, const char* str, ...)
         terminal_state->content.height += DPLG_TERMINAL_LINE_HEIGHT;
     }
 
-    terminal_state->scroll.y = 1000*1000.f;
+    terminal_state->scroll.y = 1000 * 1000.f;
 
     return n;
 }
 
 void dplg_ui_stack_calculate(const DPL_VirtualMachine* vm, DPLG_UI_StackState* stack)
 {
-    stack->entries.count = 0;
+    while (stack->entries.count > 0 && nob_da_last(&stack->entries).state == STACK_ENTRY_DELETED)
+    {
+        stack->entries.count--;
+    }
 
-    size_t offset = 0;
     for (size_t i = 0; i < vm->stack_top; ++i)
     {
         const DPL_Value value = vm->stack[i];
-        size_t height = DPLG_STACKENTRY_HEIGHT;
 
-        const DPLG_UI_StackEntry entry = {
-            .value = value,
-            .bounds = {
-                .x = 0,
-                .y = offset,
-                .width = 500,
-                .height = height,
-            }
-        };
-        nob_da_append(&stack->entries, entry);
+        if (i >= stack->entries.count)
+        {
+            const DPLG_UI_StackEntry entry = {
+                .value = value,
+                .state = STACK_ENTRY_ADDED,
+                .bounds = {
+                    .x = 0,
+                    .y = i * DPLG_STACKENTRY_HEIGHT,
+                    .width = 500,
+                    .height = DPLG_STACKENTRY_HEIGHT,
+                }
+            };
 
-        offset += height;
+            nob_da_append(&stack->entries, entry);
+            continue;
+        }
+
+        if (!dpl_value_equals(value, stack->entries.items[i].value))
+        {
+            stack->entries.items[i].value = value;
+            stack->entries.items[i].state = STACK_ENTRY_CHANGED;
+            continue;
+        }
+
+        stack->entries.items[i].state = STACK_ENTRY_UNCHANGED;
     }
 
-    stack->bounds = (Rectangle) {
+    for (size_t i = vm->stack_top; i < stack->entries.count; ++i)
+    {
+        stack->entries.items[i].state = STACK_ENTRY_DELETED;
+    }
+
+    stack->bounds = (Rectangle){
         .x = 0,
         .y = 0,
         .width = 500,
-        .height = offset,
+        .height = stack->entries.count * DPLG_STACKENTRY_HEIGHT,
     };
 }
 
@@ -325,7 +344,7 @@ void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
     dplg_ui__begin_titled_group(
         bounds,
         "Stack",
-        (Rectangle) {
+        (Rectangle){
             .width = bounds.width,
             .height = stack->bounds.height,
         },
@@ -338,19 +357,40 @@ void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
     {
         const DPLG_UI_StackEntry entry = stack->entries.items[i];
         const Rectangle view_bounds = LayoutPaddingSymmetric(((Rectangle) {
-            .x = view.x + entry.bounds.x + stack->scroll.x,
-            .y = view.y + entry.bounds.y + stack->scroll.y,
-            .width = view.width,
-            .height = entry.bounds.height,
-        }), 0, 1);
+                                                                 .x = view.x + entry.bounds.x + stack->scroll.x,
+                                                                 .y = view.y + entry.bounds.y + stack->scroll.y,
+                                                                 .width = view.width,
+                                                                 .height = entry.bounds.height,
+                                                                 }), 0, 1);
 
         sb.count = 0;
         nob_sb_appendf(&sb, "#%02llu ", i);
         dplg_ui__append_value(&sb, entry.value);
         nob_sb_append_null(&sb);
 
-        DrawRectangleRec(view_bounds, GetColor(0x3E4550FF));
+        const int old_label_color = GuiGetStyle(LABEL, TEXT_COLOR_NORMAL);
+        Color color;
+        switch (entry.state)
+        {
+        case STACK_ENTRY_DELETED:
+            GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, 0x546172FF);
+            color = GetColor(0x20252BFF);
+            break;
+        case STACK_ENTRY_CHANGED:
+            color = GetColor(0x2e2e06FF);
+            break;
+        case STACK_ENTRY_ADDED:
+            color = GetColor(0x133510FF);
+            break;
+        case STACK_ENTRY_UNCHANGED:
+        default:
+            color = GetColor(0x2E353DFF);
+            break;
+        }
+
+        DrawRectangleRec(view_bounds, color);
         GuiLabel(LayoutPaddingAll(view_bounds, 4), sb.items);
+        GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, old_label_color);
     }
 
     dplg_ui__end_titled_group();
