@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - name: build_nob
         run: gcc -o nob nob.c
       - name: run_nob
