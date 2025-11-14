@@ -2,7 +2,7 @@ name: nob.h CI
 
 on:
   push:
-    branches: ["master", "dasdware/issue*", "dpl-*"]
+    branches: ["master", "dasdware/issue*", "dpl-*", "*"]
   pull_request:
     branches: ["master"]
 
@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
       - name: build_nob
         run: gcc -o nob nob.c
       - name: run_nob

@@ -11,12 +11,19 @@ typedef struct
 {
     size_t stack_top;
     size_t arity;
+    size_t call_ip;
     size_t return_ip;
 } DPL_CallFrame;
+
+typedef int (*DPL_VirtualMachine_PrintCallback) (void* context, char const *str, ...);
+
 
 typedef struct DPL_VirtualMachine
 {
     DPL_Program *program;
+
+    DPL_VirtualMachine_PrintCallback print_callback;
+    void* print_context;
 
     bool debug;
     bool trace;
@@ -30,12 +37,18 @@ typedef struct DPL_VirtualMachine
     size_t callstack_top;
     DPL_CallFrame *callstack;
 
+    DW_ByteStream program_stream;
+    DW_ByteStream constants_stream;
+
     Arena memory;
 } DPL_VirtualMachine;
 
 void dplv_init(DPL_VirtualMachine *vm, DPL_Program *program);
 void dplv_free(DPL_VirtualMachine *vm);
 
+void dplv_run_begin(DPL_VirtualMachine *vm);
+void dplv_run_end(DPL_VirtualMachine *vm);
+void dplv_run_step(DPL_VirtualMachine *vm);
 void dplv_run(DPL_VirtualMachine *vm);
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm);
