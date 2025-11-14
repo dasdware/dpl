@@ -71,6 +71,7 @@ void dplg_load_instructions(DPLG_Instructions* instructions, DPL_Program* progra
         case INST_RETURN:
         case INST_BEGIN_ARRAY:
         case INST_END_ARRAY:
+        case INST_CONCAT_ARRAY:
         case INST_SPREAD:
             break;
         case INST_CALL_INTRINSIC:

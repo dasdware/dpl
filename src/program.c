@@ -320,7 +320,7 @@ const char *dplp_inst_kind_name(DPL_Instruction_Kind kind)
     case INST_END_ARRAY:
         return "END_ARRAY";
     case INST_CONCAT_ARRAY:
-        return "INST_CONCAT_ARRAY";
+        return "CONCAT_ARRAY";
     case INST_SPREAD:
         return "SPREAD";
     default:
