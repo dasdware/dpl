@@ -44,16 +44,17 @@ void dplv_free(DPL_VirtualMachine *vm)
     arena_free(&vm->memory);
 }
 
-void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t arity, size_t return_ip)
+void _dplv_push_callframe(DPL_VirtualMachine *vm, size_t arity, size_t call_ip, size_t return_ip)
 {
     if (vm->callstack_top >= vm->callstack_capacity)
     {
         DW_ERROR("Fatal Error: Callstack overflow in program execution.");
     }
 
-    vm->callstack[vm->callstack_top].return_ip = return_ip;
     vm->callstack[vm->callstack_top].arity = arity;
     vm->callstack[vm->callstack_top].stack_top = vm->stack_top - arity;
+    vm->callstack[vm->callstack_top].call_ip = call_ip;
+    vm->callstack[vm->callstack_top].return_ip = return_ip;
     ++vm->callstack_top;
 }
 
@@ -164,7 +165,7 @@ void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value)
 void dplv_run_begin(DPL_VirtualMachine *vm)
 {
     mt_init(&vm->stack_memory);
-    _dplv_push_callframe(vm, 0, 0);
+    _dplv_push_callframe(vm, 0, vm->program->entry, 0);
 
     vm->program_stream = (DW_ByteStream) {
         .buffer = vm->program->code,
@@ -356,7 +357,7 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         uint8_t arity = bs_read_u8(&vm->program_stream);
         size_t begin_ip = bs_read_u64(&vm->program_stream);
 
-        _dplv_push_callframe(vm, arity, vm->program_stream.position);
+        _dplv_push_callframe(vm, arity, begin_ip, vm->program_stream.position);
 
         vm->program_stream.position = begin_ip;
     };

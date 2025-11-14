@@ -285,6 +285,40 @@ int dplg_ui_terminal_append(void* state, const char* str, ...)
     return n;
 }
 
+void dplg_ui_stack__update_entry(DPLG_UI_StackState* stack, const size_t index, DPLG_UI_StackEntry entry)
+{
+    entry.bounds = (Rectangle){
+        .x = 0,
+        .y = index * DPLG_STACKENTRY_HEIGHT,
+        .width = 500,
+        .height = DPLG_STACKENTRY_HEIGHT,
+    };
+
+    if (index >= stack->entries.count)
+    {
+        entry.state = STACK_ENTRY_ADDED;
+        nob_da_append(&stack->entries, entry);
+        return;
+    }
+
+    if (entry.kind == STACK_ENTRY_CALL_FRAME)
+    {
+        entry.state = STACK_ENTRY_UNCHANGED;
+        stack->entries.items[index] = entry;
+        return;
+    }
+
+    if (!dpl_value_equals(entry.as.value, stack->entries.items[index].as.value))
+    {
+        entry.state = STACK_ENTRY_CHANGED;
+        stack->entries.items[index] = entry;
+        return;
+    }
+
+    entry.state = STACK_ENTRY_UNCHANGED;
+    stack->entries.items[index] = entry;
+}
+
 void dplg_ui_stack_calculate(const DPL_VirtualMachine* vm, DPLG_UI_StackState* stack)
 {
     while (stack->entries.count > 0 && nob_da_last(&stack->entries).state == STACK_ENTRY_DELETED)
@@ -292,43 +326,41 @@ void dplg_ui_stack_calculate(const DPL_VirtualMachine* vm, DPLG_UI_StackState* s
         stack->entries.count--;
     }
 
-    for (size_t i = 0; i < vm->stack_top; ++i)
+    size_t entry_index = 0;
+    for (size_t stack_index = 0; stack_index <= vm->stack_top; ++stack_index)
     {
-        const DPL_Value value = vm->stack[i];
-
-        if (i >= stack->entries.count)
+        for (size_t call_frame_index = 0; call_frame_index < vm->callstack_top; ++call_frame_index)
         {
-            const DPLG_UI_StackEntry entry = {
-                .value = value,
-                .state = STACK_ENTRY_ADDED,
-                .bounds = {
-                    .x = 0,
-                    .y = i * DPLG_STACKENTRY_HEIGHT,
-                    .width = 500,
-                    .height = DPLG_STACKENTRY_HEIGHT,
-                }
-            };
-
-            nob_da_append(&stack->entries, entry);
-            continue;
+            if (vm->callstack[call_frame_index].stack_top == stack_index)
+            {
+                const DPLG_UI_StackEntry call_frame_entry = {
+                    .kind = STACK_ENTRY_CALL_FRAME,
+                    .as.call_frame = vm->callstack[call_frame_index],
+                };
+                dplg_ui_stack__update_entry(stack, entry_index, call_frame_entry);
+                entry_index++;
+            }
         }
 
-        if (!dpl_value_equals(value, stack->entries.items[i].value))
+        if (stack_index >= vm->stack_top)
         {
-            stack->entries.items[i].value = value;
-            stack->entries.items[i].state = STACK_ENTRY_CHANGED;
-            continue;
+            break;
         }
 
-        stack->entries.items[i].state = STACK_ENTRY_UNCHANGED;
+        const DPLG_UI_StackEntry value_entry = {
+            .kind = STACK_ENTRY_VALUE,
+            .as.value = vm->stack[stack_index],
+        };
+        dplg_ui_stack__update_entry(stack, entry_index, value_entry);
+        entry_index++;
     }
 
-    for (size_t i = vm->stack_top; i < stack->entries.count; ++i)
+    for (; entry_index < stack->entries.count; entry_index++)
     {
-        stack->entries.items[i].state = STACK_ENTRY_DELETED;
+        stack->entries.items[entry_index].state = STACK_ENTRY_DELETED;
     }
 
-    stack->bounds = (Rectangle){
+    stack->bounds = (Rectangle) {
         .x = 0,
         .y = 0,
         .width = 500,
@@ -353,6 +385,7 @@ void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
     );
 
     view = LayoutPaddingAll(view, 2);
+    size_t index_in_call_frame = 0;
     for (size_t i = 0; i < stack->entries.count; i++)
     {
         const DPLG_UI_StackEntry entry = stack->entries.items[i];
@@ -364,8 +397,20 @@ void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
                                                                  }), 0, 1);
 
         sb.count = 0;
-        nob_sb_appendf(&sb, "#%02llu ", i);
-        dplg_ui__append_value(&sb, entry.value);
+
+        if (entry.kind == STACK_ENTRY_CALL_FRAME)
+        {
+            DrawRectangleRec(view_bounds, DARKBLUE);
+            nob_sb_appendf(&sb, "call #%02llu(%02llu) -> #%02llu", entry.as.call_frame.call_ip, entry.as.call_frame.arity, entry.as.call_frame.return_ip);
+            GuiLabel(LayoutPaddingAll(view_bounds, 4), sb.items);
+            index_in_call_frame = 0;
+            continue;
+        }
+
+
+        nob_sb_appendf(&sb, "#%02llu ", index_in_call_frame);
+        index_in_call_frame++;
+        dplg_ui__append_value(&sb, entry.as.value);
         nob_sb_append_null(&sb);
 
         const int old_label_color = GuiGetStyle(LABEL, TEXT_COLOR_NORMAL);

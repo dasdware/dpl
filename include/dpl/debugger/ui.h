@@ -54,11 +54,22 @@ typedef enum
     STACK_ENTRY_DELETED,
 } DPLG_UI_StackEntryState;
 
+typedef enum
+{
+    STACK_ENTRY_VALUE,
+    STACK_ENTRY_CALL_FRAME,
+} DPLG_UI_StackEntryKind;
+
 typedef struct
 {
-    DPL_Value value;
+    DPLG_UI_StackEntryKind kind;
     DPLG_UI_StackEntryState state;
     Rectangle bounds;
+    union
+    {
+        DPL_Value value;
+        DPL_CallFrame call_frame;
+    } as;
 } DPLG_UI_StackEntry;
 
 typedef struct

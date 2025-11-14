@@ -11,6 +11,7 @@ typedef struct
 {
     size_t stack_top;
     size_t arity;
+    size_t call_ip;
     size_t return_ip;
 } DPL_CallFrame;
 
