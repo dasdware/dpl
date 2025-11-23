@@ -400,10 +400,20 @@ void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
 
         if (entry.kind == STACK_ENTRY_CALL_FRAME)
         {
-            DrawRectangleRec(view_bounds, DARKBLUE);
+            const int old_label_color = GuiGetStyle(LABEL, TEXT_COLOR_NORMAL);
+            Color color = DARKBLUE;
+
+            if (entry.state == STACK_ENTRY_DELETED)
+            {
+                GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, 0x546172FF);
+                color = GetColor(0x20252BFF);
+            }
+            DrawRectangleRec(view_bounds, color);
             nob_sb_appendf(&sb, "call #%02llu(%02llu) -> #%02llu", entry.as.call_frame.call_ip, entry.as.call_frame.arity, entry.as.call_frame.return_ip);
             GuiLabel(LayoutPaddingAll(view_bounds, 4), sb.items);
             index_in_call_frame = 0;
+            GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, old_label_color);
+
             continue;
         }
 
