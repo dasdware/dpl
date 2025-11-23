@@ -405,7 +405,7 @@ void run_or_debug(Nob_String_View program, int *argc, char ***argv, const char* 
 
         program_or_flag = nob_shift_args(argc, argv);
     }
-    check_command_end(program, argc, argv, "run");
+    check_command_end(program, argc, argv, command);
 
     Nob_String_Builder output_path = {0};
     build_dplc_output(&output_path, program_or_flag);
@@ -433,7 +433,7 @@ void run_or_debug(Nob_String_View program, int *argc, char ***argv, const char* 
         cmd.count = 0;
 
         nob_cmd_append(&cmd, run_target);
-        if (debug)
+        if (debug && strcmp(command, "run") == 0)
         {
             nob_cmd_append(&cmd, "-d");
         }
