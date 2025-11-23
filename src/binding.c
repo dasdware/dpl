@@ -1329,6 +1329,7 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     DPL_Bound_Node *inner_body_varref = dpl_bind_create_varref(binding, inner_body_result_var);
 
     dpl_symbols_pop_boundary(binding->symbols);
+    dpl_symbols_pop_boundary(binding->symbols);
 
     DPL_Bound_Node *while_loop = dpl_bind_create_while_loop(
         binding,
@@ -1339,7 +1340,6 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
 
     DPL_Bound_Node *scope = dpl_bind_create_scope(binding, DPL_BOUND_NODES(init_assignment, while_loop));
 
-    dpl_symbols_pop_boundary(binding->symbols);
 
     return scope;
 }
