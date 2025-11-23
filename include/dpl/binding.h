@@ -88,7 +88,7 @@ typedef struct
 {
     DPL_Bound_Node *condition;
     DPL_Bound_Node *body;
-    DPL_Symbol *result_var;
+    bool in_assignment;
 } DPL_Bound_WhileLoop;
 
 typedef struct
@@ -142,12 +142,21 @@ typedef struct
     size_t capacity;
 } DPL_Binding_UserFunctions;
 
+#define DPL_SCOPE_STACK_CAPACITY 256
+
+typedef  struct
+{
+    size_t assignment_count;
+} DPL_Binding_ScopeInfo;
+
 typedef struct
 {
     Arena *memory;
     Nob_String_View source;
     DPL_SymbolStack *symbols;
     DPL_Binding_UserFunctions user_functions;
+    DPL_Binding_ScopeInfo scope_stack[DPL_SCOPE_STACK_CAPACITY];
+    size_t scope_stack_count;
 } DPL_Binding;
 
 const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind);
