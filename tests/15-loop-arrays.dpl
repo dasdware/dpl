@@ -1,0 +1,12 @@
+var arr := for (var i in 1..10) 2 * i;
+
+print("[");
+for (var i in 0..(arr.length() - 1)) {
+    if (i > 0)
+        print(", ")
+    else
+        "";
+
+    print(arr[i]);
+};
+print("]\n");
