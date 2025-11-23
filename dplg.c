@@ -45,6 +45,8 @@ int main(int argc, char** argv)
     }
 
     const char* program_to_run = nob_shift_args(&argc, &argv);
+
+    nob_log(NOB_INFO, "Loading program file %s.\n", program_to_run);
     DPL_Program program = {0};
     dplp_load(&program, program_to_run);
 
@@ -92,10 +94,27 @@ int main(int argc, char** argv)
                 {
                     LayoutBeginStack(RL_ANCHOR_TOP(30), DIRECTION_HORIZONTAL, 0, 4);
                     {
+                        if (GuiButton(LayoutRectangle(RL_SIZE(70)), "Run (R)") || IsKeyPressed(KEY_R))
+                        {
+                            while (!dplv_run_at_end(&vm))
+                            {
+                                dplv_run_step(&vm);
+                                int active_instruction = dplg_ui_find_active_instruction(&instructions, &instructions_state);
+                                if (active_instruction > -1 && instructions.items[active_instruction].is_breakpoint)
+                                {
+                                    break;
+                                }
+                            }
+                            dplg_ui_stack_calculate(&vm, &stack_state);
+                        }
+
                         if (GuiButton(LayoutRectangle(RL_SIZE(70)), "Step (S)") || IsKeyPressed(KEY_S))
                         {
-                            dplv_run_step(&vm);
-                            dplg_ui_stack_calculate(&vm, &stack_state);
+                            if (!dplv_run_at_end(&vm))
+                            {
+                                dplv_run_step(&vm);
+                                dplg_ui_stack_calculate(&vm, &stack_state);
+                            }
                         }
                     }
                     LayoutEnd();

@@ -524,7 +524,7 @@ void dplv_run(DPL_VirtualMachine *vm)
 {
     dplv_run_begin(vm);
 
-    while (!bs_at_end(&vm->program_stream))
+    while (!dplv_run_at_end(vm))
     {
         dplv_run_step(vm);
     }

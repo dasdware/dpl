@@ -128,7 +128,7 @@ static void dplg_ui__end_titled_group()
     EndScissorMode();
 }
 
-static int dplg_ui__find_active_instruction(const DPLG_Instructions* instructions,
+int dplg_ui_find_active_instruction(const DPLG_Instructions* instructions,
                                             const DPLG_UI_InstructionsState* state)
 {
     for (size_t i = 0; i < instructions->count; i++)
@@ -192,7 +192,7 @@ static void dplg_ui__instruction_item(DPLG_Instruction* instruction, DPLG_UI_Ins
 void dplg_ui_instructions(const DPLG_Instructions* instructions, const Rectangle bounds,
                           DPLG_UI_InstructionsState* state)
 {
-    int active_instruction = dplg_ui__find_active_instruction(instructions, state);
+    int active_instruction = dplg_ui_find_active_instruction(instructions, state);
     if (active_instruction != state->active_instruction)
     {
         if (active_instruction == 0)

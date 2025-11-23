@@ -49,6 +49,7 @@ void dplv_free(DPL_VirtualMachine *vm);
 void dplv_run_begin(DPL_VirtualMachine *vm);
 void dplv_run_end(DPL_VirtualMachine *vm);
 void dplv_run_step(DPL_VirtualMachine *vm);
+#define dplv_run_at_end(vm) (bs_at_end(&(vm)->program_stream))
 void dplv_run(DPL_VirtualMachine *vm);
 
 DPL_Value dplv_peek(DPL_VirtualMachine *vm);
