@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <error.h>
+#include <dw_error.h>
 
 #define DWMS_DEFAULT_INITIAL_ENTRY_CAPACITY 64
 #define DWMS_DEFAULT_STACK_CAPACITY 32

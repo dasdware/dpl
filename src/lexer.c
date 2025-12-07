@@ -1,4 +1,4 @@
-#include <error.h>
+#include <dw_error.h>
 #include <nobx.h>
 
 #include <dpl/lexer.h>

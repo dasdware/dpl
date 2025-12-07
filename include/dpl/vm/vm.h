@@ -1,11 +1,11 @@
 #ifndef __DPL_VM_H
 #define __DPL_VM_H
 
-#include "arena.h"
-#include "value.h"
-#include "dw_memory_table.h"
+#include <arena.h>
+#include <dw_memory_table.h>
 
 #include <dpl/program.h>
+#include <dpl/value.h>
 
 typedef struct
 {

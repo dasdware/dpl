@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include <error.h>
+#include <dw_error.h>
 
 // Example:
 //

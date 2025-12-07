@@ -1,12 +1,12 @@
 #ifndef DW_MEMORY_TABLE_H_INCLUDED
 #define DW_MEMORY_TABLE_H_INCLUDED
 
-// This is an stb-style library, use the following to include method definitions:
+// This is a stb-style library, use the following to include method definitions:
 //
 // #define DW_MEMORY_TABLE_IMPLEMENTATION
 // #include <dw_memory_table.h>
 //
-// The header <ring_buffer.h> must be on the include path for definitions to work.
+// The header <dw_ring_buffer.h> must be on the include path for definitions to work.
 
 #include <nobx.h>
 
@@ -69,8 +69,8 @@ void mt_print(DW_MemoryTable *table);
 #include <stdio.h>
 #include <string.h>
 
-#include <error.h>
-#include <ring_buffer.h>
+#include <dw_error.h>
+#include <dw_ring_buffer.h>
 
 void mt_init(DW_MemoryTable *table)
 {

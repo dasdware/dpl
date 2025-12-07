@@ -1,11 +1,11 @@
 #ifdef DPL_LEAKCHECK
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
 #include <math.h>
+#include <dw_error.h>
 
-#include "error.h"
-#include "value.h"
+#include <dpl/value.h>
 
 const char *dpl_value_kind_name(DPL_ValueKind kind)
 {

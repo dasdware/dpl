@@ -1,4 +1,4 @@
-#include "./include/error.h"
+#include "./thirdparty/dw_error.h"
 #define NOB_IMPLEMENTATION
 #include "./thirdparty/nob.h"
 #include "./thirdparty/nobx.h"

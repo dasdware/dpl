@@ -4,7 +4,7 @@
 #include <raylib.h>
 
 #include <dpl/program.h>
-#include <value.h>
+#include <dpl/value.h>
 
 typedef struct
 {

@@ -1,5 +1,5 @@
 #include <dpl/vm/intrinsics.h>
-#include <error.h>
+#include <dw_error.h>
 
 typedef void (*DPL_Intrinsic_Callback)(DPL_VirtualMachine *);
 

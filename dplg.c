@@ -1,8 +1,8 @@
-#include "raylib.h"
+#include <raylib.h>
 
 #ifdef DPL_LEAKCHECK
 #define STB_LEAKCHECK_IMPLEMENTATION
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
 #include <dpl/program.h>
@@ -32,7 +32,7 @@
 #include <nobx.h>
 
 #define ARENA_IMPLEMENTATION
-#include "arena.h"
+#include <arena.h>
 
 int main(int argc, char** argv)
 {

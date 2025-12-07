@@ -1,12 +1,12 @@
 #ifdef DPL_LEAKCHECK
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
 #include <dpl/vm/intrinsics.h>
 #include <dpl/vm/vm.h>
 
-#include "error.h"
-#include "math.h"
+#include <dw_error.h>
+#include <math.h>
 
 int dplv_print(void* context, char const *str, ...)
 {

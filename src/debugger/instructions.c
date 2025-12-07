@@ -2,7 +2,7 @@
 #include <dpl/debugger/ui.h>
 
 #include <dw_byte_buffer.h>
-#include <error.h>
+#include <dw_error.h>
 
 void dplg_load_instructions(DPLG_Instructions* instructions, DPL_Program* program)
 {

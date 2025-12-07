@@ -1,9 +1,9 @@
 #ifdef DPL_LEAKCHECK
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
+#include <dw_error.h>
 #include <dpl/program.h>
-#include "error.h"
 
 void dplp_init(DPL_Program *program)
 {

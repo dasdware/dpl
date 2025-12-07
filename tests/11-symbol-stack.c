@@ -2,7 +2,7 @@
 #include <dpl/symbols.h>
 
 #define ARENA_IMPLEMENTATION
-#include "arena.h"
+#include <arena.h>
 
 #define NOB_IMPLEMENTATION
 #include <nob.h>

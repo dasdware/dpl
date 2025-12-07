@@ -1,6 +1,6 @@
 #include <assert.h>
 
-#include <error.h>
+#include <dw_error.h>
 
 #include <dpl/intrinsics.h>
 

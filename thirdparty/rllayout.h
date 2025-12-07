@@ -42,7 +42,7 @@
 #define RL_IS_REMAINING(data) (((data) & ~RL_SIZE_MASK) == RL_FLAG_REMAINING)
 
 #include <raylib.h>
-#include <error.h>
+#include <dw_error.h>
 
 typedef enum
 {

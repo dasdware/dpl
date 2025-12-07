@@ -1,5 +1,5 @@
 #include <dpl/generator.h>
-#include <error.h>
+#include <dw_error.h>
 
 void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *program)
 {

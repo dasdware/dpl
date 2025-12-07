@@ -1,12 +1,12 @@
 #ifdef DPL_LEAKCHECK
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
+#include <dw_error.h>
+
+#include <dpl.h>
 #include <dpl/utils.h>
 #include <dpl/generator.h>
-
-#include "dpl.h"
-#include "error.h"
 
 #define DPL_ERROR DW_ERROR
 
