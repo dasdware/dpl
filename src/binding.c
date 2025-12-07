@@ -51,6 +51,57 @@ const char *dpl_bind_nodekind_name(DPL_BoundNodeKind kind)
     return BOUND_NODE_KIND_NAMES[kind];
 }
 
+void dpl_bind_begin_scope(DPL_Binding *binding)
+{
+    if (binding->scope_stack_count >= DPL_SCOPE_STACK_CAPACITY)
+    {
+        DW_ERROR("Cannot begin a new nested scope: Capacity exceeded (>= %d)", DPL_SCOPE_STACK_CAPACITY);
+    }
+
+    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+    binding->scope_stack[binding->scope_stack_count] = (DPL_Binding_ScopeInfo) {0};
+    binding->scope_stack_count++;
+}
+
+void dpl_bind_end_scope(DPL_Binding *binding)
+{
+    if (binding->scope_stack_count == 0)
+    {
+        DW_ERROR("Cannot end a current scope: Scope stack is empty");
+    }
+
+    binding->scope_stack_count--;
+    dpl_symbols_pop_boundary(binding->symbols);
+}
+
+
+void dpl_bind_begin_assignment(DPL_Binding *binding)
+{
+    if (binding->scope_stack_count == 0)
+    {
+        DW_ERROR("Cannot begin an assignment: Scope stack is empty");
+    }
+    binding->scope_stack[binding->scope_stack_count - 1].assignment_count++;
+}
+
+void dpl_bind_end_assignment(DPL_Binding *binding)
+{
+    if (binding->scope_stack_count == 0)
+    {
+        DW_ERROR("Cannot begin an assignment: Scope stack is empty");
+    }
+    binding->scope_stack[binding->scope_stack_count - 1].assignment_count--;
+}
+
+bool dpl_bind_is_in_assignment(DPL_Binding *binding)
+{
+    if (binding->scope_stack_count == 0)
+    {
+        return false;
+    }
+    return binding->scope_stack[binding->scope_stack_count - 1].assignment_count > 0;
+}
+
 static void dpl_bind_build_type_name(DPL_Ast_Type *ast_type, Nob_String_Builder *sb)
 {
     switch (ast_type->kind)
@@ -240,12 +291,13 @@ DPL_Bound_Node *dpl_bind_create_load_field(DPL_Binding *binding, DPL_Bound_Node 
 
 DPL_Bound_Node *dpl_bind_create_while_loop(DPL_Binding *binding, DPL_Bound_Node *condition, DPL_Bound_Node *body)
 {
-    // TODO: At the moment, loops do not produce values and therefore are of type `none`.
-    //       This should change in the future, where they can yield optional values or
-    //       arrays.
-    DPL_Bound_Node *while_loop = dpl_bind_allocate_node(binding, BOUND_NODE_WHILE_LOOP, dpl_symbols_find_type_none(binding->symbols));
+    DPL_Symbol* loop_type = dpl_symbols_check_type_array_query(binding->symbols, body->type);
+    body->persistent = true;
+
+    DPL_Bound_Node *while_loop = dpl_bind_allocate_node(binding, BOUND_NODE_WHILE_LOOP, loop_type);
     while_loop->as.while_loop.condition = condition;
     while_loop->as.while_loop.body = body;
+    while_loop->as.while_loop.in_assignment = dpl_bind_is_in_assignment(binding);
     return while_loop;
 }
 
@@ -656,7 +708,7 @@ static DPL_Bound_Node *dpl_bind_scope(DPL_Binding *binding, DPL_Ast_Node *node)
     DPL_Ast_Scope scope = node->as.scope;
 
     DPL_Bound_Nodes bound_expressions = {0};
-    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+    dpl_bind_begin_scope(binding);
     for (size_t i = 0; i < scope.expression_count; ++i)
     {
         DPL_Bound_Node *bound_expression = dpl_bind_node(binding, scope.expressions[i]);
@@ -667,7 +719,7 @@ static DPL_Bound_Node *dpl_bind_scope(DPL_Binding *binding, DPL_Ast_Node *node)
 
         nob_da_append(&bound_expressions, bound_expression);
     }
-    dpl_symbols_pop_boundary(binding->symbols);
+    dpl_bind_end_scope(binding);
 
     return dpl_bind_create_scope_move(binding, bound_expressions);
 }
@@ -701,7 +753,7 @@ void dpl_bind_object_literal_add_field(DPL_Binding *binding, DPL_Bound_ObjectFie
 
 DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+    dpl_bind_begin_scope(binding);;
 
     DPL_Ast_ObjectLiteral object_literal = node->as.object_literal;
     DPL_Bound_ObjectFields tmp_bound_fields = {0};
@@ -759,7 +811,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
 
     DPL_Bound_Node *bound_node = dpl_bind_create_object_literal_move(binding, tmp_bound_fields);
 
-    dpl_symbols_pop_boundary(binding->symbols);
+    dpl_bind_end_scope(binding);
 
     if (temporaries.count > 0)
     {
@@ -772,7 +824,7 @@ DPL_Bound_Node *dpl_bind_object_literal(DPL_Binding *binding, DPL_Ast_Node *node
 
 DPL_Bound_Node *dpl_bind_array_literal(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+    dpl_bind_begin_scope(binding);
 
     DPL_Ast_ArrayLiteral *array_literal = &node->as.array_literal;
     DPL_Bound_Nodes tmp_elements = {0};
@@ -815,7 +867,7 @@ DPL_Bound_Node *dpl_bind_array_literal(DPL_Binding *binding, DPL_Ast_Node *node)
         nob_da_append(&tmp_elements, bound_element);
     }
 
-    dpl_symbols_pop_boundary(binding->symbols);
+    dpl_bind_end_scope(binding);
 
     DPL_Symbol *array_type = dpl_symbols_find_type_empty_array(binding->symbols);
     if (array_literal->element_count > 0)
@@ -1002,11 +1054,15 @@ DPL_Bound_Node *dpl_bind_declaration(DPL_Binding *binding, DPL_Ast_Node *node)
     }
     case TOKEN_KEYWORD_VAR:
     {
+        dpl_bind_begin_assignment(binding);
+
         DPL_Bound_Node *expression = dpl_bind_node(binding, decl->initialization);
         expression->persistent = true;
         dpl_bind_check_assignment(binding, "variable", node, expression->type);
 
         dpl_symbols_push_var(binding->symbols, decl->name.text, expression->type);
+
+        dpl_bind_end_assignment(binding);
 
         return expression;
     }
@@ -1026,6 +1082,7 @@ DPL_Bound_Node *dpl_bind_symbol(DPL_Binding *binding, DPL_Ast_Node *node)
     DPL_Symbol *symbol = dpl_symbols_find(binding->symbols, node->as.symbol.text);
     if (!symbol)
     {
+       // dpl_symbols_print_table(binding->symbols);
         DPL_AST_ERROR(binding->source, node, "Cannot resolve symbol `" SV_Fmt "` in current scope.",
                       SV_Arg(node->as.symbol.text));
     }
@@ -1055,6 +1112,7 @@ DPL_Bound_Node *dpl_bind_symbol(DPL_Binding *binding, DPL_Ast_Node *node)
 DPL_Bound_Node *dpl_bind_assignment(DPL_Binding *binding, DPL_Ast_Node *node)
 {
     DPL_Ast_Assignment *assignment = &node->as.assignment;
+    dpl_bind_begin_assignment(binding);
 
     if (assignment->target->kind != AST_NODE_SYMBOL)
     {
@@ -1083,6 +1141,7 @@ DPL_Bound_Node *dpl_bind_assignment(DPL_Binding *binding, DPL_Ast_Node *node)
                       SV_Arg(bound_expression->type->name), SV_Arg(symbol->name), SV_Arg(symbol->as.var.type->name));
     }
 
+    dpl_bind_end_assignment(binding);
     return dpl_bind_create_assignment(binding, symbol, bound_expression);
 }
 
@@ -1181,6 +1240,8 @@ DPL_Bound_Node *dpl_bind_while_loop(DPL_Binding *binding, DPL_Ast_Node *node)
 {
     DPL_Ast_WhileLoop *while_loop = &node->as.while_loop;
 
+    dpl_symbols_push_var_cstr(binding->symbols, "", TYPENAME_NONE);
+
     DPL_Bound_Node *bound_condition = dpl_bind_node(binding, while_loop->condition);
     if (!dpl_symbols_is_type_base(bound_condition->type, TYPE_BASE_BOOLEAN))
     {
@@ -1257,10 +1318,9 @@ bool dpl_bind_resolve_iterator(DPL_Binding *binding, DPL_Symbol *type, DPL_Bindi
 
 DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
 {
-
     DPL_Ast_ForLoop *for_loop = &node->as.for_loop;
 
-    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+    dpl_bind_begin_scope(binding);
 
     DPL_Bound_Node *bound_iterator_initializer = dpl_bind_node(binding, for_loop->iterator_initializer);
     DPL_Symbol *iterator_type = bound_iterator_initializer->type;
@@ -1293,6 +1353,8 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     DPL_Bound_Node *init_assignment = bound_iterator_initializer;
     init_assignment->persistent = true;
 
+    dpl_symbols_push_var_cstr(binding->symbols, "", TYPENAME_NONE);
+
     DPL_Bound_Node *while_condition = dpl_bind_unary_function_call(
         binding,
         dpl_bind_create_load_field(
@@ -1301,7 +1363,7 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
             iterator.finished_index),
         "not");
 
-    dpl_symbols_push_boundary_cstr(binding->symbols, NULL, BOUNDARY_SCOPE);
+    dpl_bind_begin_scope(binding);
 
     dpl_symbols_push_var(binding->symbols, for_loop->variable_name.text, iterator.value_type);
     DPL_Bound_Node *current_assignment = dpl_bind_create_load_field(
@@ -1311,6 +1373,8 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
     current_assignment->persistent = true;
 
     DPL_Bound_Node *inner_body = dpl_bind_node(binding, for_loop->body);
+    inner_body->persistent = true;
+    DPL_Symbol *inner_body_result_var = dpl_symbols_push_var(binding->symbols, SV_NULL, inner_body->type);
 
     DPL_Bound_Node *next_assignment = dpl_bind_create_assignment(
         binding,
@@ -1320,16 +1384,19 @@ DPL_Bound_Node *dpl_bind_for_loop(DPL_Binding *binding, DPL_Ast_Node *node)
             dpl_bind_create_varref(binding, iterator_var),
             "next"));
 
-    dpl_symbols_pop_boundary(binding->symbols);
+    DPL_Bound_Node *inner_body_varref = dpl_bind_create_varref(binding, inner_body_result_var);
+
+    dpl_bind_end_scope(binding);
+    dpl_bind_end_scope(binding);
 
     DPL_Bound_Node *while_loop = dpl_bind_create_while_loop(
         binding,
         while_condition,
-        dpl_bind_create_scope(binding, DPL_BOUND_NODES(current_assignment, inner_body, next_assignment)));
+        dpl_bind_create_scope(binding,
+            DPL_BOUND_NODES(current_assignment, inner_body, next_assignment, inner_body_varref)));
 
     DPL_Bound_Node *scope = dpl_bind_create_scope(binding, DPL_BOUND_NODES(init_assignment, while_loop));
 
-    dpl_symbols_pop_boundary(binding->symbols);
 
     return scope;
 }

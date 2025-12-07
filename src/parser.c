@@ -813,7 +813,7 @@ DPL_Ast_Node* dpl_parse_var_const_declaration(DPL_Parser* parser)
 
     const DPL_Token assignment = dpl_parse_expect_token(parser, TOKEN_COLON_EQUAL);
 
-    DPL_Ast_Node* initialization = dpl_parse_precedence(parser, DPL_PARSER_PREC_ADDITIVE);
+    DPL_Ast_Node* initialization = dpl_parse_precedence(parser, DPL_PARSER_PREC_ASSIGNMENT);
 
     DPL_Ast_Node* result = dpl_parse_allocate_node(parser, AST_NODE_DECLARATION, keyword, initialization->last);
     result->as.declaration.keyword = keyword;

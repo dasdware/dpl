@@ -153,6 +153,10 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
     break;
     case BOUND_NODE_WHILE_LOOP:
     {
+        // Initialize result array
+        dplp_write_begin_array(program);
+        dplp_write_end_array(program);
+
         size_t loop_start = program->code.count;
 
         dpl_generate(generator, node->as.while_loop.condition, program);
@@ -163,12 +167,21 @@ void dpl_generate(DPL_Generator *generator, DPL_Bound_Node *node, DPL_Program *p
         dplp_write_pop(program);
         dpl_generate(generator, node->as.while_loop.body, program);
 
-        // TODO: Once while loops can generate values, this pop should do something else
-        dplp_write_pop(program);
+        if (node->as.while_loop.in_assignment)
+        {
+            // Add body value to result array
+            dplp_write_concat_array(program);
+        }
+        else
+        {
+            dplp_write_pop(program);
+        }
 
         // jump over else clause if condition is true
         dplp_write_loop(program, loop_start);
         dplp_patch_jump(program, exit_jump);
+
+        dplp_write_pop(program);
     }
     break;
     case BOUND_NODE_INTERPOLATION:

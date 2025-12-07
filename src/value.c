@@ -244,6 +244,15 @@ bool dpl_value_object_equals(DW_MemoryTable_Item *object1, DW_MemoryTable_Item *
 
 bool dpl_value_array_equals(DW_MemoryTable_Item *array1, DW_MemoryTable_Item *array2)
 {
+    if (array1 == NULL)
+    {
+        return array2 == NULL;
+    }
+    if (array2 == NULL)
+    {
+        return false;
+    }
+
     const size_t count = dpl_value_array_element_count(array1);
     if (count != dpl_value_array_element_count(array2))
     {

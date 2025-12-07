@@ -466,6 +466,21 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         }
     }
     break;
+    case INST_CONCAT_ARRAY:
+    {
+        size_t count = dpl_value_array_element_count(TOP1.as.array);
+        size_t size = count * sizeof(DPL_Value);
+
+        DW_MemoryTable_Item* new_data = mt_allocate(&vm->stack_memory, (count + 1) * sizeof(DPL_Value));
+        memcpy(new_data->data, TOP1.as.array->data, size);
+        memcpy(new_data->data + size, &TOP0, sizeof(DPL_Value));
+
+        dplv_release(vm, TOP1);
+        TOP1.as.array = new_data;
+
+        --vm->stack_top;
+    }
+    break;
     case INST_SPREAD:
     {
         DPL_Value value = TOP0;
@@ -509,7 +524,7 @@ void dplv_run(DPL_VirtualMachine *vm)
 {
     dplv_run_begin(vm);
 
-    while (!bs_at_end(&vm->program_stream))
+    while (!dplv_run_at_end(vm))
     {
         dplv_run_step(vm);
     }

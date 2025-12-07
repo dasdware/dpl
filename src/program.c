@@ -241,6 +241,11 @@ void dplp_write_end_array(DPL_Program *program)
     dplp_write(program, INST_END_ARRAY);
 }
 
+void dplp_write_concat_array(DPL_Program *program)
+{
+    dplp_write(program, INST_CONCAT_ARRAY);
+}
+
 void dplp_write_spread(DPL_Program *program)
 {
     dplp_write(program, INST_SPREAD);
@@ -314,6 +319,8 @@ const char *dplp_inst_kind_name(DPL_Instruction_Kind kind)
         return "BEGIN_ARRAY";
     case INST_END_ARRAY:
         return "END_ARRAY";
+    case INST_CONCAT_ARRAY:
+        return "CONCAT_ARRAY";
     case INST_SPREAD:
         return "SPREAD";
     default:
@@ -430,6 +437,7 @@ void dplp_print_stream_instruction(DW_ByteStream *code, DW_ByteStream *constants
     case INST_RETURN:
     case INST_BEGIN_ARRAY:
     case INST_END_ARRAY:
+    case INST_CONCAT_ARRAY:
     case INST_SPREAD:
         break;
     case INST_CALL_INTRINSIC:

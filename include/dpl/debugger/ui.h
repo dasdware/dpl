@@ -25,6 +25,7 @@ typedef struct {
     int active_instruction;
 } DPLG_UI_InstructionsState;
 
+int dplg_ui_find_active_instruction(const DPLG_Instructions* instructions, const DPLG_UI_InstructionsState* state);
 void dplg_ui_instructions(const DPLG_Instructions* instructions, const Rectangle bounds, DPLG_UI_InstructionsState* state);
 
 typedef struct
