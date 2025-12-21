@@ -552,76 +552,79 @@ void run_test(Nob_String_View test_filename, bool record, TestResults *test_resu
     }
     nob_log(NOB_INFO, "Test: " SV_Fmt, SV_Arg(test_filename));
 
-    Nob_String_Builder test_filepath = {0};
-    nob_sb_append_cstr(&test_filepath, "./tests/");
-    nob_sb_append_sv(&test_filepath, test_filename);
-    nob_sb_append_null(&test_filepath);
+    size_t temp_save = nob_temp_save();
+    Nob_Cmd cmd = {0};
 
-    Nob_String_Builder test_outpath = {0};
-    nob_sb_append_cstr(&test_outpath, "./tests/");
-    nob_sb_append_sv(&test_outpath, test_filename);
-    nob_sb_append_cstr(&test_outpath, ".out");
-    nob_sb_append_null(&test_outpath);
+    const char *test_filepath = nob_temp_sprintf("./tests/" SV_Fmt, SV_Arg(test_filename));
+    const char *test_outpath = nob_temp_sprintf("./tests/" SV_Fmt ".out", SV_Arg(test_filename));
 
     if (nob_sv_end_with(test_filename, ".dpl"))
     {
         Nob_String_Builder test_dplppath = {0};
-        build_dplc_output(&test_dplppath, test_filepath.items);
+        build_dplc_output(&test_dplppath, test_filepath);
 
-        Nob_Cmd cmd = {0};
-        {
-            cmd.count = 0;
-            nob_cmd_append(&cmd, DPLC_OUTPUT);
-            nob_cmd_append(&cmd, "-o", test_dplppath.items);
-            nob_cmd_append(&cmd, test_filepath.items);
-            if (!nob_cmd_run_sync(cmd))
-                exit(1);
+        cmd.count = 0;
+        nob_cmd_append(&cmd, DPLC_OUTPUT);
+        nob_cmd_append(&cmd, "-o", test_dplppath.items);
+        nob_cmd_append(&cmd, test_filepath);
+        if (!nob_cmd_run_sync(cmd))
+            exit(1);
 
-            cmd.count = 0;
-            nob_cmd_append(&cmd, DPL_OUTPUT);
-            nob_cmd_append(&cmd, test_dplppath.items);
+        cmd.count = 0;
+        nob_cmd_append(&cmd, DPL_OUTPUT);
+        nob_cmd_append(&cmd, test_dplppath.items);
 
-            run_test_cmd(cmd, test_filename, test_outpath.items, record, test_results);
-        }
-        nob_cmd_free(cmd);
-
+        run_test_cmd(cmd, test_filename, test_outpath, record, test_results);
         nob_sb_free(test_dplppath);
     }
     else if (nob_sv_end_with(test_filename, ".c"))
     {
-        Nob_String_Builder test_exepath = {0};
-        nob_sb_append_cstr(&test_exepath, "./" BUILD_DIR);
-        nob_sb_append_sv(&test_exepath, test_filename);
-        nob_sb_append_cstr(&test_exepath, ".exe");
-        nob_sb_append_null(&test_exepath);
+        const char* test_exepath = nob_temp_sprintf("./" BUILD_DIR SV_Fmt ".exe", SV_Arg(test_filename));
+        const Nob_String_View source_prefix = nob_sv_from_cstr("// SOURCE: ");
+        const Nob_String_View define_prefix = nob_sv_from_cstr("// DEFINE: ");
 
-        Nob_Cmd cmd = {0};
+        cmd.count = 0;
         nob_cmd_append(&cmd, "gcc");
         nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
         nob_cmd_append(&cmd, "-I./include/");
         nob_cmd_append(&cmd, "-I./thirdparty/");
-        nob_cmd_append(&cmd,
-                       test_filepath.items,
-                       "./src/intrinsics.c",
-                       "./src/program.c",
-                       "./src/value.c",
-                       "./src/symbols.c");
+        nob_cmd_append(&cmd, test_filepath);
+
+        Nob_String_Builder source_content = {0};
+        nob_read_entire_file(test_filepath, &source_content);
+
+        Nob_String_View source_view = nob_sv_from_parts(source_content.items, source_content.count);
+        while (source_view.count > 0)
+        {
+            Nob_String_View line = nob_sv_trim(nob_sv_chop_by_delim(&source_view, '\n'));
+            if (nob_sv_starts_with(line, source_prefix))
+            {
+                line.data += source_prefix.count;
+                line.count -= source_prefix.count;
+                nob_cmd_append(&cmd, nob_temp_sprintf(SV_Fmt, SV_Arg(line)));
+            }
+            else if (nob_sv_starts_with(line, define_prefix))
+            {
+                line.data += define_prefix.count;
+                line.count -= define_prefix.count;
+                nob_cmd_append(&cmd, nob_temp_sprintf("-D"SV_Fmt, SV_Arg(line)));
+            }
+        }
+
+        nob_sb_free(source_content);
+
         nob_cmd_append(&cmd, "-lm");
-        nob_cmd_append(&cmd, "-o", test_exepath.items);
+        nob_cmd_append(&cmd, "-o", test_exepath);
         nob_cmd_run_sync(cmd);
 
         cmd.count = 0;
-        nob_cmd_append(&cmd,
-                       test_exepath.items);
+        nob_cmd_append(&cmd, test_exepath);
 
-        run_test_cmd(cmd, test_filename, test_outpath.items, record, test_results);
-
-        nob_cmd_free(cmd);
-        nob_sb_free(test_exepath);
+        run_test_cmd(cmd, test_filename, test_outpath, record, test_results);
     }
 
-    nob_sb_free(test_filepath);
-    nob_sb_free(test_outpath);
+    nob_cmd_free(cmd);
+    nob_temp_rewind(temp_save);
 }
 
 void test(Nob_String_View program, int *argc, char ***argv)

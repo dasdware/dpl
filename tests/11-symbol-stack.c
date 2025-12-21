@@ -1,3 +1,8 @@
+// SOURCE: ./src/intrinsics.c
+// SOURCE: ./src/program.c
+// SOURCE: ./src/value.c
+// SOURCE: ./src/symbols.c
+
 #include <stdio.h>
 #include <dpl/symbols.h>
 
