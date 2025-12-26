@@ -7,6 +7,148 @@
 
 #include <dpl/value.h>
 
+static void dpl_value_pool__insert_item(DPL_MemoryValue** anchor, DPL_MemoryValue* item)
+{
+    if (!*anchor)
+    {
+        item->next = NULL;
+        item->prev = NULL;
+    }
+    else
+    {
+        item->next = *anchor;
+        item->prev = NULL;
+        (*anchor)->prev = item;
+    }
+    *anchor = item;
+}
+
+static void dpl_value_pool__remove_item(DPL_MemoryValue** anchor, DPL_MemoryValue* item)
+{
+    if (!item->prev)
+    {
+        *anchor = item->next;
+    }
+    else
+    {
+        item->prev->next = item->next;
+    }
+
+    if (item->next)
+    {
+        item->next->prev = item->prev;
+    }
+}
+
+DPL_MemoryValue* dpl_value_pool_allocate_item(DPL_MemoryValue_Pool* pool, const size_t size)
+{
+    DPL_MemoryValue* candidate = pool->freed;
+    while (candidate)
+    {
+        if (candidate->capacity >= size)
+        {
+            dpl_value_pool__remove_item(&pool->freed, candidate);
+            dpl_value_pool__insert_item(&pool->allocated, candidate);
+
+            candidate->size = size;
+            candidate->ref_count = 1;
+            memset(candidate->data, 0, size);
+            return candidate;
+        }
+        candidate = candidate->next;
+    }
+
+    size_t capacity = 8;
+    while (capacity < size * sizeof(uint8_t))
+    {
+        capacity *= 2;
+        if (capacity > DPL_MEMORYVALUE_POOL_MAX_CAPACITY)
+        {
+            DW_ERROR("Exceeded maximum capacity for value pool item %llu.", DPL_MEMORYVALUE_POOL_MAX_CAPACITY);
+        }
+    }
+
+    const size_t pool_item_size = sizeof(DPL_MemoryValue) + capacity;
+    DPL_MemoryValue* item = arena_alloc(&pool->memory, pool_item_size);
+    memset(item, 0, pool_item_size);
+
+#ifdef DPL_MEMORYVALUE_POOL_IDS
+    item->id = ++pool->next_id;
+#endif
+    item->capacity = capacity;
+    item->size = size;
+    item->ref_count = 1;
+
+    dpl_value_pool__insert_item(&pool->allocated, item);
+    return item;
+}
+
+void dpl_value_pool_free_item(DPL_MemoryValue_Pool* pool, DPL_MemoryValue* item)
+{
+    dpl_value_pool__remove_item(&pool->allocated, item);
+    dpl_value_pool__insert_item(&pool->freed, item);
+}
+
+void dpl_value_pool_acquire_item(const DPL_MemoryValue_Pool* pool, DPL_MemoryValue* item)
+{
+    DW_UNUSED(pool);
+    item->ref_count++;
+}
+
+void dpl_value_pool_release_item(DPL_MemoryValue_Pool* pool, DPL_MemoryValue* item)
+{
+    item->ref_count--;
+    if (item->ref_count == 0)
+    {
+        dpl_value_pool_free_item(pool, item);
+    }
+}
+
+bool dpl_value_pool_will_release_item(const DPL_MemoryValue_Pool* pool, const DPL_MemoryValue* item)
+{
+    DW_UNUSED(pool);
+    return item->ref_count == 1;
+}
+
+static void dpl_value_pool__print_item_list(DPL_MemoryValue *item)
+{
+    if (!item)
+    {
+        printf(" <none>\n");
+        return;
+    }
+
+    int index = 0;
+    while (item)
+    {
+#ifdef DPL_MEMORYVALUE_POOL_IDS
+        printf("  #%llu: %4d/%4d, ref_count: %d\n", item->id, item->size, item->capacity, item->ref_count);
+#else
+        printf("  #%p: %4d/%4d, ref_count: %d\n", item, item->size, item->capacity, item->ref_count);
+#endif
+        index += 1;
+        item = item->next;
+    }
+}
+
+void dpl_value_pool_print(const DPL_MemoryValue_Pool* pool)
+{
+    printf("======================================\n");
+    printf(" Used memory\n");
+    dpl_value_pool__print_item_list(pool->allocated);
+
+    printf("\n Free memory\n");
+    dpl_value_pool__print_item_list(pool->freed);
+    printf("======================================\n");
+}
+
+void dpl_value_pool_free(DPL_MemoryValue_Pool* pool)
+{
+    pool->allocated = NULL;
+    pool->freed = NULL;
+    arena_free(&pool->memory);
+}
+
 const char *dpl_value_kind_name(DPL_ValueKind kind)
 {
     switch (kind)

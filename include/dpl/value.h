@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <nobx.h>
+#include <arena.h>
 
 #include <dw_memory_table.h>
 
@@ -22,16 +23,51 @@ typedef enum
     VALUE_ARRAY,
 } DPL_ValueKind;
 
+#define DPL_MEMORYVALUE_POOL_MAX_CAPACITY ((size_t)2 << 32)
+
+typedef struct __DPL_MemoryValue
+{
+#ifdef DPL_MEMORYVALUE_POOL_IDS
+    uint64_t id;
+#endif
+    uint32_t capacity;
+    uint32_t size;
+    uint8_t ref_count;
+    DPL_ValueKind kind;
+    struct __DPL_MemoryValue* next;
+    struct __DPL_MemoryValue* prev;
+    uint8_t data[];
+} DPL_MemoryValue;
+
+typedef struct
+{
+    Arena memory;
+#ifdef DPL_MEMORYVALUE_POOL_IDS
+    uint64_t next_id;
+#endif
+    DPL_MemoryValue* allocated;
+    DPL_MemoryValue* freed;
+} DPL_MemoryValue_Pool;
+
+DPL_MemoryValue* dpl_value_pool_allocate_item(DPL_MemoryValue_Pool* pool, const size_t size);
+void dpl_value_pool_acquire_item(const DPL_MemoryValue_Pool* pool, DPL_MemoryValue* item);
+void dpl_value_pool_release_item(DPL_MemoryValue_Pool* pool, DPL_MemoryValue* item);
+bool dpl_value_pool_will_release_item(const DPL_MemoryValue_Pool* pool, const DPL_MemoryValue* item);
+void dpl_value_pool_free_item(DPL_MemoryValue_Pool* pool, DPL_MemoryValue* item);
+
+void dpl_value_pool_print(const DPL_MemoryValue_Pool* pool);
+void dpl_value_pool_free(DPL_MemoryValue_Pool* pool);
+
 typedef struct
 {
     DPL_ValueKind kind;
     union
     {
         double number;
-        Nob_String_View string;
+        DPL_MemoryValue *string;
         bool boolean;
-        DW_MemoryTable_Item *object;
-        DW_MemoryTable_Item *array;
+        DPL_MemoryValue *object;
+        DPL_MemoryValue *array;
     } as;
 } DPL_Value;
 
