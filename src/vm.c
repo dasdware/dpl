@@ -97,7 +97,7 @@ DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
     }
     else if (value.kind == VALUE_OBJECT)
     {
-        mt_reference(&vm->stack_memory, value.as.object);
+        dpl_value_pool_acquire_item(&vm->stack_pool, value.as.object);
     }
     else if (value.kind == VALUE_ARRAY)
     {
@@ -114,14 +114,14 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
     }
     else if (value.kind == VALUE_OBJECT)
     {
-        if (mt_will_release(&vm->stack_memory, value.as.object))
+        if (dpl_value_pool_will_release_item(&vm->stack_pool, value.as.object))
         {
             for (size_t i = 0; i < dpl_value_object_field_count(value.as.object); ++i)
             {
                 dplv_release(vm, dpl_value_object_get_field(value.as.object, i));
             }
         }
-        mt_release(&vm->stack_memory, value.as.object);
+        dpl_value_pool_release_item(&vm->stack_pool, value.as.object);
     }
     else if (value.kind == VALUE_ARRAY)
     {
@@ -408,14 +408,10 @@ void dplv_run_step(DPL_VirtualMachine *vm)
     case INST_CREATE_OBJECT:
     {
         uint8_t field_count = bs_read_u8(&vm->program_stream);
-
-        size_t object_size = field_count * sizeof(DPL_Value);
-
-        DW_MemoryTable_Item *object = mt_allocate(&vm->stack_memory, object_size);
-        memcpy(object->data, &vm->stack[vm->stack_top - field_count], object_size);
+        DPL_Value* fields = &vm->stack[vm->stack_top - field_count];
 
         vm->stack_top -= (field_count - 1);
-        TOP0 = dpl_value_make_object(object);
+        TOP0 = dpl_value_make_object(&vm->stack_pool, field_count, fields);
     }
     break;
     case INST_LOAD_FIELD:

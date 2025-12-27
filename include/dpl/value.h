@@ -82,9 +82,9 @@ DPL_Value dpl_value_make_string(DPL_MemoryValue_Pool* pool, const size_t length,
 DPL_Value dpl_value_make_boolean(bool value);
 const char *dpl_value_format_boolean(bool value);
 
-DPL_Value dpl_value_make_object(DW_MemoryTable_Item *value);
-uint8_t dpl_value_object_field_count(DW_MemoryTable_Item *object);
-DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item *object, uint8_t field_index);
+DPL_Value dpl_value_make_object(DPL_MemoryValue_Pool* pool, const size_t field_count, const DPL_Value *fields);
+uint8_t dpl_value_object_field_count(DPL_MemoryValue *object);
+DPL_Value dpl_value_object_get_field(DPL_MemoryValue *object, uint8_t field_index);
 
 DPL_Value dpl_value_make_array_slot();
 uint8_t dpl_value_array_element_count(DW_MemoryTable_Item *array);

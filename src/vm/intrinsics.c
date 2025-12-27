@@ -5,12 +5,7 @@ typedef void (*DPL_Intrinsic_Callback)(DPL_VirtualMachine *);
 
 static DPL_Value dpl_vm_intrinsic_make_object(DPL_VirtualMachine *vm, size_t field_count, DPL_Value *fields)
 {
-    size_t object_size = field_count * sizeof(DPL_Value);
-
-    DW_MemoryTable_Item *object = mt_allocate(&vm->stack_memory, object_size);
-    memcpy(object->data, fields, object_size);
-
-    return dpl_value_make_object(object);
+    return dpl_value_make_object(&vm->stack_pool, field_count, fields);
 }
 
 void dpl_vm_intrinsic_boolean_tostring(DPL_VirtualMachine *vm)

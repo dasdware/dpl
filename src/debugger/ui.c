@@ -64,7 +64,7 @@ static void dplg_ui__append_value_boolean(Nob_String_Builder* sb, const bool val
     nob_sb_appendf(sb, "[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), value ? "true" : "false");
 }
 
-static void dplg_ui__append_value_object(Nob_String_Builder* sb, DW_MemoryTable_Item* object)
+static void dplg_ui__append_value_object(Nob_String_Builder* sb, DPL_MemoryValue* object)
 {
     const uint8_t field_count = dpl_value_object_field_count(object);
     nob_sb_appendf(sb, "[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);

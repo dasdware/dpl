@@ -196,12 +196,20 @@ DPL_Value dpl_value_make_boolean(bool value)
             .boolean = value}};
 }
 
-DPL_Value dpl_value_make_object(DW_MemoryTable_Item *value)
+DPL_Value dpl_value_make_object(DPL_MemoryValue_Pool* pool, const size_t field_count, const DPL_Value* fields)
 {
+    const size_t object_size = field_count * sizeof(DPL_Value);
+
+    DPL_MemoryValue* item = dpl_value_pool_allocate_item(pool, object_size);
+    item->kind = VALUE_OBJECT;
+    memcpy(item->data, fields, object_size);
+
     return (DPL_Value){
         .kind = VALUE_OBJECT,
         .as = {
-            .object = value}};
+            .object = item}};
+}
+
 }
 
 DPL_Value dpl_value_make_array_slot()
@@ -286,17 +294,17 @@ void dpl_value_print_boolean(bool value)
     printf("[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), dpl_value_format_boolean(value));
 }
 
-uint8_t dpl_value_object_field_count(DW_MemoryTable_Item *object)
+uint8_t dpl_value_object_field_count(DPL_MemoryValue *object)
 {
-    return object->length / sizeof(DPL_Value);
+    return object->size / sizeof(DPL_Value);
 }
 
-DPL_Value dpl_value_object_get_field(DW_MemoryTable_Item *object, uint8_t field_index)
+DPL_Value dpl_value_object_get_field(DPL_MemoryValue *object, uint8_t field_index)
 {
     return ((DPL_Value *)object->data)[field_index];
 }
 
-void dpl_value_print_object(DW_MemoryTable_Item *object)
+void dpl_value_print_object(DPL_MemoryValue *object)
 {
     uint8_t field_count = dpl_value_object_field_count(object);
     printf("[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);
@@ -378,7 +386,7 @@ bool dpl_value_boolean_equals(const bool boolean1, const bool boolean2)
     return (boolean1 == boolean2);
 }
 
-bool dpl_value_object_equals(DW_MemoryTable_Item *object1, DW_MemoryTable_Item *object2)
+bool dpl_value_object_equals(DPL_MemoryValue *object1, DPL_MemoryValue *object2)
 {
     const size_t count = dpl_value_object_field_count(object1);
     if (count != dpl_value_object_field_count(object2))
