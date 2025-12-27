@@ -1,0 +1,57 @@
+Initialization
+======================================
+ Used memory
+    #3:   80/ 128 bytes, ref_count: 1, content: [array(5): [number: 1][number: 2][number: 3][number: 4][number: 5]]
+    #2:   32/  32 bytes, ref_count: 1, content: [object(2): [boolean: true][number: 123]]
+    #1:   14/  16 bytes, ref_count: 1, content: [string: "Hello, World!\n"]
+
+ Free memory
+ <none>
+======================================
+Acquiring
+======================================
+ Used memory
+    #3:   80/ 128 bytes, ref_count: 1, content: [array(5): [number: 1][number: 2][number: 3][number: 4][number: 5]]
+    #2:   32/  32 bytes, ref_count: 2, content: [object(2): [boolean: true][number: 123]]
+    #1:   14/  16 bytes, ref_count: 2, content: [string: "Hello, World!\n"]
+
+ Free memory
+ <none>
+======================================
+Releasing array
+======================================
+ Used memory
+    #2:   32/  32 bytes, ref_count: 2, content: [object(2): [boolean: true][number: 123]]
+    #1:   14/  16 bytes, ref_count: 2, content: [string: "Hello, World!\n"]
+
+ Free memory
+    #3:  128 bytes
+======================================
+Re-allocating another string
+======================================
+ Used memory
+    #3:   14/ 128 bytes, ref_count: 1, content: [string: "Hello, World!\n"]
+    #2:   32/  32 bytes, ref_count: 2, content: [object(2): [boolean: true][number: 123]]
+    #1:   14/  16 bytes, ref_count: 2, content: [string: "Hello, World!\n"]
+
+ Free memory
+ <none>
+======================================
+Releasing everything
+======================================
+ Used memory
+ <none>
+
+ Free memory
+    #3:  128 bytes
+    #2:   32 bytes
+    #1:   16 bytes
+======================================
+Freeing pool
+======================================
+ Used memory
+ <none>
+
+ Free memory
+ <none>
+======================================
