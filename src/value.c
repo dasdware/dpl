@@ -110,6 +110,30 @@ bool dpl_value_pool_will_release_item(const DPL_MemoryValue_Pool* pool, const DP
     return item->ref_count == 1;
 }
 
+static DPL_Value dpl_value_pool__item_to_value(DPL_MemoryValue *item)
+{
+    switch (item->kind)
+    {
+    case VALUE_STRING:
+        return (DPL_Value) {
+            .kind = VALUE_STRING,
+            .as.string = item,
+        };
+    case VALUE_OBJECT:
+        return (DPL_Value) {
+            .kind = VALUE_OBJECT,
+            .as.object = item,
+        };
+    case VALUE_ARRAY:
+        return (DPL_Value) {
+            .kind = VALUE_ARRAY,
+            .as.array = item,
+        };
+    default:
+        DW_UNIMPLEMENTED_MSG("Unsupported value kind `%s`.", dpl_value_kind_name(item->kind));
+    }
+}
+
 static void dpl_value_pool__print_item_list(DPL_MemoryValue *item)
 {
     if (!item)
@@ -118,15 +142,25 @@ static void dpl_value_pool__print_item_list(DPL_MemoryValue *item)
         return;
     }
 
-    int index = 0;
     while (item)
     {
+        printf("  ");
 #ifdef DPL_MEMORYVALUE_POOL_IDS
-        printf("  #%llu: %4d/%4d, ref_count: %d\n", item->id, item->size, item->capacity, item->ref_count);
+        printf("  #%llu", item->id);
 #else
-        printf("  #%p: %4d/%4d, ref_count: %d\n", item, item->size, item->capacity, item->ref_count);
+        printf("  #%p", item);
 #endif
-        index += 1;
+        if (item->ref_count > 0)
+        {
+            printf(": %4d/%4d bytes, ref_count: %d, content: ", item->size, item->capacity, item->ref_count);
+            dpl_value_print(dpl_value_pool__item_to_value(item));
+        }
+        else
+        {
+            printf(": %4d bytes", item->capacity);
+        }
+        printf("\n");
+
         item = item->next;
     }
 }
