@@ -159,7 +159,6 @@ void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value)
 
 void dplv_run_begin(DPL_VirtualMachine *vm)
 {
-    mt_init(&vm->stack_memory);
     _dplv_push_callframe(vm, 0, vm->program->entry, 0);
 
     vm->program_stream = (DW_ByteStream) {
@@ -175,7 +174,7 @@ void dplv_run_begin(DPL_VirtualMachine *vm)
 void dplv_run_end(DPL_VirtualMachine *vm)
 {
     _dplv_pop_callframe(vm);
-    mt_free(&vm->stack_memory);
+    dpl_value_pool_free(&vm->stack_pool);
 }
 
 void dplv_run_step(DPL_VirtualMachine *vm)

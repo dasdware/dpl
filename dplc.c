@@ -9,9 +9,6 @@
 #define ARENA_IMPLEMENTATION
 #include <arena.h>
 
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
-
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
 

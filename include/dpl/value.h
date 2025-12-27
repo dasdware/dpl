@@ -5,8 +5,6 @@
 #include <nobx.h>
 #include <arena.h>
 
-#include <dw_memory_table.h>
-
 #include <dpl/utils.h>
 
 #define DPL_VALUES(...) \

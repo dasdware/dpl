@@ -2,7 +2,6 @@
 #define __DPL_VM_H
 
 #include <arena.h>
-#include <dw_memory_table.h>
 
 #include <dpl/program.h>
 #include <dpl/value.h>
@@ -31,7 +30,6 @@ typedef struct DPL_VirtualMachine
     size_t stack_capacity;
     size_t stack_top;
     DPL_Value *stack;
-    DW_MemoryTable stack_memory;
     DPL_MemoryValue_Pool stack_pool;
 
     size_t callstack_capacity;

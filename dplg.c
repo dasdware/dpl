@@ -15,9 +15,6 @@
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
 
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
-
 #define RL_GUIEXT_IMPLEMENTATION
 #include <rlguiext.h>
 

@@ -14,9 +14,6 @@
 #include <nob.h>
 #include <nobx.h>
 
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
-
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
 
@@ -73,7 +70,7 @@ int main(int argc, char **argv)
             printf("\n");
         }
         printf("================================================================\n\n");
-        mt_print(&vm.stack_memory);
+        dpl_value_pool_print(&vm.stack_pool);
     }
 
     dplv_free(&vm);
