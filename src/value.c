@@ -176,12 +176,16 @@ DPL_Value dpl_value_make_number(double value)
             .number = value}};
 }
 
-DPL_Value dpl_value_make_string(Nob_String_View value)
+DPL_Value dpl_value_make_string(DPL_MemoryValue_Pool* pool, const size_t length, const char* data)
 {
+    DPL_MemoryValue* item = dpl_value_pool_allocate_item(pool, length);
+    item->kind = VALUE_STRING;
+    memcpy(item->data, data, length);
+
     return (DPL_Value){
         .kind = VALUE_STRING,
         .as = {
-            .string = value}};
+            .string = item}};
 }
 
 DPL_Value dpl_value_make_boolean(bool value)
@@ -241,12 +245,12 @@ void dpl_value_print_number(double value)
     printf("[%s: %s]", dpl_value_kind_name(VALUE_NUMBER), dpl_value_format_number(value));
 }
 
-void dpl_value_print_string(Nob_String_View value)
+void dpl_value_print_sv(const Nob_String_View sv)
 {
     printf("[%s: \"", dpl_value_kind_name(VALUE_STRING));
 
-    const char *pos = value.data;
-    for (size_t i = 0; i < value.count; ++i)
+    const char *pos = sv.data;
+    for (size_t i = 0; i < sv.count; ++i)
     {
         switch (*pos)
         {
@@ -265,6 +269,11 @@ void dpl_value_print_string(Nob_String_View value)
         ++pos;
     }
     printf("\"]");
+}
+
+void dpl_value_print_string(DPL_MemoryValue *value)
+{
+    dpl_value_print_sv(nob_sv_from_parts((char*)value->data, value->size));
 }
 
 const char *dpl_value_format_boolean(bool value)
@@ -355,9 +364,13 @@ bool dpl_value_number_equals(double number1, double number2)
     return fabs(number1 - number2) < DPL_VALUE_EPSILON;
 }
 
-bool dpl_value_string_equals(Nob_String_View string1, Nob_String_View string2)
+bool dpl_value_string_equals(DPL_MemoryValue *string1, DPL_MemoryValue *string2)
 {
-    return nob_sv_eq(string1, string2);
+    if (string1->size != string2->size)
+    {
+        return false;
+    }
+    return (memcmp(string1->data, string2->data, string1->size) == 0);
 }
 
 bool dpl_value_boolean_equals(const bool boolean1, const bool boolean2)

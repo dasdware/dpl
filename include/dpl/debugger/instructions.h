@@ -23,6 +23,8 @@ typedef struct
     DPLG_Instruction* items;
     size_t capacity;
     size_t count;
+
+    DPL_MemoryValue_Pool pool;
 } DPLG_Instructions;
 
 void dplg_load_instructions(DPLG_Instructions *instructions, DPL_Program* program);

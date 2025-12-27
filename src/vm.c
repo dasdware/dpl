@@ -93,7 +93,7 @@ DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
 {
     if (value.kind == VALUE_STRING)
     {
-        mt_sv_reference(&vm->stack_memory, value.as.string);
+        dpl_value_pool_acquire_item(&vm->stack_pool, value.as.string);
     }
     else if (value.kind == VALUE_OBJECT)
     {
@@ -110,7 +110,7 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
 {
     if (value.kind == VALUE_STRING)
     {
-        mt_sv_release(&vm->stack_memory, value.as.string);
+        dpl_value_pool_release_item(&vm->stack_pool, value.as.string);
     }
     else if (value.kind == VALUE_OBJECT)
     {
@@ -150,11 +150,6 @@ void dplv_return(DPL_VirtualMachine *vm, size_t arity, DPL_Value value)
 void dplv_return_number(DPL_VirtualMachine *vm, size_t arity, double value)
 {
     dplv_return(vm, arity, dpl_value_make_number(value));
-}
-
-void dplv_return_string(DPL_VirtualMachine *vm, size_t arity, Nob_String_View value)
-{
-    dplv_return(vm, arity, dpl_value_make_string(value));
 }
 
 void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value)
@@ -227,7 +222,7 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         Nob_String_View value = bb_read_sv(vm->program->constants, offset);
 
         ++vm->stack_top;
-        TOP0 = dpl_value_make_string(mt_sv_allocate_sv(&vm->stack_memory, value));
+        TOP0 = dpl_value_make_string(&vm->stack_pool, value.count, value.data);
     }
     break;
     case INST_PUSH_BOOLEAN:
@@ -256,7 +251,16 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         }
         else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING)
         {
-            dplv_return_string(vm, 2, mt_sv_allocate_concat(&vm->stack_memory, TOP1.as.string, TOP0.as.string));
+            Nob_String_Builder result = {0};
+            nob_sb_append_buf(&result, TOP1.as.string->data, TOP1.as.string->size);
+            nob_sb_append_buf(&result, TOP0.as.string->data, TOP0.as.string->size);
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_string(&vm->stack_pool, result.count, result.items);
+
+            nob_sb_free(result);
+
+            dplv_return(vm, 2, TOP0);
         }
         break;
     case INST_SUBTRACT:
@@ -430,12 +434,11 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         Nob_String_Builder result = {0};
         for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i)
         {
-            nob_sb_append_buf(&result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
+            nob_sb_append_buf(&result, vm->stack[i].as.string->data, vm->stack[i].as.string->size);
         }
-        nob_sb_append_null(&result);
 
         ++vm->stack_top;
-        TOP0 = dpl_value_make_string(mt_sv_allocate_cstr(&vm->stack_memory, result.items));
+        TOP0 = dpl_value_make_string(&vm->stack_pool, result.count, result.items);
 
         nob_sb_free(result);
 

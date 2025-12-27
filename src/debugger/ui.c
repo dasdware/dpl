@@ -51,10 +51,11 @@ static void dplg_ui__append_value_number(Nob_String_Builder* sb, double value)
     nob_sb_append_cstr(sb, "]");
 }
 
-static void dplg_ui__append_value_string(Nob_String_Builder* sb, const Nob_String_View value)
+static void dplg_ui__append_value_string(Nob_String_Builder* sb, const DPL_MemoryValue *value)
 {
     nob_sb_appendf(sb, "[%s: ", dpl_value_kind_name(VALUE_STRING));
-    dplg_ui__sb_append_sv_escaped(sb, value);
+    const Nob_String_View sv = nob_sv_from_parts((char*)value->data, value->size);
+    dplg_ui__sb_append_sv_escaped(sb, sv);
     nob_sb_append_cstr(sb, "]");
 }
 

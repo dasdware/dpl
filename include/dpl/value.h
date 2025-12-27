@@ -77,7 +77,7 @@ DPL_Value dpl_value_make_number(double value);
 int dpl_value_compare_numbers(double a, double b);
 const char *dpl_value_format_number(double value);
 
-DPL_Value dpl_value_make_string(Nob_String_View value);
+DPL_Value dpl_value_make_string(DPL_MemoryValue_Pool* pool, const size_t length, const char* data);
 
 DPL_Value dpl_value_make_boolean(bool value);
 const char *dpl_value_format_boolean(bool value);
@@ -91,12 +91,13 @@ uint8_t dpl_value_array_element_count(DW_MemoryTable_Item *array);
 DPL_Value dpl_value_array_get_element(DW_MemoryTable_Item *array, uint8_t element_index);
 
 void dpl_value_print_number(double value);
-void dpl_value_print_string(Nob_String_View value);
+void dpl_value_print_sv(const Nob_String_View sv);
+void dpl_value_print_string(DPL_MemoryValue *value);
 void dpl_value_print_boolean(bool value);
 void dpl_value_print(DPL_Value value);
 
 bool dpl_value_number_equals(double number1, double number2);
-bool dpl_value_string_equals(Nob_String_View string1, Nob_String_View string2);
+bool dpl_value_string_equals(DPL_MemoryValue *string1, DPL_MemoryValue *string2);
 bool dpl_value_equals(DPL_Value value1, DPL_Value value2);
 
 #endif // __DPL_VALUE_H

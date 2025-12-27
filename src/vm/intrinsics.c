@@ -18,8 +18,9 @@ void dpl_vm_intrinsic_boolean_tostring(DPL_VirtualMachine *vm)
     // function toString(Boolean): String :=
     //   <native>;
     DPL_Value value = dplv_peek(vm);
-    dplv_return_string(vm, 1,
-                       mt_sv_allocate_cstr(&vm->stack_memory, dpl_value_format_boolean(value.as.boolean)));
+
+    const char* string_value = dpl_value_format_boolean(value.as.boolean);
+    dplv_return(vm, 1, dpl_value_make_string(&vm->stack_pool, strlen(string_value), string_value));
 }
 
 void dpl_vm_intrinsic_number_tostring(DPL_VirtualMachine *vm)
@@ -27,8 +28,9 @@ void dpl_vm_intrinsic_number_tostring(DPL_VirtualMachine *vm)
     // function toString(Number): String :=
     //   <native>;
     DPL_Value value = dplv_peek(vm);
-    dplv_return_string(vm, 1,
-                       mt_sv_allocate_cstr(&vm->stack_memory, dpl_value_format_number(value.as.number)));
+
+    const char* string_value = dpl_value_format_number(value.as.number);
+    dplv_return(vm, 1, dpl_value_make_string(&vm->stack_pool, strlen(string_value), string_value));
 }
 
 static void dpl_vm_intrinsic_number_iterator(DPL_VirtualMachine *vm)
@@ -73,7 +75,7 @@ void dpl_vm_intrinsic_string_length(DPL_VirtualMachine *vm)
     // function length(String): Number :=
     //   <native>;
     DPL_Value value = dplv_peek(vm);
-    dplv_return_number(vm, 1, value.as.string.count);
+    dplv_return_number(vm, 1, value.as.string->size);
 }
 
 void dpl_vm_intrinsic_print(DPL_VirtualMachine *vm)
@@ -85,8 +87,11 @@ void dpl_vm_intrinsic_print(DPL_VirtualMachine *vm)
         vm->print_callback(vm->print_context, "%s", dpl_value_format_number(value.as.number));
         break;
     case VALUE_STRING:
-        vm->print_callback(vm->print_context, SV_Fmt, SV_Arg(value.as.string));
-        break;
+    {
+        const Nob_String_View sv = nob_sv_from_parts((char*)value.as.string->data, value.as.string->size);
+        vm->print_callback(vm->print_context, SV_Fmt, SV_Arg(sv));
+    }
+    break;
     case VALUE_BOOLEAN:
         vm->print_callback(vm->print_context, "%s", dpl_value_format_boolean(value.as.boolean));
         break;
