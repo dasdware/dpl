@@ -75,7 +75,7 @@ static void dplg_ui__append_value_object(Nob_String_Builder* sb, DPL_MemoryValue
     nob_sb_append_cstr(sb, "]");
 }
 
-static void dplg_ui__append_value_array(Nob_String_Builder* sb, DW_MemoryTable_Item* array)
+static void dplg_ui__append_value_array(Nob_String_Builder* sb, DPL_MemoryValue* array)
 {
     if (array == NULL)
     {

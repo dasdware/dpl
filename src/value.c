@@ -210,6 +210,31 @@ DPL_Value dpl_value_make_object(DPL_MemoryValue_Pool* pool, const size_t field_c
             .object = item}};
 }
 
+DPL_Value dpl_value_make_array(DPL_MemoryValue_Pool* pool, const size_t element_count, const DPL_Value* elements)
+{
+    const size_t array_size = element_count * sizeof(DPL_Value);
+
+    DPL_MemoryValue* item = dpl_value_pool_allocate_item(pool, array_size);
+    item->kind = VALUE_ARRAY;
+    memcpy(item->data, elements, array_size);
+
+    return (DPL_Value){
+        .kind = VALUE_ARRAY,
+        .as = {
+            .array = item}};
+}
+
+DPL_Value dpl_value_make_array_concat(DPL_MemoryValue_Pool* pool, DPL_MemoryValue* array, const DPL_Value new_item)
+{
+    DPL_MemoryValue* new_array = dpl_value_pool_allocate_item(pool, array->size + sizeof(DPL_Value));
+    new_array->kind = VALUE_ARRAY;
+    memcpy(new_array->data, array->data, array->size);
+    memcpy(new_array->data + array->size, &new_item, sizeof(DPL_Value));
+
+    return (DPL_Value){
+        .kind = VALUE_ARRAY,
+        .as = {
+            .array = new_array}};
 }
 
 DPL_Value dpl_value_make_array_slot()
@@ -315,17 +340,17 @@ void dpl_value_print_object(DPL_MemoryValue *object)
     printf("]");
 }
 
-uint8_t dpl_value_array_element_count(DW_MemoryTable_Item *array)
+uint8_t dpl_value_array_element_count(DPL_MemoryValue *array)
 {
-    return array->length / sizeof(DPL_Value);
+    return array->size / sizeof(DPL_Value);
 }
 
-DPL_Value dpl_value_array_get_element(DW_MemoryTable_Item *array, uint8_t element_index)
+DPL_Value dpl_value_array_get_element(DPL_MemoryValue *array, uint8_t element_index)
 {
     return ((DPL_Value *)array->data)[element_index];
 }
 
-void dpl_value_print_array(DW_MemoryTable_Item *array)
+void dpl_value_print_array(DPL_MemoryValue *array)
 {
     if (array == NULL)
     {
@@ -405,7 +430,7 @@ bool dpl_value_object_equals(DPL_MemoryValue *object1, DPL_MemoryValue *object2)
     return true;
 }
 
-bool dpl_value_array_equals(DW_MemoryTable_Item *array1, DW_MemoryTable_Item *array2)
+bool dpl_value_array_equals(DPL_MemoryValue *array1, DPL_MemoryValue *array2)
 {
     if (array1 == NULL)
     {

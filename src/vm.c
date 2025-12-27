@@ -101,7 +101,7 @@ DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
     }
     else if (value.kind == VALUE_ARRAY)
     {
-        mt_reference(&vm->stack_memory, value.as.array);
+        dpl_value_pool_acquire_item(&vm->stack_pool, value.as.array);
     }
     return value;
 }
@@ -125,14 +125,14 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
     }
     else if (value.kind == VALUE_ARRAY)
     {
-        if (mt_will_release(&vm->stack_memory, value.as.array))
+        if (dpl_value_pool_will_release_item(&vm->stack_pool, value.as.array))
         {
             for (size_t i = 0; i < dpl_value_array_element_count(value.as.array); ++i)
             {
                 dplv_release(vm, dpl_value_array_get_element(value.as.array, i));
             }
         }
-        mt_release(&vm->stack_memory, value.as.array);
+        dpl_value_pool_release_item(&vm->stack_pool, value.as.array);
     }
 }
 
@@ -458,24 +458,21 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         {
             if (vm->stack[i - 1].kind == VALUE_ARRAY && vm->stack[i - 1].as.array == NULL)
             {
-                size_t element_count = vm->stack_top - i;
-                vm->stack[i - 1].as.array = mt_allocate_data(&vm->stack_memory, &vm->stack[i], sizeof(DPL_Value) * element_count);
+                const size_t element_count = vm->stack_top - i;
+                const DPL_Value *elements = &vm->stack[i];
+                vm->stack[i - 1] = dpl_value_make_array(&vm->stack_pool, element_count, elements);
                 vm->stack_top -= element_count;
+                break;
             }
         }
     }
     break;
     case INST_CONCAT_ARRAY:
     {
-        size_t count = dpl_value_array_element_count(TOP1.as.array);
-        size_t size = count * sizeof(DPL_Value);
-
-        DW_MemoryTable_Item* new_data = mt_allocate(&vm->stack_memory, (count + 1) * sizeof(DPL_Value));
-        memcpy(new_data->data, TOP1.as.array->data, size);
-        memcpy(new_data->data + size, &TOP0, sizeof(DPL_Value));
+        const DPL_Value new_array = dpl_value_make_array_concat(&vm->stack_pool, TOP1.as.array, TOP0);
 
         dplv_release(vm, TOP1);
-        TOP1.as.array = new_data;
+        TOP1 = new_array;
 
         --vm->stack_top;
     }

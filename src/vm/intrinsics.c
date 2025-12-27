@@ -108,7 +108,7 @@ void dpl_vm_intrinsic_array_element(DPL_VirtualMachine *vm)
     // function element([T], Number): T :=
     //   <native>
     size_t index = dplv_peek(vm).as.number;
-    DW_MemoryTable_Item *array = dplv_peekn(vm, 2).as.array;
+    DPL_MemoryValue *array = dplv_peekn(vm, 2).as.array;
     size_t array_size = dpl_value_array_element_count(array);
 
     if (index >= array_size)

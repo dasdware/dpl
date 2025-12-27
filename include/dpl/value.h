@@ -86,9 +86,11 @@ DPL_Value dpl_value_make_object(DPL_MemoryValue_Pool* pool, const size_t field_c
 uint8_t dpl_value_object_field_count(DPL_MemoryValue *object);
 DPL_Value dpl_value_object_get_field(DPL_MemoryValue *object, uint8_t field_index);
 
+DPL_Value dpl_value_make_array(DPL_MemoryValue_Pool* pool, const size_t element_count, const DPL_Value* elements);
+DPL_Value dpl_value_make_array_concat(DPL_MemoryValue_Pool* pool, DPL_MemoryValue* array, const DPL_Value new_item);
 DPL_Value dpl_value_make_array_slot();
-uint8_t dpl_value_array_element_count(DW_MemoryTable_Item *array);
-DPL_Value dpl_value_array_get_element(DW_MemoryTable_Item *array, uint8_t element_index);
+uint8_t dpl_value_array_element_count(DPL_MemoryValue *array);
+DPL_Value dpl_value_array_get_element(DPL_MemoryValue *array, uint8_t element_index);
 
 void dpl_value_print_number(double value);
 void dpl_value_print_sv(const Nob_String_View sv);
