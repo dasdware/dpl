@@ -11,6 +11,7 @@
 #define DPLG_OUTPUT BUILD_OUTPUT("dplg.exe")
 
 #define RAYLIB_SRC_DIR "thirdparty/raylib/src/"
+#define RAYGUI_SRC_DIR "thirdparty/raygui/src/"
 #define RAYLIB_BUILD_DIR BUILD_DIR "raylib/"
 
 #define COMMAND_DELIM nob_sv_from_cstr("--")
@@ -139,6 +140,8 @@ bool build_raylib() {
     }
 
     Nob_Procs procs = {0};
+
+    // Add raylib modules
     for (size_t i = 0; i < NOB_ARRAY_LEN(raylib_modules); ++i) {
         const char *input_path = nob_temp_sprintf(RAYLIB_SRC_DIR "%s.c", raylib_modules[i]);
         const char *output_path = nob_temp_sprintf(RAYLIB_BUILD_DIR "%s.o", raylib_modules[i]);
@@ -149,8 +152,6 @@ bool build_raylib() {
             cmd.count = 0;
             nob_cmd_append(&cmd, "gcc");
             nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
-            nob_cmd_append(&cmd, "-I./include/");
-            nob_cmd_append(&cmd, "-I./thirdparty/");
 
             nob_cmd_append(&cmd, "-DPLATFORM_DESKTOP");
             nob_cmd_append(&cmd, "-fPIC");
@@ -161,9 +162,29 @@ bool build_raylib() {
             Nob_Proc proc = nob_cmd_run_async(cmd);
             nob_da_append(&procs, proc);
         }
-
-        // break;
     }
+
+    // Add raygui module
+    {
+        const char *input_path = RAYGUI_SRC_DIR "raygui.h";
+        const char *output_path = RAYLIB_BUILD_DIR "raygui.o";
+        nob_da_append(&object_files, output_path);
+
+        if (nob_needs_rebuild(output_path, &input_path, 1)) {
+            cmd.count = 0;
+            nob_cmd_append(&cmd, "gcc");
+            nob_cmd_append(&cmd, "-Wall", "-Wextra", "-ggdb");
+
+            nob_cmd_append(&cmd, "-I./" RAYLIB_SRC_DIR);
+            nob_cmd_append(&cmd, "-DRAYGUI_IMPLEMENTATION");
+            nob_cmd_append(&cmd, "-c", "-x", "c", input_path);
+            nob_cmd_append(&cmd, "-o", output_path);
+
+            Nob_Proc proc = nob_cmd_run_async(cmd);
+            nob_da_append(&procs, proc);
+        }
+    }
+
     cmd.count = 0;
 
     if (!nob_procs_wait(procs)) nob_return_defer(false);
@@ -172,9 +193,8 @@ bool build_raylib() {
 
     if (nob_needs_rebuild(libraylib_path, object_files.items, object_files.count)) {
         nob_cmd_append(&cmd, "ar", "-crs", libraylib_path);
-        for (size_t i = 0; i < NOB_ARRAY_LEN(raylib_modules); ++i) {
-            const char *input_path = nob_temp_sprintf("%s/%s.o", RAYLIB_BUILD_DIR, raylib_modules[i]);
-            nob_cmd_append(&cmd, input_path);
+        for (size_t i = 0; i < object_files.count; ++i) {
+            nob_cmd_append(&cmd, object_files.items[i]);
         }
         if (!nob_cmd_run_sync(cmd)) nob_return_defer(false);
     }

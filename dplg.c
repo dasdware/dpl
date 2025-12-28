@@ -1,4 +1,5 @@
 #include <raylib.h>
+#include <raygui.h>
 
 #ifdef DPL_LEAKCHECK
 #define STB_LEAKCHECK_IMPLEMENTATION
@@ -17,9 +18,6 @@
 
 #define RL_GUIEXT_IMPLEMENTATION
 #include <rlguiext.h>
-
-#define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
 
 #define RLLAYOUT_IMPLEMENTATION
 #include <rllayout.h>
