@@ -14,6 +14,8 @@
 
 #define DPLG_TERMINAL_LINE_HEIGHT 24
 
+#define DPLG_MEMORYENTRY_HEIGHT 24
+
 #define DPLG_STACKENTRY_HEIGHT (DPLG_TEXT_HEIGHT + 2 * DPLG_TEXT_PADDING)
 
 typedef struct {
@@ -89,5 +91,34 @@ typedef struct
 
 void dplg_ui_stack_calculate(const DPL_VirtualMachine* vm, DPLG_UI_StackState* stack);
 void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack);
+
+typedef struct
+{
+    size_t id;
+    size_t size;
+    size_t capacity;
+    size_t ref_count;
+    DPL_MemoryValue* value;
+} DPLG_UI_MemoryState_Item;
+
+typedef enum
+{
+    MEMORY_ALLOCATED,
+    MEMORY_FREE,
+} DPLG_UI_MemoryState_Kind;
+
+typedef struct
+{
+    DPLG_UI_MemoryState_Item* items;
+    size_t count;
+    size_t capacity;
+
+    DPLG_UI_MemoryState_Kind kind;
+    Rectangle bounds;
+    Vector2 scroll;
+} DPLG_UI_MemoryState;
+
+void dplg_ui_memory_calculate(const DPL_VirtualMachine* vm, DPLG_UI_MemoryState* memory);
+void dplg_ui_memory(const Rectangle bounds, DPLG_UI_MemoryState* stack);
 
 #endif // __DPL_DEBUGGER_UI_H

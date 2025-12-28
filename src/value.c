@@ -110,7 +110,7 @@ bool dpl_value_pool_will_release_item(const DPL_MemoryValue_Pool* pool, const DP
     return item->ref_count == 1;
 }
 
-static DPL_Value dpl_value_pool__item_to_value(DPL_MemoryValue *item)
+DPL_Value dpl_value_pool_item_to_value(DPL_MemoryValue *item)
 {
     switch (item->kind)
     {
@@ -153,7 +153,7 @@ static void dpl_value_pool__print_item_list(DPL_MemoryValue *item)
         if (item->ref_count > 0)
         {
             printf(": %4d/%4d bytes, ref_count: %d, content: ", item->size, item->capacity, item->ref_count);
-            dpl_value_print(dpl_value_pool__item_to_value(item));
+            dpl_value_print(dpl_value_pool_item_to_value(item));
         }
         else
         {

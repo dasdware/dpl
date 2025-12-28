@@ -70,6 +70,7 @@ typedef struct
 } DPL_Value;
 
 const char *dpl_value_kind_name(DPL_ValueKind kind);
+DPL_Value dpl_value_pool_item_to_value(DPL_MemoryValue *item);
 
 DPL_Value dpl_value_make_number(double value);
 int dpl_value_compare_numbers(double a, double b);
