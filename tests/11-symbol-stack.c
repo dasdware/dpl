@@ -1,16 +1,18 @@
+// SOURCE: ./src/intrinsics.c
+// SOURCE: ./src/program.c
+// SOURCE: ./src/value.c
+// SOURCE: ./src/symbols.c
+
 #include <stdio.h>
 #include <dpl/symbols.h>
 
 #define ARENA_IMPLEMENTATION
-#include "arena.h"
+#include <arena.h>
 
 #define NOB_IMPLEMENTATION
 #include <nob.h>
 #include <nobx.h>
 #undef NOB_IMPLEMENTATION
-
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>

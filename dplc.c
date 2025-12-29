@@ -1,16 +1,13 @@
 #ifdef DPL_LEAKCHECK
 #define STB_LEAKCHECK_IMPLEMENTATION
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
-#include "dpl.h"
-#include "error.h"
+#include <dpl.h>
+#include <dw_error.h>
 
 #define ARENA_IMPLEMENTATION
-#include "arena.h"
-
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
+#include <arena.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>

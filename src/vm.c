@@ -1,12 +1,12 @@
 #ifdef DPL_LEAKCHECK
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
 #include <dpl/vm/intrinsics.h>
 #include <dpl/vm/vm.h>
 
-#include "error.h"
-#include "math.h"
+#include <dw_error.h>
+#include <math.h>
 
 int dplv_print(void* context, char const *str, ...)
 {
@@ -93,15 +93,15 @@ DPL_Value dplv_reference(DPL_VirtualMachine *vm, DPL_Value value)
 {
     if (value.kind == VALUE_STRING)
     {
-        mt_sv_reference(&vm->stack_memory, value.as.string);
+        dpl_value_pool_acquire_item(&vm->stack_pool, value.as.string);
     }
     else if (value.kind == VALUE_OBJECT)
     {
-        mt_reference(&vm->stack_memory, value.as.object);
+        dpl_value_pool_acquire_item(&vm->stack_pool, value.as.object);
     }
     else if (value.kind == VALUE_ARRAY)
     {
-        mt_reference(&vm->stack_memory, value.as.array);
+        dpl_value_pool_acquire_item(&vm->stack_pool, value.as.array);
     }
     return value;
 }
@@ -110,29 +110,29 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value)
 {
     if (value.kind == VALUE_STRING)
     {
-        mt_sv_release(&vm->stack_memory, value.as.string);
+        dpl_value_pool_release_item(&vm->stack_pool, value.as.string);
     }
     else if (value.kind == VALUE_OBJECT)
     {
-        if (mt_will_release(&vm->stack_memory, value.as.object))
+        if (dpl_value_pool_will_release_item(&vm->stack_pool, value.as.object))
         {
             for (size_t i = 0; i < dpl_value_object_field_count(value.as.object); ++i)
             {
                 dplv_release(vm, dpl_value_object_get_field(value.as.object, i));
             }
         }
-        mt_release(&vm->stack_memory, value.as.object);
+        dpl_value_pool_release_item(&vm->stack_pool, value.as.object);
     }
     else if (value.kind == VALUE_ARRAY)
     {
-        if (mt_will_release(&vm->stack_memory, value.as.array))
+        if (dpl_value_pool_will_release_item(&vm->stack_pool, value.as.array))
         {
             for (size_t i = 0; i < dpl_value_array_element_count(value.as.array); ++i)
             {
                 dplv_release(vm, dpl_value_array_get_element(value.as.array, i));
             }
         }
-        mt_release(&vm->stack_memory, value.as.array);
+        dpl_value_pool_release_item(&vm->stack_pool, value.as.array);
     }
 }
 
@@ -152,11 +152,6 @@ void dplv_return_number(DPL_VirtualMachine *vm, size_t arity, double value)
     dplv_return(vm, arity, dpl_value_make_number(value));
 }
 
-void dplv_return_string(DPL_VirtualMachine *vm, size_t arity, Nob_String_View value)
-{
-    dplv_return(vm, arity, dpl_value_make_string(value));
-}
-
 void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value)
 {
     dplv_return(vm, arity, dpl_value_make_boolean(value));
@@ -164,7 +159,6 @@ void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value)
 
 void dplv_run_begin(DPL_VirtualMachine *vm)
 {
-    mt_init(&vm->stack_memory);
     _dplv_push_callframe(vm, 0, vm->program->entry, 0);
 
     vm->program_stream = (DW_ByteStream) {
@@ -180,7 +174,7 @@ void dplv_run_begin(DPL_VirtualMachine *vm)
 void dplv_run_end(DPL_VirtualMachine *vm)
 {
     _dplv_pop_callframe(vm);
-    mt_free(&vm->stack_memory);
+    dpl_value_pool_free(&vm->stack_pool);
 }
 
 void dplv_run_step(DPL_VirtualMachine *vm)
@@ -227,7 +221,7 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         Nob_String_View value = bb_read_sv(vm->program->constants, offset);
 
         ++vm->stack_top;
-        TOP0 = dpl_value_make_string(mt_sv_allocate_sv(&vm->stack_memory, value));
+        TOP0 = dpl_value_make_string(&vm->stack_pool, value.count, value.data);
     }
     break;
     case INST_PUSH_BOOLEAN:
@@ -256,7 +250,16 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         }
         else if (TOP0.kind == VALUE_STRING && TOP1.kind == VALUE_STRING)
         {
-            dplv_return_string(vm, 2, mt_sv_allocate_concat(&vm->stack_memory, TOP1.as.string, TOP0.as.string));
+            Nob_String_Builder result = {0};
+            nob_sb_append_buf(&result, TOP1.as.string->data, TOP1.as.string->size);
+            nob_sb_append_buf(&result, TOP0.as.string->data, TOP0.as.string->size);
+
+            ++vm->stack_top;
+            TOP0 = dpl_value_make_string(&vm->stack_pool, result.count, result.items);
+
+            nob_sb_free(result);
+
+            dplv_return(vm, 2, TOP0);
         }
         break;
     case INST_SUBTRACT:
@@ -404,14 +407,10 @@ void dplv_run_step(DPL_VirtualMachine *vm)
     case INST_CREATE_OBJECT:
     {
         uint8_t field_count = bs_read_u8(&vm->program_stream);
-
-        size_t object_size = field_count * sizeof(DPL_Value);
-
-        DW_MemoryTable_Item *object = mt_allocate(&vm->stack_memory, object_size);
-        memcpy(object->data, &vm->stack[vm->stack_top - field_count], object_size);
+        DPL_Value* fields = &vm->stack[vm->stack_top - field_count];
 
         vm->stack_top -= (field_count - 1);
-        TOP0 = dpl_value_make_object(object);
+        TOP0 = dpl_value_make_object(&vm->stack_pool, field_count, fields);
     }
     break;
     case INST_LOAD_FIELD:
@@ -430,12 +429,11 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         Nob_String_Builder result = {0};
         for (size_t i = vm->stack_top - count; i < vm->stack_top; ++i)
         {
-            nob_sb_append_buf(&result, vm->stack[i].as.string.data, vm->stack[i].as.string.count);
+            nob_sb_append_buf(&result, vm->stack[i].as.string->data, vm->stack[i].as.string->size);
         }
-        nob_sb_append_null(&result);
 
         ++vm->stack_top;
-        TOP0 = dpl_value_make_string(mt_sv_allocate_cstr(&vm->stack_memory, result.items));
+        TOP0 = dpl_value_make_string(&vm->stack_pool, result.count, result.items);
 
         nob_sb_free(result);
 
@@ -459,24 +457,21 @@ void dplv_run_step(DPL_VirtualMachine *vm)
         {
             if (vm->stack[i - 1].kind == VALUE_ARRAY && vm->stack[i - 1].as.array == NULL)
             {
-                size_t element_count = vm->stack_top - i;
-                vm->stack[i - 1].as.array = mt_allocate_data(&vm->stack_memory, &vm->stack[i], sizeof(DPL_Value) * element_count);
+                const size_t element_count = vm->stack_top - i;
+                const DPL_Value *elements = &vm->stack[i];
+                vm->stack[i - 1] = dpl_value_make_array(&vm->stack_pool, element_count, elements);
                 vm->stack_top -= element_count;
+                break;
             }
         }
     }
     break;
     case INST_CONCAT_ARRAY:
     {
-        size_t count = dpl_value_array_element_count(TOP1.as.array);
-        size_t size = count * sizeof(DPL_Value);
-
-        DW_MemoryTable_Item* new_data = mt_allocate(&vm->stack_memory, (count + 1) * sizeof(DPL_Value));
-        memcpy(new_data->data, TOP1.as.array->data, size);
-        memcpy(new_data->data + size, &TOP0, sizeof(DPL_Value));
+        const DPL_Value new_array = dpl_value_make_array_concat(&vm->stack_pool, TOP1.as.array, TOP0);
 
         dplv_release(vm, TOP1);
-        TOP1.as.array = new_data;
+        TOP1 = new_array;
 
         --vm->stack_top;
     }

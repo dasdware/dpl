@@ -51,10 +51,11 @@ static void dplg_ui__append_value_number(Nob_String_Builder* sb, double value)
     nob_sb_append_cstr(sb, "]");
 }
 
-static void dplg_ui__append_value_string(Nob_String_Builder* sb, const Nob_String_View value)
+static void dplg_ui__append_value_string(Nob_String_Builder* sb, const DPL_MemoryValue *value)
 {
     nob_sb_appendf(sb, "[%s: ", dpl_value_kind_name(VALUE_STRING));
-    dplg_ui__sb_append_sv_escaped(sb, value);
+    const Nob_String_View sv = nob_sv_from_parts((char*)value->data, value->size);
+    dplg_ui__sb_append_sv_escaped(sb, sv);
     nob_sb_append_cstr(sb, "]");
 }
 
@@ -63,7 +64,7 @@ static void dplg_ui__append_value_boolean(Nob_String_Builder* sb, const bool val
     nob_sb_appendf(sb, "[%s: %s]", dpl_value_kind_name(VALUE_BOOLEAN), value ? "true" : "false");
 }
 
-static void dplg_ui__append_value_object(Nob_String_Builder* sb, DW_MemoryTable_Item* object)
+static void dplg_ui__append_value_object(Nob_String_Builder* sb, DPL_MemoryValue* object)
 {
     const uint8_t field_count = dpl_value_object_field_count(object);
     nob_sb_appendf(sb, "[%s(%d): ", dpl_value_kind_name(VALUE_OBJECT), field_count);
@@ -74,7 +75,7 @@ static void dplg_ui__append_value_object(Nob_String_Builder* sb, DW_MemoryTable_
     nob_sb_append_cstr(sb, "]");
 }
 
-static void dplg_ui__append_value_array(Nob_String_Builder* sb, DW_MemoryTable_Item* array)
+static void dplg_ui__append_value_array(Nob_String_Builder* sb, DPL_MemoryValue* array)
 {
     if (array == NULL)
     {
@@ -446,6 +447,124 @@ void dplg_ui_stack(const Rectangle bounds, DPLG_UI_StackState* stack)
         DrawRectangleRec(view_bounds, color);
         GuiLabel(LayoutPaddingAll(view_bounds, 4), sb.items);
         GuiSetStyle(LABEL, TEXT_COLOR_NORMAL, old_label_color);
+    }
+
+    dplg_ui__end_titled_group();
+}
+
+void dplg_ui_memory_calculate(const DPL_VirtualMachine* vm, DPLG_UI_MemoryState* memory)
+{
+    memory->count = 0;
+
+    DPL_MemoryValue* memory_value = (memory->kind == MEMORY_ALLOCATED) ? vm->stack_pool.allocated : vm->stack_pool.freed;
+    if (memory_value == NULL)
+    {
+        const DPLG_UI_MemoryState_Item item = {0};
+        nob_da_append(memory, item);
+    }
+
+    while (memory_value)
+    {
+        const DPLG_UI_MemoryState_Item item = {
+            .id = (size_t) memory_value,
+            .size = memory_value->size,
+            .capacity = memory_value->capacity,
+            .ref_count = memory_value->ref_count,
+            .value = memory_value,
+        };
+        nob_da_append(memory, item);
+        memory_value = memory_value->next;
+    }
+
+    memory->bounds = (Rectangle) {
+        .x = 0,
+        .y = 0,
+        .width = 500,
+        .height = memory->count * DPLG_MEMORYENTRY_HEIGHT,
+    };
+
+    if (memory->kind == MEMORY_ALLOCATED)
+    {
+        memory->bounds.height *= 2;
+    }
+}
+
+void dplg_ui_memory(const Rectangle bounds, DPLG_UI_MemoryState* memory)
+{
+    Rectangle view;
+    dplg_ui__begin_titled_group(
+        bounds,
+        (memory->kind == MEMORY_ALLOCATED) ? "Allocated memory" : "Available memory",
+        (Rectangle){
+            .width = bounds.width,
+            .height = memory->bounds.height,
+        },
+        &view,
+        &memory->scroll
+    );
+
+    Nob_String_Builder sb = {0};
+    for (size_t i = 0; i < memory->count; ++i)
+    {
+        const DPLG_UI_MemoryState_Item item = memory->items[i];
+        const int factor = (memory->kind == MEMORY_ALLOCATED && item.capacity > 0) ? 2 : 1;
+        const Rectangle item_bounds = {
+            .x = view.x + memory->scroll.x,
+            .y = view.y + memory->scroll.y + i * factor * DPLG_MEMORYENTRY_HEIGHT,
+            .width = view.width,
+            .height = factor *DPLG_MEMORYENTRY_HEIGHT,
+        };
+
+        const Rectangle content_bounds = LayoutPaddingSymmetric(item_bounds, 4, 2);
+        if (item.capacity == 0)
+        {
+            GuiLabel(content_bounds, "<None>");
+            continue;
+        }
+
+        DrawRectangleRec(content_bounds, GetColor(0x2E353DFF));
+        LayoutBeginRectangle(RLD_DEFAULT, content_bounds);
+        {
+            LayoutBeginSpaced(RLD_DEFAULT, DIRECTION_VERTICAL, factor, 0);
+            {
+                LayoutBeginStack(RL_DEFAULT(1), DIRECTION_HORIZONTAL, 100, 0);
+                {
+                    const char* item_id = TextFormat("#%016llx", item.id);
+                    const Rectangle item_id_bounds = LayoutRectangle(RL_DEFAULT(124));
+                    GuiLabel(item_id_bounds, item_id);
+
+                    if (memory->kind == MEMORY_ALLOCATED)
+                    {
+                        const Rectangle item_sizes_bounds = LayoutRectangle(RL_DEFAULT(50));
+                        const char* item_sizes = TextFormat("%llu/%llu", item.size, item.capacity);
+                        GuiLabel(item_sizes_bounds, item_sizes);
+
+                        const Rectangle item_ref_count_bounds = LayoutRectangle(RLD_REMAINING);
+                        const char* item_ref_count = TextFormat("%llu", item.ref_count);
+                        GuiLabel(item_ref_count_bounds, item_ref_count);
+                    }
+                    else
+                    {
+                        const Rectangle item_size_bounds = LayoutRectangle(RLD_REMAINING);
+                        const char* item_sizes = TextFormat("%llu", item.capacity);
+                        GuiLabel(item_size_bounds, item_sizes);
+                    }
+                }
+                LayoutEnd();
+
+                if (memory->kind == MEMORY_ALLOCATED)
+                {
+                    const Rectangle item_content_bounds = LayoutRectangle(RL_SIZE(1));
+                    sb.count = 0;
+                    dplg_ui__append_value(&sb, dpl_value_pool_item_to_value(item.value));
+                    nob_sb_append_null(&sb);
+                    const char* item_content = sb.items;
+                    GuiLabel(item_content_bounds, item_content);
+                }
+            }
+            LayoutEnd();
+        }
+        LayoutEnd();
     }
 
     dplg_ui__end_titled_group();

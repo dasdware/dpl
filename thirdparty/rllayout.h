@@ -42,7 +42,7 @@
 #define RL_IS_REMAINING(data) (((data) & ~RL_SIZE_MASK) == RL_FLAG_REMAINING)
 
 #include <raylib.h>
-#include <error.h>
+#include <dw_error.h>
 
 typedef enum
 {
@@ -135,6 +135,7 @@ void LayoutGuiLabel(const char* text);
 #ifdef RLLAYOUT_IMPLEMENTATION
 
 #include <nob.h>
+#include <math.h>
 
 static RL_Layout rl_layout_stack[RLLAYOUT_STACK_CAPACITY] = {0};
 static size_t rl_layout_stack_count = 0;

@@ -1,9 +1,9 @@
 #ifdef DPL_LEAKCHECK
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
+#include <dw_error.h>
 #include <dpl/program.h>
-#include "error.h"
 
 void dplp_init(DPL_Program *program)
 {
@@ -37,7 +37,7 @@ bool _dplp_find_string_constant(DPL_Program *program, Nob_String_View value, siz
     for (size_t i = 0; i < program->constants_dictionary.count; ++i)
     {
         DPL_Constant constant = program->constants_dictionary.items[i];
-        if (constant.kind == VALUE_STRING && dpl_value_string_equals(bb_read_sv(program->constants, constant.offset), value))
+        if (constant.kind == VALUE_STRING && nob_sv_eq(bb_read_sv(program->constants, constant.offset), value))
         {
             *output = constant.offset;
             return true;
@@ -358,7 +358,7 @@ void _dplp_print_constant(DPL_Program *program, size_t i)
     switch (constant.kind)
     {
     case VALUE_STRING:
-        dpl_value_print_string(bb_read_sv(program->constants, constant.offset));
+        dpl_value_print_sv(bb_read_sv(program->constants, constant.offset));
         break;
     case VALUE_NUMBER:
     case VALUE_BOOLEAN:

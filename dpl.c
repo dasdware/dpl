@@ -1,21 +1,18 @@
 #ifdef DPL_LEAKCHECK
 #define STB_LEAKCHECK_IMPLEMENTATION
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
-#include "error.h"
-#include "value.h"
+#include <dw_error.h>
+#include <dpl/value.h>
 #include <dpl/vm/vm.h>
 
 #define ARENA_IMPLEMENTATION
-#include "arena.h"
+#include <arena.h>
 
 #define NOB_IMPLEMENTATION
 #include <nob.h>
 #include <nobx.h>
-
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
 
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
@@ -73,7 +70,7 @@ int main(int argc, char **argv)
             printf("\n");
         }
         printf("================================================================\n\n");
-        mt_print(&vm.stack_memory);
+        dpl_value_pool_print(&vm.stack_pool);
     }
 
     dplv_free(&vm);

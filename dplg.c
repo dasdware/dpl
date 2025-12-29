@@ -1,8 +1,9 @@
-#include "raylib.h"
+#include <raylib.h>
+#include <raygui.h>
 
 #ifdef DPL_LEAKCHECK
 #define STB_LEAKCHECK_IMPLEMENTATION
-#include "stb_leakcheck.h"
+#include <stb_leakcheck.h>
 #endif
 
 #include <dpl/program.h>
@@ -15,14 +16,8 @@
 #define DW_BYTEBUFFER_IMPLEMENTATION
 #include <dw_byte_buffer.h>
 
-#define DW_MEMORY_TABLE_IMPLEMENTATION
-#include <dw_memory_table.h>
-
 #define RL_GUIEXT_IMPLEMENTATION
 #include <rlguiext.h>
-
-#define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
 
 #define RLLAYOUT_IMPLEMENTATION
 #include <rllayout.h>
@@ -32,7 +27,7 @@
 #include <nobx.h>
 
 #define ARENA_IMPLEMENTATION
-#include "arena.h"
+#include <arena.h>
 
 int main(int argc, char** argv)
 {
@@ -76,6 +71,14 @@ int main(int argc, char** argv)
     DPLG_UI_StackState stack_state = {0};
     dplg_ui_stack_calculate(&vm, &stack_state);
 
+    DPLG_UI_MemoryState memory_allocated_state = {0};
+    memory_allocated_state.kind = MEMORY_ALLOCATED;
+    dplg_ui_memory_calculate(&vm, &memory_allocated_state);
+
+    DPLG_UI_MemoryState memory_free_state = {0};
+    memory_free_state.kind = MEMORY_FREE;
+    dplg_ui_memory_calculate(&vm, &memory_free_state);
+
     const char* window_title = nob_temp_sprintf("%s - DPL Debugger", program_to_run);
     InitWindow(DPLG_SCREEN_WIDTH, DPLG_SCREEN_HEIGHT, window_title);
 
@@ -106,6 +109,8 @@ int main(int argc, char** argv)
                                 }
                             }
                             dplg_ui_stack_calculate(&vm, &stack_state);
+                            dplg_ui_memory_calculate(&vm, &memory_allocated_state);
+                            dplg_ui_memory_calculate(&vm, &memory_free_state);
                         }
 
                         if (GuiButton(LayoutRectangle(RL_SIZE(70)), "Step (S)") || IsKeyPressed(KEY_S))
@@ -114,6 +119,8 @@ int main(int argc, char** argv)
                             {
                                 dplv_run_step(&vm);
                                 dplg_ui_stack_calculate(&vm, &stack_state);
+                                dplg_ui_memory_calculate(&vm, &memory_allocated_state);
+                                dplg_ui_memory_calculate(&vm, &memory_free_state);
                             }
                         }
                     }
@@ -125,6 +132,13 @@ int main(int argc, char** argv)
                         &instructions_state);
 
                     dplg_ui_terminal(LayoutRectangle(RL_ANCHOR_BOTTOM(250)), &terminal_state);
+
+                    LayoutBeginSpaced(RL_ANCHOR_RIGHT(DPLG_INSTRUCTION_WIDTH + 14), DIRECTION_VERTICAL, 2, 4);
+                    {
+                        dplg_ui_memory(LayoutRectangle(RL_DEFAULT(1)), &memory_allocated_state);
+                        dplg_ui_memory(LayoutRectangle(RL_DEFAULT(1)), &memory_free_state);
+                    }
+                    LayoutEnd();
 
                     dplg_ui_stack(LayoutRectangle(RLD_REMAINING), &stack_state);
                 }

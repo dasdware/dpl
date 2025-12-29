@@ -4,10 +4,9 @@
 #include <stdint.h>
 
 #include <nobx.h>
+#include <dw_byte_buffer.h>
 
-#include "dw_byte_buffer.h"
-#include "value.h"
-
+#include <dpl/value.h>
 #include <dpl/intrinsics.h>
 
 typedef enum

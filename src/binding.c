@@ -1,7 +1,7 @@
 #include <assert.h>
 
 #include <arena.h>
-#include <error.h>
+#include <dw_error.h>
 
 #include <dpl/binding.h>
 #include <dpl/lexer.h>

@@ -2,7 +2,7 @@
 #include <dpl/debugger/ui.h>
 
 #include <dw_byte_buffer.h>
-#include <error.h>
+#include <dw_error.h>
 
 void dplg_load_instructions(DPLG_Instructions* instructions, DPL_Program* program)
 {
@@ -34,7 +34,7 @@ void dplg_load_instructions(DPLG_Instructions* instructions, DPL_Program* progra
                 constants.position = bs_read_u64(&code);
                 size_t length = bs_read_u64(&constants);
                 instruction.parameter0 = dpl_value_make_string(
-                    nob_sv_from_parts((char*)constants.buffer.items + constants.position, length));
+                    &instructions->pool, length, (char*)constants.buffer.items + constants.position);
                 instruction.parameter_count = 1;
             }
             break;
@@ -75,8 +75,9 @@ void dplg_load_instructions(DPLG_Instructions* instructions, DPL_Program* progra
         case INST_SPREAD:
             break;
         case INST_CALL_INTRINSIC:
+            const char* name = dpl_intrinsic_kind_name(bs_read_u8(&code));
             instruction.parameter0 = dpl_value_make_string(
-                nob_sv_from_cstr(dpl_intrinsic_kind_name(bs_read_u8(&code))));
+                &instructions->pool, strlen(name), name);
             instruction.parameter_count = 1;
             break;
         case INST_CALL_USER:

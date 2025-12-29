@@ -1,11 +1,10 @@
 #ifndef __DPL_VM_H
 #define __DPL_VM_H
 
-#include "arena.h"
-#include "value.h"
-#include "dw_memory_table.h"
+#include <arena.h>
 
 #include <dpl/program.h>
+#include <dpl/value.h>
 
 typedef struct
 {
@@ -31,7 +30,7 @@ typedef struct DPL_VirtualMachine
     size_t stack_capacity;
     size_t stack_top;
     DPL_Value *stack;
-    DW_MemoryTable stack_memory;
+    DPL_MemoryValue_Pool stack_pool;
 
     size_t callstack_capacity;
     size_t callstack_top;
@@ -60,7 +59,6 @@ void dplv_release(DPL_VirtualMachine *vm, DPL_Value value);
 
 void dplv_return(DPL_VirtualMachine *vm, size_t arity, DPL_Value value);
 void dplv_return_number(DPL_VirtualMachine *vm, size_t arity, double value);
-void dplv_return_string(DPL_VirtualMachine *vm, size_t arity, Nob_String_View value);
 void dplv_return_boolean(DPL_VirtualMachine *vm, size_t arity, bool value);
 
 #endif // __DPL_VM_H
